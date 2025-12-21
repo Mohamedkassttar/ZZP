@@ -205,6 +205,7 @@ export interface Database {
           extracted_data: ExtractedInvoiceData | null;
           journal_entry_id: string | null;
           error_message: string | null;
+          source: string;
           created_at: string;
           processed_at: string | null;
           booked_at: string | null;
@@ -218,6 +219,7 @@ export interface Database {
           extracted_data?: ExtractedInvoiceData | null;
           journal_entry_id?: string | null;
           error_message?: string | null;
+          source?: string;
           created_at?: string;
           processed_at?: string | null;
           booked_at?: string | null;
@@ -231,6 +233,7 @@ export interface Database {
           extracted_data?: ExtractedInvoiceData | null;
           journal_entry_id?: string | null;
           error_message?: string | null;
+          source?: string;
           created_at?: string;
           processed_at?: string | null;
           booked_at?: string | null;
@@ -506,6 +509,85 @@ export interface Database {
           updated_at?: string;
         };
       };
+      purchase_invoices: {
+        Row: {
+          id: string;
+          contact_id: string | null;
+          invoice_number: string | null;
+          invoice_date: string | null;
+          total_amount: number;
+          vat_amount: number;
+          status: PurchaseInvoiceStatus;
+          journal_entry_id: string | null;
+          document_id: string | null;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          contact_id?: string | null;
+          invoice_number?: string | null;
+          invoice_date?: string | null;
+          total_amount?: number;
+          vat_amount?: number;
+          status?: PurchaseInvoiceStatus;
+          journal_entry_id?: string | null;
+          document_id?: string | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          contact_id?: string | null;
+          invoice_number?: string | null;
+          invoice_date?: string | null;
+          total_amount?: number;
+          vat_amount?: number;
+          status?: PurchaseInvoiceStatus;
+          journal_entry_id?: string | null;
+          document_id?: string | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      sales_invoices: {
+        Row: {
+          id: string;
+          created_at: string;
+          invoice_number: string | null;
+          date: string | null;
+          contact_id: string | null;
+          total_amount: number;
+          vat_amount: number;
+          status: string;
+          pdf_url: string | null;
+        };
+        Insert: {
+          id?: string;
+          created_at?: string;
+          invoice_number?: string | null;
+          date?: string | null;
+          contact_id?: string | null;
+          total_amount?: number;
+          vat_amount?: number;
+          status?: string;
+          pdf_url?: string | null;
+        };
+        Update: {
+          id?: string;
+          created_at?: string;
+          invoice_number?: string | null;
+          date?: string | null;
+          contact_id?: string | null;
+          total_amount?: number;
+          vat_amount?: number;
+          status?: string;
+          pdf_url?: string | null;
+        };
+      };
       settings: {
         Row: {
           id: string;
@@ -543,6 +625,7 @@ export interface Database {
       document_status: DocumentStatus;
       bank_transaction_status: BankTransactionStatus;
       invoice_status: InvoiceStatus;
+      purchase_invoice_status: PurchaseInvoiceStatus;
       match_type: MatchType;
       dutch_tax_category: DutchTaxCategory;
     };

@@ -31,7 +31,7 @@ export function PortalDashboard() {
   async function loadDashboardData() {
     try {
       const [bankResult, purchasesResult, salesResult, activitiesResult] = await Promise.all([
-        supabase.from('accounts').select('code, name').eq('code', '1100').eq('is_active', true).maybeSingle(),
+        supabase.from('accounts').select('id, code, name').eq('code', '1100').eq('is_active', true).maybeSingle(),
         supabase.from('purchase_invoices').select('total_amount').eq('status', 'Pending'),
         supabase.from('sales_invoices').select('total_amount').eq('status', 'Pending'),
         supabase
@@ -46,7 +46,7 @@ export function PortalDashboard() {
         const { data: lines } = await supabase
           .from('journal_lines')
           .select('debit, credit')
-          .eq('account_id', bankResult.data.code);
+          .eq('account_id', bankResult.data.id);
 
         if (lines) {
           bankBalance = lines.reduce((sum, line) => sum + (line.debit || 0) - (line.credit || 0), 0);
