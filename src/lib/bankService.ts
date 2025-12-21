@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 import type { Database } from './database.types';
 import { learnFromUserAction } from './bankAutomationService';
+import { findActiveAccountsPayable } from './systemAccountsService';
 
 type BankTransaction = Database['public']['Tables']['bank_transactions']['Insert'];
 
@@ -511,10 +512,10 @@ export async function bookBankTransactionViaRelatie(
 
     } else {
       // CREDITOR FLOW (Inkoop/Uitgaven)
-      // Set A: Credit 1100 (Bank), Debit 1500 (Crediteuren)
+      // Set A: Credit 1100 (Bank), Debit Crediteuren (flexible lookup)
       // Set B: Debit Cost Account, Credit 2300 (Nog te ontvangen inkoopfacturen)
 
-      const creditorAccount = await getAccountByCode('1500'); // Crediteuren
+      const creditorAccount = await findActiveAccountsPayable(); // Crediteuren (flexible search)
       const suspenseAccount = await getAccountByCode('2300'); // Nog te ontvangen inkoopfacturen
 
       // Set A: Payment Entry

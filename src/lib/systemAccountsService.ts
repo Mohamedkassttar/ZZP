@@ -12,37 +12,79 @@ import { supabase } from './supabase';
 /**
  * Find the active Crediteuren (Accounts Payable) account
  *
- * Logic:
- * 1. Type = 'Liability'
- * 2. is_active = true
- * 3. Name contains "crediteur" (case insensitive)
- * 4. If multiple found, prefer lowest code number (most standard)
+ * Flexible search strategy (in order of priority):
+ * 1. Type = 'Liability' + Name contains "crediteur", "accounts payable", "te betalen", or "leveranciers"
+ * 2. Type = 'Liability' + Code = 1500 or 1600 (user preference)
+ * 3. Type = 'Liability' + No tax_category (fallback to generic liability)
+ * 4. Error: "Kan geen grootboekrekening vinden voor 'Crediteuren'"
  *
- * @returns Active accounts payable account or null if not found
+ * If multiple matches found, prefer lowest code number (most standard)
+ *
+ * @returns Active accounts payable account
+ * @throws Error if no suitable account found
  */
 export async function findActiveAccountsPayable() {
-  const { data: accounts, error } = await supabase
+  console.log('[SYSTEM_ACCOUNTS] Searching for Crediteuren (Accounts Payable) account...');
+
+  // STRATEGY 1: Search by name (flexible keywords)
+  const { data: accountsByName, error: nameError } = await supabase
     .from('accounts')
     .select('*')
     .eq('type', 'Liability')
     .eq('is_active', true)
-    .ilike('name', '%crediteur%')
+    .or('name.ilike.%crediteur%,name.ilike.%accounts payable%,name.ilike.%te betalen%,name.ilike.%leveranciers%')
     .order('code', { ascending: true });
 
-  if (error) {
-    console.error('[SYSTEM_ACCOUNTS] Error fetching accounts payable:', error);
-    return null;
+  if (nameError) {
+    console.error('[SYSTEM_ACCOUNTS] Error in name search:', nameError);
+  } else if (accountsByName && accountsByName.length > 0) {
+    const account = accountsByName[0];
+    console.log(`[SYSTEM_ACCOUNTS] ✓ Found by name: ${account.code} ${account.name}`);
+    return account;
   }
 
-  if (!accounts || accounts.length === 0) {
-    console.warn('[SYSTEM_ACCOUNTS] No active Crediteuren account found');
-    return null;
+  console.log('[SYSTEM_ACCOUNTS] No match by name, trying code-based search...');
+
+  // STRATEGY 2: Search by code (1500 or 1600)
+  const { data: accountsByCode, error: codeError } = await supabase
+    .from('accounts')
+    .select('*')
+    .eq('type', 'Liability')
+    .eq('is_active', true)
+    .in('code', ['1500', '1600'])
+    .order('code', { ascending: true });
+
+  if (codeError) {
+    console.error('[SYSTEM_ACCOUNTS] Error in code search:', codeError);
+  } else if (accountsByCode && accountsByCode.length > 0) {
+    const account = accountsByCode[0];
+    console.log(`[SYSTEM_ACCOUNTS] ✓ Found by code: ${account.code} ${account.name}`);
+    return account;
   }
 
-  // Return the first match (lowest code number)
-  const account = accounts[0];
-  console.log(`[SYSTEM_ACCOUNTS] Found Accounts Payable: ${account.code} ${account.name}`);
-  return account;
+  console.log('[SYSTEM_ACCOUNTS] No match by code, trying generic liability fallback...');
+
+  // STRATEGY 3: Fallback to generic liability (no tax_category)
+  const { data: genericLiabilities, error: fallbackError } = await supabase
+    .from('accounts')
+    .select('*')
+    .eq('type', 'Liability')
+    .eq('is_active', true)
+    .is('tax_category', null)
+    .order('code', { ascending: true });
+
+  if (fallbackError) {
+    console.error('[SYSTEM_ACCOUNTS] Error in fallback search:', fallbackError);
+  } else if (genericLiabilities && genericLiabilities.length > 0) {
+    const account = genericLiabilities[0];
+    console.log(`[SYSTEM_ACCOUNTS] ⚠ Using generic liability fallback: ${account.code} ${account.name}`);
+    return account;
+  }
+
+  // STRATEGY 4: No account found - throw clear error
+  const errorMsg = "Kan geen grootboekrekening vinden voor 'Crediteuren'. Maak een passiva-rekening aan met de naam 'Crediteuren'.";
+  console.error('[SYSTEM_ACCOUNTS]', errorMsg);
+  throw new Error(errorMsg);
 }
 
 /**

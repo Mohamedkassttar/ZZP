@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 import type { Database } from './database.types';
 import { callOpenAIWithRetry, extractJSON } from './openaiRetryHelper';
+import { findActiveAccountsPayable } from './systemAccountsService';
 
 type Account = Database['public']['Tables']['accounts']['Row'];
 type Contact = Database['public']['Tables']['contacts']['Row'];
@@ -358,17 +359,7 @@ export async function bookUnmatchedTransaction(
       throw new Error('No bank account found');
     }
 
-    const { data: creditorsAccount } = await supabase
-      .from('accounts')
-      .select('id')
-      .eq('type', 'Liability')
-      .or('name.ilike.%crediteuren%,name.ilike.%leveranciers%')
-      .limit(1)
-      .maybeSingle();
-
-    if (!creditorsAccount) {
-      throw new Error('No creditors account found');
-    }
+    const creditorsAccount = await findActiveAccountsPayable();
 
     const { data: vatReceivableAccount } = await supabase
       .from('accounts')

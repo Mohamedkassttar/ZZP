@@ -21,6 +21,7 @@
 import { supabase } from './supabase';
 import type { Database } from './database.types';
 import type { EnhancedInvoiceData } from './intelligentInvoiceProcessor';
+import { findActiveAccountsPayable } from './systemAccountsService';
 
 type Contact = Database['public']['Tables']['contacts']['Row'];
 type Account = Database['public']['Tables']['accounts']['Row'];
@@ -126,20 +127,7 @@ export async function bookInvoice(params: BookInvoiceParams): Promise<BookInvoic
 
     if (!creditorAccountId) {
       console.log('  No default creditor account, finding generic supplier account...');
-      const { data: creditorAccount } = await supabase
-        .from('accounts')
-        .select('id, code, name')
-        .gte('code', '0400')
-        .lt('code', '0500')
-        .eq('is_active', true)
-        .order('code')
-        .limit(1)
-        .single();
-
-      if (!creditorAccount) {
-        throw new Error('No creditor account found (0400-0499)');
-      }
-
+      const creditorAccount = await findActiveAccountsPayable();
       creditorAccountId = creditorAccount.id;
       console.log(`  ✓ Using generic creditor: ${creditorAccount.code} - ${creditorAccount.name}`);
     } else {
@@ -399,17 +387,13 @@ async function createSupplierContact(
     // Find default creditor account if not provided
     let ledgerAccountId = defaultLedgerAccountId;
     if (!ledgerAccountId) {
-      const { data: creditorAccount } = await supabase
-        .from('accounts')
-        .select('id')
-        .gte('code', '0400')
-        .lt('code', '0500')
-        .eq('is_active', true)
-        .order('code')
-        .limit(1)
-        .maybeSingle();
-
-      ledgerAccountId = creditorAccount?.id;
+      try {
+        const creditorAccount = await findActiveAccountsPayable();
+        ledgerAccountId = creditorAccount.id;
+      } catch (error) {
+        console.warn('  ⚠ Could not find creditor account:', error);
+        // Continue without default account - it's optional for contact creation
+      }
     }
 
     // Create new contact
