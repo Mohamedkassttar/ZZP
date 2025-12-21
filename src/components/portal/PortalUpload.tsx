@@ -41,17 +41,14 @@ export function PortalUpload({ type }: PortalUploadProps) {
 
       if (uploadError) throw uploadError;
 
-      const { data: publicUrlData } = supabase.storage.from('invoices').getPublicUrl(filePath);
-
       const { data: document, error: docError } = await supabase
         .from('documents_inbox')
         .insert({
-          filename: selectedFile.name,
-          file_path: filePath,
-          file_url: publicUrlData.publicUrl,
+          file_url: filePath,
+          file_name: selectedFile.name,
           file_type: selectedFile.type,
-          status: 'Pending',
-          source: 'Portal Upload',
+          status: 'Processing',
+          source: 'portal',
         })
         .select()
         .single();

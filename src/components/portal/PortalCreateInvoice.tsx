@@ -197,13 +197,10 @@ export function PortalCreateInvoice() {
       const { error: invoiceError } = await supabase.from('sales_invoices').insert({
         contact_id: selectedContactId,
         invoice_number: invoiceNumber,
-        invoice_date: invoiceDate,
-        due_date: dueDate,
-        subtotal: subtotal,
+        date: invoiceDate,
         vat_amount: vatAmount,
         total_amount: total,
-        status: 'Pending',
-        journal_entry_id: journalEntry.id,
+        status: 'open',
       });
 
       if (invoiceError) throw invoiceError;
