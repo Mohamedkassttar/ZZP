@@ -139,6 +139,7 @@ export interface Database {
           reference: string | null;
           status: JournalStatus;
           contact_id: string | null;
+          memoriaal_type: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -149,6 +150,7 @@ export interface Database {
           reference?: string | null;
           status?: JournalStatus;
           contact_id?: string | null;
+          memoriaal_type?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -159,6 +161,7 @@ export interface Database {
           reference?: string | null;
           status?: JournalStatus;
           contact_id?: string | null;
+          memoriaal_type?: string | null;
           created_at?: string;
           updated_at?: string;
         };
