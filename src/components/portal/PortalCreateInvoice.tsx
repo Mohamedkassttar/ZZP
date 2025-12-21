@@ -41,7 +41,7 @@ export function PortalCreateInvoice() {
     const { data } = await supabase
       .from('contacts')
       .select('id, company_name, email, address')
-      .eq('relation_type', 'Customer')
+      .or('relation_type.eq.Customer,relation_type.eq.Both')
       .eq('is_active', true)
       .order('company_name');
 
