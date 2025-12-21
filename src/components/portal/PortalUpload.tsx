@@ -33,18 +33,23 @@ export function PortalUpload({ type }: PortalUploadProps) {
     setError(null);
 
     try {
-      const fileExt = selectedFile.name.split('.').pop();
-      const fileName = `${Date.now()}_${selectedFile.name}`;
-      const filePath = `${fileName}`;
+      const timestamp = Date.now();
+      const fileName = `${timestamp}_${selectedFile.name}`;
+      const filePath = `invoices/${fileName}`;
 
-      const { error: uploadError } = await supabase.storage.from('invoices').upload(filePath, selectedFile);
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('invoices')
+        .upload(filePath, selectedFile, {
+          contentType: selectedFile.type,
+          upsert: false,
+        });
 
       if (uploadError) throw uploadError;
 
       const { data: document, error: docError } = await supabase
         .from('documents_inbox')
         .insert({
-          file_url: filePath,
+          file_url: uploadData.path,
           file_name: selectedFile.name,
           file_type: selectedFile.type,
           status: 'Processing',
@@ -59,7 +64,16 @@ export function PortalUpload({ type }: PortalUploadProps) {
 
       if (isInvoice) {
         setState('analyzing');
-        const invoiceData = await processInvoiceWithAI(document.id);
+
+        const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+          .from('invoices')
+          .createSignedUrl(uploadData.path, 300);
+
+        if (signedUrlError || !signedUrlData) {
+          throw new Error('Kon geen signed URL maken voor AI verwerking');
+        }
+
+        const invoiceData = await processInvoiceWithAI(signedUrlData.signedUrl, document.id);
         setPreview(invoiceData);
         setState('preview');
       } else {

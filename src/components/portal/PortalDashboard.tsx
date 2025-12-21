@@ -33,7 +33,7 @@ export function PortalDashboard() {
       const [bankResult, purchasesResult, salesResult, activitiesResult] = await Promise.all([
         supabase.from('accounts').select('id, code, name').eq('code', '1100').eq('is_active', true).maybeSingle(),
         supabase.from('purchase_invoices').select('total_amount').eq('status', 'Pending'),
-        supabase.from('sales_invoices').select('total_amount').eq('status', 'Pending'),
+        supabase.from('sales_invoices').select('total_amount').eq('status', 'open'),
         supabase
           .from('journal_entries')
           .select('id, entry_date, description, memoriaal_type')
