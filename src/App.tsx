@@ -15,10 +15,15 @@ import { Relations } from './components/Relations';
 import { TaxPreparation } from './components/TaxPreparation';
 import { IBAangifte } from './components/IBAangifte';
 import { SalesInvoices } from './components/SalesInvoices';
+import { PortalLayout } from './components/portal/PortalLayout';
+import { PortalDashboard } from './components/portal/PortalDashboard';
+import { PortalUpload } from './components/portal/PortalUpload';
+import { PortalCreateInvoice } from './components/portal/PortalCreateInvoice';
+import { PortalAssistant } from './components/portal/PortalAssistant';
 import { seedAccounts } from './lib/seedAccounts';
 import { isSupabaseConfigured } from './lib/supabase';
 
-type View = 'dashboard' | 'inbox' | 'boeken' | 'memoriaal-boekingen' | 'bankboekingen' | 'bank' | 'reports' | 'settings' | 'outstanding' | 'account-detail' | 'relations' | 'tax' | 'ib-aangifte' | 'sales';
+type View = 'dashboard' | 'inbox' | 'boeken' | 'memoriaal-boekingen' | 'bankboekingen' | 'bank' | 'reports' | 'settings' | 'outstanding' | 'account-detail' | 'relations' | 'tax' | 'ib-aangifte' | 'sales' | 'portal-home' | 'portal-scan' | 'portal-invoice' | 'portal-assistant';
 
 interface ViewState {
   view: View;
@@ -142,6 +147,14 @@ function App() {
             );
           }
           return <div>No data available</div>;
+        case 'portal-home':
+          return <PortalDashboard />;
+        case 'portal-scan':
+          return <PortalUpload type="invoice" />;
+        case 'portal-invoice':
+          return <PortalCreateInvoice />;
+        case 'portal-assistant':
+          return <PortalAssistant />;
         default:
           return <Dashboard onNavigate={navigate} />;
       }
@@ -162,6 +175,16 @@ function App() {
         </div>
       );
     }
+  }
+
+  const isPortalView = viewState.view.startsWith('portal-');
+
+  if (isPortalView) {
+    return (
+      <PortalLayout currentView={viewState.view} onNavigate={navigate}>
+        {renderView()}
+      </PortalLayout>
+    );
   }
 
   return (
