@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { Home, ScanLine, FileText, MessageCircle } from 'lucide-react';
+import { Home, ScanLine, FileText, MessageCircle, Settings } from 'lucide-react';
 
 interface PortalLayoutProps {
   children: ReactNode;
@@ -26,8 +26,17 @@ export function PortalLayout({ children, currentView, onNavigate }: PortalLayout
               <h1 className="text-xl font-bold text-gray-900">Mijn Administratie</h1>
               <p className="text-xs text-gray-500 mt-0.5">Client Portal</p>
             </div>
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold shadow-lg">
-              ZZP
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => onNavigate('dashboard')}
+                className="w-10 h-10 bg-gradient-to-br from-slate-600 to-slate-700 rounded-full flex items-center justify-center text-white hover:from-slate-700 hover:to-slate-800 transition-all shadow-lg"
+                title="Terug naar Admin"
+              >
+                <Settings className="w-5 h-5" />
+              </button>
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold shadow-lg">
+                ZZP
+              </div>
             </div>
           </div>
         </div>

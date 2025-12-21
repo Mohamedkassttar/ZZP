@@ -9,6 +9,7 @@ import {
   Settings,
   ChevronDown,
   ChevronRight,
+  Smartphone,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -159,10 +160,20 @@ export function Sidebar({ currentView, onNavigate }: SidebarProps) {
           ))}
         </nav>
 
-        <div className="p-4 flex-shrink-0 bg-gradient-to-r from-slate-50 to-blue-50">
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 shadow-lg shadow-slate-100/50">
-            <p className="text-xs font-bold text-blue-600 mb-1">Version</p>
-            <p className="text-sm font-black text-slate-800">2.0 - ZZP</p>
+        <div className="p-3 flex-shrink-0 space-y-3">
+          <button
+            onClick={() => onNavigate('portal-home')}
+            className="w-full h-12 flex items-center gap-3 px-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:from-emerald-600 hover:to-teal-700 transition-all shadow-lg shadow-emerald-200/50 min-h-[44px]"
+          >
+            <Smartphone className="w-5 h-5 flex-shrink-0" />
+            <span className="text-sm font-bold">Naar Client Portal</span>
+          </button>
+
+          <div className="bg-gradient-to-r from-slate-50 to-blue-50 rounded-2xl p-4">
+            <div className="bg-white/80 backdrop-blur-sm rounded-xl p-3 shadow-lg shadow-slate-100/50">
+              <p className="text-xs font-bold text-blue-600 mb-1">Version</p>
+              <p className="text-sm font-black text-slate-800">2.0 - ZZP</p>
+            </div>
           </div>
         </div>
       </div>
