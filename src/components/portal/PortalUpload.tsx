@@ -3,7 +3,7 @@ import { Upload, Camera, CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
 import { supabase } from '../../lib/supabase';
 import { processInvoiceWithAI } from '../../lib/intelligentInvoiceProcessor';
 import { bookInvoice } from '../../lib/invoiceBookingService';
-import { parseMT940File, parseCSVFile, parseCAMT053, importBankTransactions, type ImportResult } from '../../lib/bankImportService';
+import { parseMT940File, parseCSVFile, parseCAMT053, parsePDFFile, importBankTransactions, type ImportResult } from '../../lib/bankImportService';
 import type { EnhancedInvoiceData } from '../../lib/intelligentInvoiceProcessor';
 
 interface PortalUploadProps {
@@ -104,30 +104,36 @@ export function PortalUpload({ type }: PortalUploadProps) {
         throw new Error('Geen bankrekening (1100) gevonden. Neem contact op met je boekhouder.');
       }
 
-      const fileContent = await extractFileContent(selectedFile);
-      const isMT940 = selectedFile.name.toLowerCase().includes('mt940') ||
-                      selectedFile.name.toLowerCase().includes('.sta') ||
-                      selectedFile.name.toLowerCase().includes('.940') ||
-                      fileContent.includes(':20:') ||
-                      fileContent.includes(':25:');
-      const isCSV = selectedFile.name.toLowerCase().endsWith('.csv');
-      const isXML = selectedFile.name.toLowerCase().endsWith('.xml') ||
-                    fileContent.trim().startsWith('<?xml') ||
-                    fileContent.trim().startsWith('<Document');
+      const isPDF = selectedFile.name.toLowerCase().endsWith('.pdf');
 
       let transactions;
       let skippedCount = 0;
 
-      if (isXML) {
-        const parseResult = await parseCAMT053(fileContent);
-        transactions = parseResult.transactions;
-        skippedCount = parseResult.skipped;
-      } else if (isMT940) {
-        transactions = await parseMT940File(fileContent);
-      } else if (isCSV) {
-        transactions = await parseCSVFile(fileContent);
+      if (isPDF) {
+        transactions = await parsePDFFile(selectedFile);
       } else {
-        throw new Error('Ongeldig bestandsformaat. Gebruik CSV, MT940 (.sta) of CAMT.053 (XML).');
+        const fileContent = await extractFileContent(selectedFile);
+        const isMT940 = selectedFile.name.toLowerCase().includes('mt940') ||
+                        selectedFile.name.toLowerCase().includes('.sta') ||
+                        selectedFile.name.toLowerCase().includes('.940') ||
+                        fileContent.includes(':20:') ||
+                        fileContent.includes(':25:');
+        const isCSV = selectedFile.name.toLowerCase().endsWith('.csv');
+        const isXML = selectedFile.name.toLowerCase().endsWith('.xml') ||
+                      fileContent.trim().startsWith('<?xml') ||
+                      fileContent.trim().startsWith('<Document');
+
+        if (isXML) {
+          const parseResult = await parseCAMT053(fileContent);
+          transactions = parseResult.transactions;
+          skippedCount = parseResult.skipped;
+        } else if (isMT940) {
+          transactions = await parseMT940File(fileContent);
+        } else if (isCSV) {
+          transactions = await parseCSVFile(fileContent);
+        } else {
+          throw new Error('Ongeldig bestandsformaat. Gebruik PDF, CSV, MT940 (.sta) of CAMT.053 (XML).');
+        }
       }
 
       if (transactions.length === 0) {
@@ -377,7 +383,7 @@ export function PortalUpload({ type }: PortalUploadProps) {
             <input
               ref={fileInputRef}
               type="file"
-              accept={isInvoice ? 'application/pdf,image/*' : '.csv,.xml,.sta,.940,text/csv,application/xml,text/plain'}
+              accept={isInvoice ? 'application/pdf,image/*' : '.pdf,.csv,.xml,.sta,.940,application/pdf,text/csv,application/xml,text/plain'}
               onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
               className="hidden"
             />

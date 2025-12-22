@@ -4,6 +4,7 @@ import {
   parseMT940File,
   parseCSVFile,
   parseCAMT053,
+  parsePDFFile,
   importBankTransactions,
   type ImportResult,
 } from '../lib/bankImportService';
@@ -19,6 +20,7 @@ interface BankImporterProps {
 export function BankImporter({ bankAccountId, onClose, onComplete }: BankImporterProps) {
   const [file, setFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
+  const [processingPDF, setProcessingPDF] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [automationReport, setAutomationReport] = useState<ImportAnalysisReport | null>(null);
   const [showReportModal, setShowReportModal] = useState(false);
@@ -50,36 +52,44 @@ export function BankImporter({ bankAccountId, onClose, onComplete }: BankImporte
     setResult(null);
 
     try {
-      const fileContent = await extractFileContent(file);
-      const isMT940 = file.name.toLowerCase().includes('mt940') ||
-                      file.name.toLowerCase().includes('.sta') ||
-                      file.name.toLowerCase().includes('.940') ||
-                      fileContent.includes(':20:') ||
-                      fileContent.includes(':25:');
-      const isCSV = file.name.toLowerCase().endsWith('.csv');
-      const isXML = file.name.toLowerCase().endsWith('.xml') ||
-                    fileContent.trim().startsWith('<?xml') ||
-                    fileContent.trim().startsWith('<Document');
+      const isPDF = file.name.toLowerCase().endsWith('.pdf');
 
       let transactions;
       let skippedCount = 0;
 
-      if (isXML) {
-        const parseResult = await parseCAMT053(fileContent);
-        transactions = parseResult.transactions;
-        skippedCount = parseResult.skipped;
-      } else if (isMT940) {
-        transactions = await parseMT940File(fileContent);
-      } else if (isCSV) {
-        transactions = await parseCSVFile(fileContent);
+      if (isPDF) {
+        setProcessingPDF(true);
+        transactions = await parsePDFFile(file);
+        setProcessingPDF(false);
       } else {
-        setResult({
-          newTransactions: 0,
-          duplicates: 0,
-          errors: ['Unsupported file format. Please upload CAMT.053 (XML), MT940 (.sta), or CSV file.'],
-        });
-        setImporting(false);
-        return;
+        const fileContent = await extractFileContent(file);
+        const isMT940 = file.name.toLowerCase().includes('mt940') ||
+                        file.name.toLowerCase().includes('.sta') ||
+                        file.name.toLowerCase().includes('.940') ||
+                        fileContent.includes(':20:') ||
+                        fileContent.includes(':25:');
+        const isCSV = file.name.toLowerCase().endsWith('.csv');
+        const isXML = file.name.toLowerCase().endsWith('.xml') ||
+                      fileContent.trim().startsWith('<?xml') ||
+                      fileContent.trim().startsWith('<Document');
+
+        if (isXML) {
+          const parseResult = await parseCAMT053(fileContent);
+          transactions = parseResult.transactions;
+          skippedCount = parseResult.skipped;
+        } else if (isMT940) {
+          transactions = await parseMT940File(fileContent);
+        } else if (isCSV) {
+          transactions = await parseCSVFile(fileContent);
+        } else {
+          setResult({
+            newTransactions: 0,
+            duplicates: 0,
+            errors: ['Unsupported file format. Please upload PDF, CAMT.053 (XML), MT940 (.sta), or CSV file.'],
+          });
+          setImporting(false);
+          return;
+        }
       }
 
       if (transactions.length === 0) {
@@ -309,7 +319,7 @@ export function BankImporter({ bankAccountId, onClose, onComplete }: BankImporte
             <input
               ref={fileInputRef}
               type="file"
-              accept=".xml,.sta,.mt940,.csv,.940"
+              accept=".pdf,.xml,.sta,.mt940,.csv,.940"
               onChange={handleFileChange}
               className="hidden"
             />
@@ -409,7 +419,7 @@ export function BankImporter({ bankAccountId, onClose, onComplete }: BankImporte
               className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-slate-400"
             >
               <Upload className="w-4 h-4" />
-              {importing ? 'Importeren...' : 'Importeren'}
+              {processingPDF ? '⏳ Bezig met AI analyse van PDF...' : importing ? 'Importeren...' : 'Importeren'}
             </button>
           )}
         </div>

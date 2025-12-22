@@ -1,4 +1,14 @@
 import { supabase } from './supabase';
+import * as pdfjsLib from 'pdfjs-dist';
+import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+import { callOpenAIWithRetry, extractJSON } from './openaiRetryHelper';
+
+try {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
+} catch (error) {
+  console.warn('[PDF Worker] Failed to set worker source:', error);
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+}
 
 export interface BankTransaction {
   transaction_date: string;
@@ -221,6 +231,94 @@ export async function parseCSVFile(content: string): Promise<BankTransaction[]> 
   }
 
   return transactions;
+}
+
+export async function parsePDFFile(file: File): Promise<BankTransaction[]> {
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+    const maxPages = Math.min(pdf.numPages, 4);
+    let fullText = '';
+
+    for (let pageNum = 1; pageNum <= maxPages; pageNum++) {
+      const page = await pdf.getPage(pageNum);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items
+        .map((item: any) => item.str)
+        .join(' ');
+
+      fullText += pageText + '\n\n';
+    }
+
+    if (fullText.length > 15000) {
+      fullText = fullText.substring(0, 15000);
+    }
+
+    const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY;
+    if (!OPENAI_API_KEY) {
+      throw new Error('OpenAI API key niet geconfigureerd');
+    }
+
+    const systemPrompt = `Je bent een banktransactie-parser. Analyseer de volgende ongestructureerde tekst van een bankafschrift.
+
+INSTRUCTIES:
+- Negeer headers, footers, saldo-regels en samenvattingen
+- Haal alleen individuele transacties eruit
+- Elke transactie moet een datum, bedrag en omschrijving hebben
+- Als een rekeningnummer (IBAN/contra account) zichtbaar is, voeg het toe
+- Bepaal of het een debit (betaling/uitgave) of credit (ontvangst/inkomst) is
+
+OUTPUT FORMAT:
+Geef ALLEEN een JSON array terug, zonder uitleg. Format:
+[
+  {
+    "date": "YYYY-MM-DD",
+    "description": "beschrijving",
+    "amount": -123.45,
+    "counter_account": "NL12BANK1234567890",
+    "transaction_type": "Debit"
+  }
+]
+
+BELANGRIJK:
+- amount moet negatief zijn voor uitgaven (Debit), positief voor inkomsten (Credit)
+- transaction_type moet "Debit" of "Credit" zijn
+- Als counter_account niet zichtbaar is, laat het weg
+- Geef ALLEEN de JSON array terug, geen markdown, geen uitleg`;
+
+    const userPrompt = `Parseer deze bankafschrift tekst:\n\n${fullText}`;
+
+    const response = await callOpenAIWithRetry(
+      [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      'gpt-4o-mini',
+      0.0
+    );
+
+    const jsonData = extractJSON(response);
+
+    if (!Array.isArray(jsonData)) {
+      throw new Error('AI response is geen array');
+    }
+
+    const transactions: BankTransaction[] = jsonData.map((item: any) => ({
+      transaction_date: item.date || '',
+      amount: parseFloat(item.amount) || 0,
+      description: item.description || '',
+      contra_account: item.counter_account || undefined,
+      contra_name: undefined,
+      transaction_type: item.transaction_type || (item.amount < 0 ? 'Debit' : 'Credit'),
+      status: 'Unmatched',
+    }));
+
+    return transactions.filter(t => t.amount !== 0 && t.transaction_date && t.description);
+  } catch (error) {
+    console.error('PDF parsing error:', error);
+    throw new Error(`Fout bij verwerken PDF: ${error instanceof Error ? error.message : 'Onbekende fout'}`);
+  }
 }
 
 export interface ParseResult {
