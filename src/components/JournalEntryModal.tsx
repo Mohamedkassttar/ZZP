@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Plus, Trash2, Save, X, AlertCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Database } from '../lib/database.types';
+import { getCurrentCompanyId } from '../lib/companyHelper';
 
 type Account = Database['public']['Tables']['accounts']['Row'];
 type JournalEntry = Database['public']['Tables']['journal_entries']['Row'];
@@ -136,6 +137,11 @@ export function JournalEntryModal({
     setSaving(true);
 
     try {
+      const companyId = await getCurrentCompanyId();
+      if (!companyId) {
+        throw new Error('Geen bedrijf geselecteerd');
+      }
+
       const { totalDebit, totalCredit } = calculateTotals();
 
       if (Math.abs(totalDebit - totalCredit) >= 0.01) {
@@ -187,6 +193,7 @@ export function JournalEntryModal({
         const { data: journalEntry, error: entryError } = await supabase
           .from('journal_entries')
           .insert({
+            company_id: companyId,
             entry_date: entryDate,
             description,
             reference: reference || null,
