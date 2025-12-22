@@ -291,42 +291,18 @@ export async function bookUnmatchedTransaction(
 
     let finalLedgerAccountId = params.ledgerAccountId;
 
+    // NO AUTOMATIC ACCOUNT CREATION - User must select an existing account
     if (!finalLedgerAccountId && params.newLedgerProposal) {
-      console.log('[Booking] Creating new ledger account:', params.newLedgerProposal);
-      const vatCodeMap = {
-        'HIGH': 21,
-        'LOW': 9,
-        'NONE': 0,
-      };
-
-      const { data: newAccount, error: accountError } = await supabase
-        .from('accounts')
-        .insert({
-          code: params.newLedgerProposal.code,
-          name: params.newLedgerProposal.name,
-          type: params.newLedgerProposal.type,
-          vat_code: vatCodeMap[params.newLedgerProposal.vat_code],
-          is_active: true,
-        })
-        .select('id')
-        .single();
-
-      if (accountError) {
-        console.error('[Booking] Failed to create new ledger account:', accountError);
-        throw new Error(`Failed to create new ledger account: ${accountError.message}`);
-      }
-
-      if (!newAccount) {
-        console.error('[Booking] No account data returned');
-        throw new Error('Failed to create new ledger account: No data returned');
-      }
-
-      finalLedgerAccountId = newAccount.id;
-      console.log('[Booking] Ledger account created successfully:', finalLedgerAccountId);
+      console.error('[Booking] Rejected: Automatic account creation is disabled');
+      throw new Error(
+        `Geen grootboekrekening geselecteerd. ` +
+        `De rekening "${params.newLedgerProposal.name}" (${params.newLedgerProposal.code}) bestaat niet. ` +
+        `Maak deze eerst aan in Instellingen → Grootboekrekeningen.`
+      );
     }
 
     if (!finalLedgerAccountId) {
-      throw new Error('No ledger account ID provided or created');
+      throw new Error('Geen grootboekrekening geselecteerd. Kies een bestaande rekening uit uw grootboek.');
     }
 
     if (params.setAsDefault && finalCreditorId && finalLedgerAccountId) {
