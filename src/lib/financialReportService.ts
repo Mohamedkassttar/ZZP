@@ -40,6 +40,9 @@ export async function getFinancialContext(
 
   if (!accounts) throw new Error('Failed to load accounts');
 
+  console.log(`📊 [FINANCIAL CONTEXT] Company: ${companyId}`);
+  console.log(`📊 [FINANCIAL CONTEXT] Loaded ${accounts.length} accounts`);
+
   const { data: journalEntries } = await supabase
     .from('journal_entries')
     .select('id, entry_date, status')
@@ -50,7 +53,10 @@ export async function getFinancialContext(
 
   const entryIds = journalEntries?.map((e) => e.id) || [];
 
+  console.log(`📊 [FINANCIAL CONTEXT] Found ${entryIds.length} journal entries`);
+
   if (entryIds.length === 0) {
+    console.log(`⚠️ [FINANCIAL CONTEXT] No journal entries found, returning empty context`);
     return createEmptyContext(startDate, today);
   }
 
@@ -60,6 +66,8 @@ export async function getFinancialContext(
     .in('journal_entry_id', entryIds);
 
   if (!lines) throw new Error('Failed to load journal lines');
+
+  console.log(`📊 [FINANCIAL CONTEXT] Loaded ${lines.length} journal lines`);
 
   const accountMap = new Map(accounts.map((acc) => [acc.id, acc]));
 
@@ -82,6 +90,7 @@ export async function getFinancialContext(
     const netAmount = Number(line.credit) - Number(line.debit);
 
     if (code >= 8000 && code <= 8999) {
+      console.log(`💰 [REVENUE] Account ${account.code} (${account.name}): €${netAmount}`);
       revenueYTD += netAmount;
 
       const entry = journalEntries?.find((e) => e.id === line.journal_entry_id);
@@ -122,6 +131,11 @@ export async function getFinancialContext(
 
   const totalEquity = totalAssets - totalLiabilities;
   const netProfitYTD = revenueYTD - expensesYTD;
+
+  console.log(`📊 [FINANCIAL CONTEXT] Revenue YTD: €${revenueYTD}`);
+  console.log(`📊 [FINANCIAL CONTEXT] Expenses YTD: €${expensesYTD}`);
+  console.log(`📊 [FINANCIAL CONTEXT] Net Profit: €${netProfitYTD}`);
+  console.log(`📊 [FINANCIAL CONTEXT] Bank Balance: €${bankBalance}`);
 
   const currentAssets = bankBalance + accountsReceivable;
   const currentLiabilities = accountsPayable;
