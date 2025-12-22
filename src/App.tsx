@@ -17,7 +17,7 @@ import { IBAangifte } from './components/IBAangifte';
 import { SalesInvoices } from './components/SalesInvoices';
 import { PortalLayout } from './components/portal/PortalLayout';
 import { PortalDashboard } from './components/portal/PortalDashboard';
-import { PortalUpload } from './components/portal/PortalUpload';
+import { PortalBank } from './components/portal/PortalBank';
 import { PortalCreateInvoice } from './components/portal/PortalCreateInvoice';
 import { PortalAssistant } from './components/portal/PortalAssistant';
 import { seedAccounts } from './lib/seedAccounts';
@@ -150,7 +150,7 @@ function App() {
         case 'portal-home':
           return <PortalDashboard />;
         case 'portal-scan':
-          return <PortalUpload type="invoice" />;
+          return <PortalBank />;
         case 'portal-invoice':
           return <PortalCreateInvoice />;
         case 'portal-assistant':
