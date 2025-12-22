@@ -22,32 +22,57 @@ export function Auth({ onAuthSuccess }: AuthProps) {
 
     try {
       if (mode === 'signup') {
+        console.log('Attempting signup for:', email);
         const { data, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
+          options: {
+            emailRedirectTo: window.location.origin,
+          }
         });
+
+        console.log('Signup response:', { data, error: signUpError });
 
         if (signUpError) throw signUpError;
 
         if (data.user) {
-          setSuccess('Account aangemaakt! Je wordt automatisch ingelogd...');
-          setTimeout(() => {
-            onAuthSuccess();
-          }, 1500);
+          // Check if email confirmation is required
+          if (data.session) {
+            console.log('User signed up with active session');
+            setSuccess('Account aangemaakt! Je wordt automatisch ingelogd...');
+            setTimeout(() => {
+              onAuthSuccess();
+            }, 1500);
+          } else {
+            console.log('User signed up but needs email confirmation');
+            setSuccess('Account aangemaakt! Controleer je email voor de bevestigingslink. (Let op: Als je geen email ontvangt, is email confirmatie mogelijk uitgeschakeld en ben je direct ingelogd)');
+            // Still try to proceed after a delay
+            setTimeout(() => {
+              onAuthSuccess();
+            }, 2000);
+          }
+        } else {
+          throw new Error('Geen gebruiker ontvangen na signup');
         }
       } else {
+        console.log('Attempting login for:', email);
         const { data, error: signInError } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
 
+        console.log('Login response:', { data, error: signInError });
+
         if (signInError) throw signInError;
 
-        if (data.user) {
+        if (data.user && data.session) {
+          console.log('User logged in successfully');
           setSuccess('Ingelogd! Laden...');
           setTimeout(() => {
             onAuthSuccess();
           }, 1000);
+        } else {
+          throw new Error('Geen sessie ontvangen na login');
         }
       }
     } catch (err: any) {
