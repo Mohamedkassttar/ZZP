@@ -238,22 +238,7 @@ export async function parsePDFFile(file: File): Promise<BankTransaction[]> {
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
 
-    const maxPages = Math.min(pdf.numPages, 4);
-    let fullText = '';
-
-    for (let pageNum = 1; pageNum <= maxPages; pageNum++) {
-      const page = await pdf.getPage(pageNum);
-      const textContent = await page.getTextContent();
-      const pageText = textContent.items
-        .map((item: any) => item.str)
-        .join(' ');
-
-      fullText += pageText + '\n\n';
-    }
-
-    if (fullText.length > 15000) {
-      fullText = fullText.substring(0, 15000);
-    }
+    console.log(`📄 PDF heeft ${pdf.numPages} pagina(s)`);
 
     const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY;
     if (!OPENAI_API_KEY) {
@@ -287,44 +272,104 @@ BELANGRIJK:
 - Als counter_account niet zichtbaar is, laat het weg
 - Geef ALLEEN de JSON array terug, geen markdown, geen uitleg`;
 
-    const userPrompt = `Parseer deze bankafschrift tekst:\n\n${fullText}`;
+    let allTransactions: BankTransaction[] = [];
 
-    const data = await callOpenAIWithRetry(OPENAI_API_KEY, {
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
-      max_tokens: 2000,
-      temperature: 0.0,
-    });
+    // Loop door ALLE pagina's
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+      console.log(`⏳ Verwerken pagina ${pageNum} van ${pdf.numPages}...`);
 
-    const content = data.choices?.[0]?.message?.content;
-    if (!content) {
-      throw new Error('Geen response van OpenAI ontvangen');
+      const page = await pdf.getPage(pageNum);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items
+        .map((item: any) => item.str)
+        .join(' ');
+
+      // Skip lege pagina's
+      if (pageText.trim().length < 50) {
+        console.log(`⏭️  Pagina ${pageNum} overgeslagen (te weinig tekst)`);
+        continue;
+      }
+
+      // Stuur DEZE pagina naar AI
+      const userPrompt = `Parseer deze bankafschrift pagina (pagina ${pageNum} van ${pdf.numPages}):\n\n${pageText}`;
+
+      try {
+        const data = await callOpenAIWithRetry(OPENAI_API_KEY, {
+          model: 'gpt-4o-mini',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt }
+          ],
+          max_tokens: 2000,
+          temperature: 0.0,
+        });
+
+        const content = data.choices?.[0]?.message?.content;
+        if (!content) {
+          console.warn(`⚠️  Pagina ${pageNum}: Geen response van OpenAI`);
+          continue;
+        }
+
+        const jsonData = extractJSON(content);
+
+        if (!Array.isArray(jsonData)) {
+          console.warn(`⚠️  Pagina ${pageNum}: AI response is geen array`);
+          continue;
+        }
+
+        const pageTransactions: BankTransaction[] = jsonData.map((item: any) => ({
+          transaction_date: item.date || '',
+          amount: parseFloat(item.amount) || 0,
+          description: item.description || '',
+          contra_account: item.counter_account || undefined,
+          contra_name: undefined,
+          transaction_type: item.transaction_type || (item.amount < 0 ? 'Debit' : 'Credit'),
+          status: 'Unmatched',
+        }));
+
+        const validPageTransactions = pageTransactions.filter(
+          t => t.amount !== 0 && t.transaction_date && t.description
+        );
+
+        console.log(`✅ Pagina ${pageNum}: ${validPageTransactions.length} transacties gevonden`);
+        allTransactions = [...allTransactions, ...validPageTransactions];
+      } catch (pageError) {
+        console.error(`❌ Fout bij verwerken pagina ${pageNum}:`, pageError);
+        // Ga door naar de volgende pagina
+      }
+
+      // Kleine pauze tussen pagina's om rate limiting te vermijden
+      if (pageNum < pdf.numPages) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
     }
 
-    const jsonData = extractJSON(content);
+    // Deduplicatie: verwijder exact dezelfde transacties
+    const uniqueTransactions = deduplicateTransactions(allTransactions);
 
-    if (!Array.isArray(jsonData)) {
-      throw new Error('AI response is geen array');
-    }
+    console.log(`🎉 Totaal: ${uniqueTransactions.length} unieke transacties geëxtraheerd`);
 
-    const transactions: BankTransaction[] = jsonData.map((item: any) => ({
-      transaction_date: item.date || '',
-      amount: parseFloat(item.amount) || 0,
-      description: item.description || '',
-      contra_account: item.counter_account || undefined,
-      contra_name: undefined,
-      transaction_type: item.transaction_type || (item.amount < 0 ? 'Debit' : 'Credit'),
-      status: 'Unmatched',
-    }));
-
-    return transactions.filter(t => t.amount !== 0 && t.transaction_date && t.description);
+    return uniqueTransactions;
   } catch (error) {
     console.error('PDF parsing error:', error);
     throw new Error(`Fout bij verwerken PDF: ${error instanceof Error ? error.message : 'Onbekende fout'}`);
   }
+}
+
+function deduplicateTransactions(transactions: BankTransaction[]): BankTransaction[] {
+  const seen = new Map<string, BankTransaction>();
+
+  for (const txn of transactions) {
+    // Maak een unieke key op basis van datum, bedrag, beschrijving en contra account
+    const key = `${txn.transaction_date}_${txn.amount}_${txn.description}_${txn.contra_account || ''}`;
+
+    // Voeg alleen toe als we deze combinatie nog niet hebben gezien
+    if (!seen.has(key)) {
+      seen.set(key, txn);
+    }
+  }
+
+  return Array.from(seen.values());
 }
 
 export interface ParseResult {

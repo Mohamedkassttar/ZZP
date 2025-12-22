@@ -637,9 +637,9 @@ export function Bank() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {unmatchedTransactions.map((txn) => (
+                {unmatchedTransactions.map((txn, index) => (
                   <>
-                    <tr key={txn.id} className="h-10 border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                    <tr key={`txn-${txn.id}`} className="h-10 border-b border-gray-100 hover:bg-gray-50 transition-colors">
                       <td className="px-3 py-2 text-center">
                         <input
                           type="checkbox"
@@ -721,7 +721,7 @@ export function Bank() {
                       </td>
                     </tr>
                     {txn.aiSuggestion?.debug_info && (
-                      <tr key={`${txn.id}-debug`} className="bg-blue-50">
+                      <tr key={`debug-${txn.id}`} className="bg-blue-50">
                         <td colSpan={8} className="px-3 py-2">
                           <div className="text-xs space-y-1">
                             <div className="flex items-start gap-2">
