@@ -12,6 +12,7 @@ import {
   BookOpen,
   ArrowRight,
   Wallet,
+  Brain,
 } from 'lucide-react';
 import {
   uploadAndProcessInvoice,
@@ -78,12 +79,22 @@ export function PortalExpense() {
       const accounts = await getExpenseAccounts();
       setExpenseAccounts(accounts);
 
+      console.log('📊 [PORTAL] Extracted data received:', {
+        suggested_account_id: result.extractedData.suggested_account_id,
+        suggested_account_code: result.extractedData.suggested_account_code,
+        suggested_account_name: result.extractedData.suggested_account_name,
+        has_enrichment: !!result.extractedData.enrichment,
+        enrichment_reason: result.extractedData.enrichment?.reason,
+      });
+
       setExtractedData(result.extractedData);
       setDocumentId(result.documentId);
 
       if (result.extractedData.suggested_account_id) {
+        console.log('✓ [PORTAL] Pre-selecting AI suggested account:', result.extractedData.suggested_account_id);
         setSelectedAccountId(result.extractedData.suggested_account_id);
       } else if (accounts.length > 0) {
+        console.log('⚠ [PORTAL] No AI suggestion, defaulting to first account');
         setSelectedAccountId(accounts[0].id);
       }
 
@@ -259,6 +270,12 @@ export function PortalExpense() {
           <div className="flex items-center gap-2 mb-4">
             <BookOpen className="w-5 h-5 text-gray-700" />
             <h3 className="text-lg font-bold text-gray-900">Categorie</h3>
+            {extractedData.suggested_account_id && extractedData.suggested_account_id === selectedAccountId && (
+              <span className="ml-auto inline-flex items-center gap-1 text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full font-medium">
+                <Brain className="w-3 h-3" />
+                AI Voorstel
+              </span>
+            )}
           </div>
 
           <select
@@ -280,6 +297,11 @@ export function PortalExpense() {
                 <span className="font-semibold">Geboekt naar:</span> {selectedAccount.code} -{' '}
                 {selectedAccount.name}
               </p>
+              {extractedData.suggested_account_id && extractedData.suggested_account_id === selectedAccountId && extractedData.enrichment && (
+                <p className="text-xs text-blue-700 mt-2">
+                  <span className="font-semibold">AI Redenering:</span> {extractedData.enrichment.reason}
+                </p>
+              )}
             </div>
           )}
         </div>
