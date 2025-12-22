@@ -175,6 +175,7 @@ export function FactuurInbox() {
     if (e.target.files) {
       const files = Array.from(e.target.files);
       await handleFiles(files);
+      e.target.value = '';
     }
   }
 
@@ -413,7 +414,7 @@ export function FactuurInbox() {
               ref={fileInputRef}
               type="file"
               multiple
-              accept=".pdf,image/jpeg,image/jpg,image/png,image/webp"
+              accept="application/pdf,image/jpeg,image/jpg,image/png,image/webp,image/heic,.pdf"
               onChange={handleFileInput}
               className="hidden"
             />

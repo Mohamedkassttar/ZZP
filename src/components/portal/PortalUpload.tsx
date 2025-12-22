@@ -21,6 +21,7 @@ export function PortalUpload({ type }: PortalUploadProps) {
   const [bankResult, setBankResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const isInvoice = type === 'invoice';
   const title = isInvoice ? 'Factuur Uploaden' : 'Bank Afschrift Uploaden';
@@ -30,6 +31,21 @@ export function PortalUpload({ type }: PortalUploadProps) {
 
   async function handleFileSelect(selectedFile: File) {
     if (!selectedFile) return;
+
+    const maxSize = 10 * 1024 * 1024;
+    if (selectedFile.size > maxSize) {
+      setError('Bestand is te groot. Maximum grootte is 10MB.');
+      return;
+    }
+
+    const validTypes = isInvoice
+      ? ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/heic']
+      : ['application/pdf', 'text/csv', 'application/xml', 'text/xml', 'text/plain'];
+
+    if (!validTypes.some(type => selectedFile.type.includes(type.split('/')[1]) || selectedFile.type === type)) {
+      setError(`Ongeldig bestandstype: ${selectedFile.type}. Gebruik een geldig formaat.`);
+      return;
+    }
 
     setFile(selectedFile);
     setState('uploading');
@@ -218,6 +234,9 @@ export function PortalUpload({ type }: PortalUploadProps) {
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
+    if (cameraInputRef.current) {
+      cameraInputRef.current.value = '';
+    }
   }
 
   if (state === 'success') {
@@ -396,8 +415,27 @@ export function PortalUpload({ type }: PortalUploadProps) {
             <input
               ref={fileInputRef}
               type="file"
-              accept={isInvoice ? 'application/pdf,image/*' : '.pdf,.csv,.xml,.sta,.940,application/pdf,text/csv,application/xml,text/plain'}
-              onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
+              accept={isInvoice ? 'application/pdf,image/jpeg,image/jpg,image/png,image/webp,image/heic' : 'application/pdf,text/csv,application/xml,text/xml,text/plain,.pdf,.csv,.xml,.sta,.940'}
+              onChange={(e) => {
+                if (e.target.files?.[0]) {
+                  handleFileSelect(e.target.files[0]);
+                  e.target.value = '';
+                }
+              }}
+              className="hidden"
+            />
+
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={(e) => {
+                if (e.target.files?.[0]) {
+                  handleFileSelect(e.target.files[0]);
+                  e.target.value = '';
+                }
+              }}
               className="hidden"
             />
 
@@ -414,24 +452,23 @@ export function PortalUpload({ type }: PortalUploadProps) {
             <div className="space-y-3">
               <button
                 onClick={() => fileInputRef.current?.click()}
+                type="button"
                 className="w-full bg-blue-600 text-white py-4 rounded-2xl font-semibold hover:bg-blue-700 transition-colors shadow-lg flex items-center justify-center gap-2"
               >
                 <Upload className="w-5 h-5" />
                 Bestand kiezen
               </button>
 
-              <button
-                onClick={() => {
-                  if (fileInputRef.current) {
-                    fileInputRef.current.setAttribute('capture', 'environment');
-                    fileInputRef.current.click();
-                  }
-                }}
-                className="w-full bg-gray-800 text-white py-4 rounded-2xl font-semibold hover:bg-gray-900 transition-colors shadow-lg flex items-center justify-center gap-2"
-              >
-                <Camera className="w-5 h-5" />
-                Foto maken
-              </button>
+              {isInvoice && (
+                <button
+                  onClick={() => cameraInputRef.current?.click()}
+                  type="button"
+                  className="w-full bg-gray-800 text-white py-4 rounded-2xl font-semibold hover:bg-gray-900 transition-colors shadow-lg flex items-center justify-center gap-2"
+                >
+                  <Camera className="w-5 h-5" />
+                  Foto maken
+                </button>
+              )}
             </div>
           </>
         )}
