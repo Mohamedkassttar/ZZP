@@ -1,11 +1,11 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Upload, Camera, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { processInvoiceWithAI } from '../../lib/intelligentInvoiceProcessor';
 import { bookInvoice } from '../../lib/invoiceBookingService';
 import { parseMT940File, parseCSVFile, parseCAMT053, parsePDFFile, importBankTransactions, type ImportResult } from '../../lib/bankImportService';
 import { uploadInvoiceFile } from '../../lib/invoiceService';
-import { getCurrentCompanyId } from '../../lib/companyHelper';
+import { useCompany } from '../../lib/CompanyContext';
 import type { EnhancedInvoiceData } from '../../lib/intelligentInvoiceProcessor';
 
 interface PortalUploadProps {
@@ -15,6 +15,7 @@ interface PortalUploadProps {
 type UploadState = 'idle' | 'uploading' | 'analyzing' | 'preview' | 'success' | 'error';
 
 export function PortalUpload({ type }: PortalUploadProps) {
+  const { currentCompany, loading: companyLoading } = useCompany();
   const [state, setState] = useState<UploadState>('idle');
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<EnhancedInvoiceData | null>(null);
@@ -30,23 +31,69 @@ export function PortalUpload({ type }: PortalUploadProps) {
     ? 'Upload een factuur en laat de AI deze automatisch verwerken'
     : 'Upload je bankafschrift voor automatische verwerking';
 
-  async function handleFileSelect(selectedFile: File) {
-    if (!selectedFile) return;
+  useEffect(() => {
+    console.log('[PortalUpload] Component mounted', { type, companyLoading, hasCompany: !!currentCompany });
+  }, []);
 
-    console.log('[Portal Upload] File selected:', {
+  useEffect(() => {
+    console.log('[PortalUpload] State changed:', { state, companyLoading, hasCompany: !!currentCompany });
+  }, [state, companyLoading, currentCompany]);
+
+  if (companyLoading) {
+    console.log('[PortalUpload] Showing loading spinner - company is loading');
+    return (
+      <div className="max-w-md mx-auto">
+        <div className="bg-white rounded-3xl shadow-xl p-12 text-center border border-gray-100">
+          <Loader2 className="w-16 h-16 text-blue-600 animate-spin mx-auto mb-4" />
+          <p className="text-lg font-semibold text-gray-900">Laden...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!currentCompany) {
+    console.error('[PortalUpload] No company found!');
+    return (
+      <div className="max-w-md mx-auto">
+        <div className="bg-red-50 border-2 border-red-200 rounded-3xl p-8 text-center">
+          <AlertCircle className="w-16 h-16 text-red-600 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Geen bedrijf gevonden</h2>
+          <p className="text-gray-600">Selecteer eerst een bedrijf in de instellingen.</p>
+        </div>
+      </div>
+    );
+  }
+
+  async function handleFileSelect(selectedFile: File) {
+    console.log('[PortalUpload] handleFileSelect called', {
+      hasFile: !!selectedFile,
+      name: selectedFile?.name,
+      type: selectedFile?.type
+    });
+
+    if (!selectedFile) {
+      console.warn('[PortalUpload] No file selected');
+      return;
+    }
+
+    console.log('[PortalUpload] File selected:', {
       name: selectedFile.name,
       type: selectedFile.type,
-      size: selectedFile.size
+      size: selectedFile.size,
+      isInvoice,
+      currentState: state
     });
 
     setFile(selectedFile);
+    console.log('[PortalUpload] Setting state to uploading...');
     setState('uploading');
     setError(null);
 
     try {
       if (isInvoice) {
-        console.log('[Portal Upload] Using uploadInvoiceFile (same as expert mode)...');
+        console.log('[PortalUpload] Processing as INVOICE - using uploadInvoiceFile...');
         const uploadResult = await uploadInvoiceFile(selectedFile);
+        console.log('[PortalUpload] Upload result:', uploadResult);
 
         if (!uploadResult.success) {
           throw new Error(uploadResult.error || 'Upload failed');
@@ -56,44 +103,52 @@ export function PortalUpload({ type }: PortalUploadProps) {
           throw new Error('No document ID returned');
         }
 
-        console.log('[Portal Upload] Upload successful, document ID:', uploadResult.documentId);
+        console.log('[PortalUpload] Upload successful, document ID:', uploadResult.documentId);
         setDocumentId(uploadResult.documentId);
 
-        console.log('[Portal Upload] Starting AI analysis...');
+        console.log('[PortalUpload] Setting state to analyzing...');
         setState('analyzing');
 
+        console.log('[PortalUpload] Fetching document file_url from database...');
         const { data: document } = await supabase
           .from('documents_inbox')
           .select('file_url')
           .eq('id', uploadResult.documentId)
           .single();
 
+        console.log('[PortalUpload] Document data:', document);
+
         if (!document?.file_url) {
           throw new Error('Could not retrieve file URL');
         }
 
+        console.log('[PortalUpload] Creating signed URL...');
         const { data: signedUrlData, error: signedUrlError } = await supabase.storage
           .from('invoices')
           .createSignedUrl(document.file_url, 300);
 
         if (signedUrlError || !signedUrlData) {
+          console.error('[PortalUpload] Signed URL error:', signedUrlError);
           throw new Error('Kon geen signed URL maken voor AI verwerking');
         }
 
-        console.log('[Portal Upload] Processing with AI...');
+        console.log('[PortalUpload] Processing with AI...');
         const invoiceData = await processInvoiceWithAI(signedUrlData.signedUrl, uploadResult.documentId);
-        console.log('[Portal Upload] AI processing complete');
+        console.log('[PortalUpload] AI processing complete, data:', invoiceData);
+
         setPreview(invoiceData);
+        console.log('[PortalUpload] Setting state to preview...');
         setState('preview');
       } else {
-        console.log('[Portal Upload] Processing as bank import...');
+        console.log('[PortalUpload] Processing as BANK import...');
         await handleBankImport(selectedFile);
       }
     } catch (err) {
-      console.error('[Portal Upload] ERROR:', err);
+      console.error('[PortalUpload] EXCEPTION CAUGHT:', err);
       const errorMessage = err instanceof Error ? err.message : 'Upload failed';
-      console.error('[Portal Upload] Error message:', errorMessage);
+      console.error('[PortalUpload] Error message:', errorMessage);
       setError(errorMessage);
+      console.log('[PortalUpload] Setting state to error...');
       setState('error');
     }
   }
@@ -103,15 +158,14 @@ export function PortalUpload({ type }: PortalUploadProps) {
     setError(null);
 
     try {
-      const companyId = await getCurrentCompanyId();
-      if (!companyId) {
+      if (!currentCompany) {
         throw new Error('Geen bedrijf geselecteerd');
       }
 
       const { data: bankAccount } = await supabase
         .from('accounts')
         .select('id')
-        .eq('company_id', companyId)
+        .eq('company_id', currentCompany.id)
         .eq('code', '1100')
         .eq('is_active', true)
         .maybeSingle();
@@ -226,7 +280,31 @@ export function PortalUpload({ type }: PortalUploadProps) {
     }
   }
 
+  console.log('[PortalUpload] Checking render - state:', state);
+
+  if (state === 'error' && error) {
+    console.log('[PortalUpload] Rendering ERROR state:', error);
+    return (
+      <div className="max-w-md mx-auto">
+        <div className="bg-white rounded-3xl shadow-xl p-8 text-center border-2 border-red-200">
+          <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
+            <AlertCircle className="w-10 h-10 text-red-600" />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-3">Fout opgetreden</h2>
+          <p className="text-gray-600 mb-8">{error}</p>
+          <button
+            onClick={reset}
+            className="w-full bg-blue-600 text-white py-4 rounded-2xl font-semibold hover:bg-blue-700 transition-colors shadow-lg"
+          >
+            Opnieuw proberen
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (state === 'success') {
+    console.log('[PortalUpload] Rendering SUCCESS state');
     return (
       <div className="max-w-md mx-auto">
         <div className="bg-white rounded-3xl shadow-xl p-8 text-center border border-gray-100">
@@ -285,6 +363,7 @@ export function PortalUpload({ type }: PortalUploadProps) {
   }
 
   if (state === 'preview' && preview) {
+    console.log('[PortalUpload] Rendering PREVIEW state', preview);
     return (
       <div className="max-w-md mx-auto">
         <div className="bg-white rounded-3xl shadow-xl p-6 border border-gray-100">
@@ -372,11 +451,14 @@ export function PortalUpload({ type }: PortalUploadProps) {
     );
   }
 
+  console.log('[PortalUpload] Rendering main UI', { state, hasError: !!error, isInvoice });
+
   return (
     <div className="max-w-md mx-auto">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900 mb-2">{title}</h1>
         <p className="text-gray-600">{description}</p>
+        <p className="text-xs text-blue-600 mt-2">Company: {currentCompany?.name}</p>
       </div>
 
       {error && (
@@ -396,6 +478,7 @@ export function PortalUpload({ type }: PortalUploadProps) {
             <p className="text-sm text-gray-600">
               {state === 'uploading' ? 'Bestand wordt geüpload' : 'De factuur wordt intelligent verwerkt'}
             </p>
+            <p className="text-xs text-gray-400 mt-4">State: {state}</p>
           </div>
         ) : (
           <>
@@ -438,7 +521,10 @@ export function PortalUpload({ type }: PortalUploadProps) {
 
             <div className="space-y-3">
               <button
-                onClick={() => fileInputRef.current?.click()}
+                onClick={() => {
+                  console.log('[PortalUpload] File button clicked');
+                  fileInputRef.current?.click();
+                }}
                 type="button"
                 className="w-full bg-blue-600 text-white py-4 rounded-2xl font-semibold hover:bg-blue-700 transition-colors shadow-lg flex items-center justify-center gap-2"
               >
@@ -448,7 +534,10 @@ export function PortalUpload({ type }: PortalUploadProps) {
 
               {isInvoice && (
                 <button
-                  onClick={() => cameraInputRef.current?.click()}
+                  onClick={() => {
+                    console.log('[PortalUpload] Camera button clicked');
+                    cameraInputRef.current?.click();
+                  }}
                   type="button"
                   className="w-full bg-gray-800 text-white py-4 rounded-2xl font-semibold hover:bg-gray-900 transition-colors shadow-lg flex items-center justify-center gap-2"
                 >
