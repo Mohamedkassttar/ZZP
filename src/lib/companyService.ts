@@ -50,19 +50,6 @@ export async function createCompany(input: CreateCompanyInput): Promise<{ succes
       return { success: false, error: companyError.message };
     }
 
-    const { error: userError } = await supabase
-      .from('company_users')
-      .insert({
-        company_id: company.id,
-        user_id: user.id,
-        role: 'expert',
-      });
-
-    if (userError) {
-      await supabase.from('companies').delete().eq('id', company.id);
-      return { success: false, error: userError.message };
-    }
-
     await seedCompanyAccounts(company.id);
 
     return { success: true, company };
