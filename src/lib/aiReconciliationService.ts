@@ -1,7 +1,7 @@
 import { supabase } from './supabase';
 import type { Database } from './database.types';
 import { callOpenAIWithRetry, extractJSON } from './openaiRetryHelper';
-import { findActiveAccountsPayable } from './systemAccountsService';
+import { findActiveAccountsPayable, findActiveSuspenseAccount } from './systemAccountsService';
 
 type Account = Database['public']['Tables']['accounts']['Row'];
 type Contact = Database['public']['Tables']['contacts']['Row'];
@@ -455,15 +455,17 @@ export async function bookUnmatchedTransaction(
       throw new Error('Failed to create cost journal lines');
     }
 
-    const { data: suspenseAccount } = await supabase
-      .from('accounts')
-      .select('id')
-      .eq('code', '2300')
-      .maybeSingle();
+    const suspenseAccount = await findActiveSuspenseAccount();
 
     if (!suspenseAccount) {
-      throw new Error('Suspense account 2300 (Nog te ontvangen inkoopfacturen) not found');
+      throw new Error(
+        'Geen suspense rekening gevonden. ' +
+        'Maak een actieve rekening aan (type Liability) met "suspense" of "nog te ontvangen" in de naam, ' +
+        'bijvoorbeeld "Nog te ontvangen inkoopfacturen".'
+      );
     }
+
+    console.log(`[AI_RECONCILIATION] ✓ Suspense account: ${suspenseAccount.code} - ${suspenseAccount.name}`);
 
     const { data: paymentEntry, error: paymentEntryError } = await supabase
       .from('journal_entries')

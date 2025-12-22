@@ -196,6 +196,42 @@ export async function findActiveVATPayable() {
 }
 
 /**
+ * Find the active Suspense Account (Nog te ontvangen facturen)
+ *
+ * Logic:
+ * 1. Type = 'Liability'
+ * 2. is_active = true
+ * 3. Name contains "suspense", "nog te ontvangen", or "te ontvangen facturen" (case insensitive)
+ * 4. If multiple found, prefer lowest code number (most standard)
+ *
+ * @returns Active suspense account or null if not found
+ */
+export async function findActiveSuspenseAccount() {
+  const { data: accounts, error } = await supabase
+    .from('accounts')
+    .select('*')
+    .eq('type', 'Liability')
+    .eq('is_active', true)
+    .or('name.ilike.%suspense%,name.ilike.%nog te ontvangen%,name.ilike.%te ontvangen facturen%')
+    .order('code', { ascending: true });
+
+  if (error) {
+    console.error('[SYSTEM_ACCOUNTS] Error fetching suspense account:', error);
+    return null;
+  }
+
+  if (!accounts || accounts.length === 0) {
+    console.warn('[SYSTEM_ACCOUNTS] No active Suspense account found');
+    return null;
+  }
+
+  // Return the first match (lowest code number)
+  const account = accounts[0];
+  console.log(`[SYSTEM_ACCOUNTS] Found Suspense Account: ${account.code} ${account.name}`);
+  return account;
+}
+
+/**
  * Fetch all critical system accounts at once
  *
  * @returns Object with all system accounts or throws error if any required account is missing

@@ -21,7 +21,7 @@
 import { supabase } from './supabase';
 import type { Database } from './database.types';
 import type { EnhancedInvoiceData } from './intelligentInvoiceProcessor';
-import { findActiveAccountsPayable } from './systemAccountsService';
+import { findActiveAccountsPayable, findActiveVATReceivable } from './systemAccountsService';
 import { getAccountIdByCode } from './bankService';
 import { getCashAccount, getPrivateAccount } from './financialSettingsService';
 
@@ -145,18 +145,17 @@ export async function bookInvoice(params: BookInvoiceParams): Promise<BookInvoic
     console.log('\n📋 STEP 3: VAT Account (Te vorderen BTW)');
     console.log('─'.repeat(70));
 
-    const { data: vatAccount } = await supabase
-      .from('accounts')
-      .select('id, code, name')
-      .eq('code', '1300')
-      .eq('is_active', true)
-      .single();
+    const vatAccount = await findActiveVATReceivable();
 
     if (!vatAccount) {
-      throw new Error('VAT account (1300 - Te vorderen BTW) not found. Please create this account first.');
+      throw new Error(
+        'Geen BTW te vorderen rekening gevonden. ' +
+        'Maak een actieve rekening aan (type Asset) met "BTW" en "vorderen" in de naam, ' +
+        'bijvoorbeeld "Te vorderen BTW" of "Voorbelasting".'
+      );
     }
 
-    console.log(`  ✓ VAT Account: ${vatAccount.code} - ${vatAccount.name}`);
+    console.log(`  ✓ VAT Account gevonden: ${vatAccount.code} - ${vatAccount.name}`);
 
     // STEP 4: Calculate amounts
     console.log('\n📋 STEP 4: Amount Calculation');

@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import type { Database } from './database.types';
+import { findActiveAccountsReceivable, findActiveVATPayable } from './systemAccountsService';
 
 type Account = Database['public']['Tables']['accounts']['Row'];
 
@@ -53,15 +54,12 @@ async function getSystemAccounts(): Promise<{
   revenueAccount: Account;
   vatPayableAccount: Account;
 } | null> {
-  const [debtorRes, revenueRes, vatPayableRes] = await Promise.all([
-    supabase
-      .from('accounts')
-      .select('*')
-      .eq('type', 'Asset')
-      .ilike('name', '%debiteur%')
-      .eq('is_active', true)
-      .limit(1)
-      .maybeSingle(),
+  console.log('[SALES_SERVICE] Fetching system accounts for sales invoice...');
+
+  // Use smart search functions instead of hardcoded account codes
+  const [debtorAccount, vatPayableAccount, revenueRes] = await Promise.all([
+    findActiveAccountsReceivable(),
+    findActiveVATPayable(),
     supabase
       .from('accounts')
       .select('*')
@@ -70,22 +68,30 @@ async function getSystemAccounts(): Promise<{
       .order('code')
       .limit(1)
       .maybeSingle(),
-    supabase
-      .from('accounts')
-      .select('*')
-      .eq('code', '1700')
-      .eq('is_active', true)
-      .maybeSingle(),
   ]);
 
-  if (!debtorRes.data || !revenueRes.data || !vatPayableRes.data) {
+  if (!debtorAccount) {
+    console.error('[SALES_SERVICE] Geen Debiteuren rekening gevonden');
     return null;
   }
+  console.log(`[SALES_SERVICE] ✓ Debiteuren: ${debtorAccount.code} - ${debtorAccount.name}`);
+
+  if (!vatPayableAccount) {
+    console.error('[SALES_SERVICE] Geen BTW te betalen rekening gevonden');
+    return null;
+  }
+  console.log(`[SALES_SERVICE] ✓ BTW te betalen: ${vatPayableAccount.code} - ${vatPayableAccount.name}`);
+
+  if (!revenueRes.data) {
+    console.error('[SALES_SERVICE] Geen Omzet rekening gevonden');
+    return null;
+  }
+  console.log(`[SALES_SERVICE] ✓ Omzet: ${revenueRes.data.code} - ${revenueRes.data.name}`);
 
   return {
-    debtorAccount: debtorRes.data,
+    debtorAccount,
     revenueAccount: revenueRes.data,
-    vatPayableAccount: vatPayableRes.data,
+    vatPayableAccount,
   };
 }
 
