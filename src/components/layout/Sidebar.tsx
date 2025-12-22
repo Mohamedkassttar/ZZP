@@ -21,7 +21,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ currentView, onNavigate }: SidebarProps) {
-  const { isExpert } = useCompany();
+  const { hasAdminAccess } = useCompany();
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({
     boekhouding: true,
     facturatie: false,
@@ -39,7 +39,7 @@ export function Sidebar({ currentView, onNavigate }: SidebarProps) {
   const isActive = (view: string) => currentView === view;
 
   const menuItems = [
-    ...(isExpert ? [{
+    ...(hasAdminAccess ? [{
       id: 'office',
       label: 'Mijn Kantoor',
       icon: Building2,

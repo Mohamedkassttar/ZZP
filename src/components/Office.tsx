@@ -9,7 +9,7 @@ type Company = Database['public']['Tables']['companies']['Row'];
 type CompanyUser = Database['public']['Tables']['company_users']['Row'];
 
 export function Office() {
-  const { companies, refreshCompanies, isExpert, switchCompany } = useCompany();
+  const { companies, refreshCompanies, hasAdminAccess, switchCompany } = useCompany();
   const [showNewCompanyModal, setShowNewCompanyModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showUsersModal, setShowUsersModal] = useState(false);
@@ -31,10 +31,10 @@ export function Office() {
   });
 
   useEffect(() => {
-    if (!isExpert) {
-      setError('Je hebt geen toegang tot deze pagina. Alleen experts kunnen bedrijven beheren.');
+    if (!hasAdminAccess) {
+      setError('Je hebt geen toegang tot deze pagina. Alleen admins kunnen bedrijven beheren.');
     }
-  }, [isExpert]);
+  }, [hasAdminAccess]);
 
   function resetForm() {
     setFormData({
@@ -138,7 +138,7 @@ export function Office() {
     setShowEditModal(true);
   }
 
-  if (!isExpert) {
+  if (!hasAdminAccess) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center">

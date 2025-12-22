@@ -13,6 +13,7 @@ interface CompanyContextType {
   switchCompany: (companyId: string) => void;
   refreshCompanies: () => Promise<void>;
   isExpert: boolean;
+  hasAdminAccess: boolean;
 }
 
 const CompanyContext = createContext<CompanyContextType | undefined>(undefined);
@@ -21,6 +22,7 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
   const [currentCompany, setCurrentCompany] = useState<Company | null>(null);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [allUserRoles, setAllUserRoles] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   async function loadCompanies() {
@@ -66,6 +68,7 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
             setCompanies([demoCompany]);
             setCurrentCompany(demoCompany);
             setUserRole('expert');
+            setAllUserRoles(['expert']);
             localStorage.setItem('currentCompanyId', demoCompany.id);
           }
         }
@@ -76,6 +79,9 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
 
       const companiesData = companyUsers.map((cu: any) => cu.companies);
       setCompanies(companiesData);
+
+      const roles = companyUsers.map((cu: any) => cu.role);
+      setAllUserRoles(roles);
 
       const storedCompanyId = localStorage.getItem('currentCompanyId');
       let selectedCompany = companiesData[0];
@@ -136,6 +142,7 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const isExpert = userRole === 'expert';
+  const hasAdminAccess = allUserRoles.includes('expert') || allUserRoles.includes('owner');
 
   return (
     <CompanyContext.Provider
@@ -147,6 +154,7 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
         switchCompany,
         refreshCompanies,
         isExpert,
+        hasAdminAccess,
       }}
     >
       {children}
