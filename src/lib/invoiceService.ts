@@ -157,6 +157,11 @@ export async function processAndExtractInvoice(
 
     const extractedData = await processInvoiceWithAI(signedUrlData.signedUrl, documentId);
 
+    console.log('\n📦 [INVOICE SERVICE] Received data from processor:');
+    console.log('   suggested_account_id:', extractedData.suggested_account_id);
+    console.log('   suggested_account_code:', extractedData.suggested_account_code);
+    console.log('   suggested_account_name:', extractedData.suggested_account_name);
+
     const { error: updateError } = await supabase
       .from('documents_inbox')
       .update({
@@ -170,6 +175,7 @@ export async function processAndExtractInvoice(
     }
 
     console.log('✓ Document processed successfully');
+    console.log('📤 [INVOICE SERVICE] Returning to client with extractedData\n');
 
     return {
       success: true,

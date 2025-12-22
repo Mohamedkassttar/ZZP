@@ -149,6 +149,11 @@ export async function processInvoiceWithAI(
     let detectedIndustry: string | undefined;
     let enrichmentReason: string | undefined;
 
+    console.log('  📌 Initial AI suggestion from extraction:');
+    console.log('     accountId:', accountId || 'NONE');
+    console.log('     accountCode:', accountCode || 'NONE');
+    console.log('     accountName:', accountName || 'NONE');
+
     // Always try to find the best account match using smart matching
     if (extractedData.supplier_name) {
       console.log(`  🔍 Starting smart account matching...`);
@@ -297,6 +302,12 @@ export async function processInvoiceWithAI(
       processing_notes: notes,
     };
 
+    console.log('\n🎯 [PROCESSOR] Final result object being saved:');
+    console.log('   suggested_account_id:', result.suggested_account_id);
+    console.log('   suggested_account_code:', result.suggested_account_code);
+    console.log('   suggested_account_name:', result.suggested_account_name);
+    console.log('   enrichment:', result.enrichment);
+
     await supabase
       .from('documents_inbox')
       .update({
@@ -304,6 +315,8 @@ export async function processInvoiceWithAI(
         status: 'Review_Needed',
       })
       .eq('id', documentId);
+
+    console.log('✓ [PROCESSOR] Data saved to database, returning result...\n');
 
     return result;
 
