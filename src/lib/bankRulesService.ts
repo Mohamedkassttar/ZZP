@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 import type { Database } from './database.types';
 import { matchesWithWordBoundary } from './bankMatchingUtils';
+import { getCurrentCompanyId } from './companyHelper';
 
 type BankRule = Database['public']['Tables']['bank_rules']['Row'];
 type Account = Database['public']['Tables']['accounts']['Row'];
@@ -155,11 +156,17 @@ async function createRuleBasedContactEntry(
   transactionDate: string
 ): Promise<string | undefined> {
   try {
+    const companyId = await getCurrentCompanyId();
+    if (!companyId) {
+      throw new Error('No company selected');
+    }
+
     const entryDescription = rule.description_template || `${description} (Rule: ${rule.keyword})`;
 
     const { data: journalEntry, error: entryError } = await supabase
       .from('journal_entries')
       .insert({
+        company_id: companyId,
         entry_date: transactionDate,
         description: entryDescription,
         status: 'Draft',
@@ -254,9 +261,15 @@ async function createContactBasedJournalEntry(
   transactionDate: string
 ): Promise<string | undefined> {
   try {
+    const companyId = await getCurrentCompanyId();
+    if (!companyId) {
+      throw new Error('No company selected');
+    }
+
     const { data: journalEntry, error: entryError } = await supabase
       .from('journal_entries')
       .insert({
+        company_id: companyId,
         entry_date: transactionDate,
         description: `${description} (Contact: ${contact.company_name})`,
         status: 'Draft',
@@ -345,11 +358,17 @@ async function createProposedJournalEntry(
   transactionDate: string
 ): Promise<string | undefined> {
   try {
+    const companyId = await getCurrentCompanyId();
+    if (!companyId) {
+      throw new Error('No company selected');
+    }
+
     const description = rule.description_template || originalDescription;
 
     const { data: journalEntry, error: entryError } = await supabase
       .from('journal_entries')
       .insert({
+        company_id: companyId,
         entry_date: transactionDate,
         description: `${description} (Auto-matched: ${rule.keyword})`,
         status: 'Draft',

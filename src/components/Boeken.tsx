@@ -3,6 +3,7 @@ import { Plus, Trash2, Save, Upload, AlertCircle, CheckCircle } from 'lucide-rea
 import { supabase } from '../lib/supabase';
 import { BankImporter } from './BankImporter';
 import type { Database } from '../lib/database.types';
+import { getCurrentCompanyId } from '../lib/companyHelper';
 
 type Account = Database['public']['Tables']['accounts']['Row'];
 
@@ -115,9 +116,15 @@ export function Boeken() {
     setSaving(true);
 
     try {
+      const companyId = await getCurrentCompanyId();
+      if (!companyId) {
+        throw new Error('Geen bedrijf geselecteerd');
+      }
+
       const { data: entry, error: entryError } = await supabase
         .from('journal_entries')
         .insert({
+          company_id: companyId,
           entry_date: entryDate,
           description,
           reference,

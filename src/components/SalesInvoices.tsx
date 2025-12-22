@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Database } from '../lib/database.types';
+import { getCurrentCompanyId } from '../lib/companyHelper';
 
 type Invoice = Database['public']['Tables']['invoices']['Row'];
 type Contact = Database['public']['Tables']['contacts']['Row'];
@@ -508,6 +509,11 @@ export function SalesInvoices() {
     invoiceData: any,
     validLines: LineItem[]
   ) {
+    const companyId = await getCurrentCompanyId();
+    if (!companyId) {
+      throw new Error('Geen bedrijf geselecteerd');
+    }
+
     // Dynamically look up active system accounts (no more hardcoded 1300!)
     const { findActiveAccountsReceivable } = await import('../lib/systemAccountsService');
     const debtorAccount = await findActiveAccountsReceivable();
@@ -519,6 +525,7 @@ export function SalesInvoices() {
     const { data: journalEntry, error: entryError } = await supabase
       .from('journal_entries')
       .insert({
+        company_id: companyId,
         entry_date: invoiceData.invoice_date,
         description: `Verkoopfactuur ${invoiceData.invoice_number}`,
         reference: invoiceData.invoice_number,

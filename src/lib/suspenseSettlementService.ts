@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { getCurrentCompanyId } from './companyHelper';
 
 const SUSPENSE_RECEIVABLES = '1300';
 const SUSPENSE_PAYABLES = '2300';
@@ -66,6 +67,11 @@ export async function settlePurchaseTransaction(
   params: SettlementParams
 ): Promise<SettlementResult> {
   try {
+    const companyId = await getCurrentCompanyId();
+    if (!companyId) {
+      return { success: false, error: 'No company selected' };
+    }
+
     const invoice = await getInvoiceDetails(params.invoiceId);
     if (!invoice) {
       return { success: false, error: 'Invoice not found' };
@@ -91,6 +97,7 @@ export async function settlePurchaseTransaction(
     const { data: journalEntry, error: entryError } = await supabase
       .from('journal_entries')
       .insert({
+        company_id: companyId,
         fiscal_year_id: params.fiscalYearId,
         entry_date: new Date().toISOString().split('T')[0],
         description: entryDescription,
@@ -156,6 +163,11 @@ export async function settleSalesTransaction(
   params: SettlementParams
 ): Promise<SettlementResult> {
   try {
+    const companyId = await getCurrentCompanyId();
+    if (!companyId) {
+      return { success: false, error: 'No company selected' };
+    }
+
     const invoice = await getInvoiceDetails(params.invoiceId);
     if (!invoice) {
       return { success: false, error: 'Invoice not found' };
@@ -181,6 +193,7 @@ export async function settleSalesTransaction(
     const { data: journalEntry, error: entryError } = await supabase
       .from('journal_entries')
       .insert({
+        company_id: companyId,
         fiscal_year_id: params.fiscalYearId,
         entry_date: new Date().toISOString().split('T')[0],
         description: entryDescription,

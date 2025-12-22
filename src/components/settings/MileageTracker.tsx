@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { UniversalImporter } from '../UniversalImporter';
 import { mileageConfig } from '../../lib/importConfigs';
 import type { Database } from '../../lib/database.types';
+import { getCurrentCompanyId } from '../../lib/companyHelper';
 
 type MileageLog = Database['public']['Tables']['mileage_logs']['Row'];
 type Account = Database['public']['Tables']['accounts']['Row'];
@@ -64,6 +65,11 @@ export function MileageTracker() {
     if (!confirm('Book all unbooked mileage trips?')) return;
 
     try {
+      const companyId = await getCurrentCompanyId();
+      if (!companyId) {
+        throw new Error('Geen bedrijf geselecteerd');
+      }
+
       const unbookedLogs = logs.filter((l) => !l.is_booked);
       const totalKm = unbookedLogs.reduce((sum, l) => sum + l.distance_km, 0);
       const totalAmount = totalKm * mileageRate;
@@ -78,6 +84,7 @@ export function MileageTracker() {
       const { data: journalEntry, error: jeError } = await supabase
         .from('journal_entries')
         .insert({
+          company_id: companyId,
           entry_date: new Date().toISOString().split('T')[0],
           description: `Mileage reimbursement: ${totalKm.toFixed(2)} km`,
           status: 'Draft',

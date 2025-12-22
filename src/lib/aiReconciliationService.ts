@@ -2,6 +2,7 @@ import { supabase } from './supabase';
 import type { Database } from './database.types';
 import { callOpenAIWithRetry, extractJSON } from './openaiRetryHelper';
 import { findActiveAccountsPayable } from './systemAccountsService';
+import { getCurrentCompanyId } from './companyHelper';
 
 type Account = Database['public']['Tables']['accounts']['Row'];
 type Contact = Database['public']['Tables']['contacts']['Row'];
@@ -259,6 +260,12 @@ export async function bookUnmatchedTransaction(
 ): Promise<{ success: boolean; invoiceId?: string; error?: string }> {
   try {
     console.log('[Booking] Starting transaction booking process...', { params });
+
+    const companyId = await getCurrentCompanyId();
+    if (!companyId) {
+      throw new Error('No company selected');
+    }
+
     let finalCreditorId = params.creditorId;
 
     if (!finalCreditorId) {
@@ -409,6 +416,7 @@ export async function bookUnmatchedTransaction(
     const { data: costEntry, error: costEntryError } = await supabase
       .from('journal_entries')
       .insert({
+        company_id: companyId,
         entry_date: params.transactionDate,
         description: `Cost: ${params.description}`,
         status: 'Final',
@@ -468,6 +476,7 @@ export async function bookUnmatchedTransaction(
     const { data: paymentEntry, error: paymentEntryError } = await supabase
       .from('journal_entries')
       .insert({
+        company_id: companyId,
         entry_date: params.transactionDate,
         description: `Bank payment (suspense): ${params.description}`,
         status: 'Final',
@@ -519,6 +528,7 @@ export async function bookUnmatchedTransaction(
     const { data: settlementEntry, error: settlementError } = await supabase
       .from('journal_entries')
       .insert({
+        company_id: companyId,
         entry_date: params.transactionDate,
         description: `Settlement: ${params.description}`,
         reference: `SETTLEMENT-AUTO-${Date.now()}`,

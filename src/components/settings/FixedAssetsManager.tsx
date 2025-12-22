@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { UniversalImporter } from '../UniversalImporter';
 import { fixedAssetsConfig } from '../../lib/importConfigs';
 import type { Database } from '../../lib/database.types';
+import { getCurrentCompanyId } from '../../lib/companyHelper';
 
 type FixedAsset = Database['public']['Tables']['fixed_assets']['Row'];
 type Account = Database['public']['Tables']['accounts']['Row'];
@@ -63,12 +64,18 @@ export function FixedAssetsManager() {
     if (!confirm(`Run monthly depreciation for ${asset.name}?`)) return;
 
     try {
+      const companyId = await getCurrentCompanyId();
+      if (!companyId) {
+        throw new Error('Geen bedrijf geselecteerd');
+      }
+
       const monthlyDepreciation =
         (asset.purchase_price - asset.residual_value) / asset.lifespan_months;
 
       const { data: journalEntry, error: jeError } = await supabase
         .from('journal_entries')
         .insert({
+          company_id: companyId,
           entry_date: new Date().toISOString().split('T')[0],
           description: `Depreciation: ${asset.name}`,
           status: 'Draft',

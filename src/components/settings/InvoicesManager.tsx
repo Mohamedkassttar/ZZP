@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { UniversalImporter } from '../UniversalImporter';
 import { salesInvoicesConfig } from '../../lib/importConfigs';
 import type { Database } from '../../lib/database.types';
+import { getCurrentCompanyId } from '../../lib/companyHelper';
 
 type Contact = Database['public']['Tables']['contacts']['Row'];
 type Invoice = Database['public']['Tables']['invoices']['Row'];
@@ -110,6 +111,11 @@ export function InvoicesManager() {
     if (!confirm('Finalize this invoice? This will create accounting entries.')) return;
 
     try {
+      const companyId = await getCurrentCompanyId();
+      if (!companyId) {
+        throw new Error('Geen bedrijf geselecteerd');
+      }
+
       // Dynamically look up active system accounts (no more hardcoded 1100!)
       const { findActiveAccountsReceivable, findActiveVATPayable } = await import('../../lib/systemAccountsService');
       const [debitorsAccount, vatPayableAccount] = await Promise.all([
@@ -129,6 +135,7 @@ export function InvoicesManager() {
       const { data: journalEntry, error: jeError } = await supabase
         .from('journal_entries')
         .insert({
+          company_id: companyId,
           entry_date: invoice.invoice_date,
           description: `Invoice ${invoice.invoice_number}`,
           reference: invoice.invoice_number,
