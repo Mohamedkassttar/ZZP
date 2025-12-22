@@ -15,6 +15,7 @@ import { Relations } from './components/Relations';
 import { TaxPreparation } from './components/TaxPreparation';
 import { IBAangifte } from './components/IBAangifte';
 import { SalesInvoices } from './components/SalesInvoices';
+import { Office } from './components/Office';
 import { PortalLayout } from './components/portal/PortalLayout';
 import { PortalDashboard } from './components/portal/PortalDashboard';
 import { PortalBank } from './components/portal/PortalBank';
@@ -24,7 +25,7 @@ import { PortalExpense } from './components/portal/PortalExpense';
 import { seedAccounts } from './lib/seedAccounts';
 import { isSupabaseConfigured } from './lib/supabase';
 
-type View = 'dashboard' | 'inbox' | 'boeken' | 'memoriaal-boekingen' | 'bankboekingen' | 'bank' | 'reports' | 'settings' | 'outstanding' | 'account-detail' | 'relations' | 'tax' | 'ib-aangifte' | 'sales' | 'portal-home' | 'portal-scan' | 'portal-invoice' | 'portal-assistant' | 'portal-expense';
+type View = 'dashboard' | 'inbox' | 'boeken' | 'memoriaal-boekingen' | 'bankboekingen' | 'bank' | 'reports' | 'settings' | 'outstanding' | 'account-detail' | 'relations' | 'tax' | 'ib-aangifte' | 'sales' | 'office' | 'portal-home' | 'portal-scan' | 'portal-invoice' | 'portal-assistant' | 'portal-expense';
 
 interface ViewState {
   view: View;
@@ -130,6 +131,8 @@ function App() {
           return <TaxPreparation />;
         case 'ib-aangifte':
           return <IBAangifte />;
+        case 'office':
+          return <Office />;
         case 'settings':
           return <Settings initialTab={viewState.data?.tab} />;
         case 'outstanding':

@@ -10,7 +10,10 @@ import {
   ChevronDown,
   ChevronRight,
   Smartphone,
+  Building2,
 } from 'lucide-react';
+import { CompanySwitcher } from '../CompanySwitcher';
+import { useCompany } from '../../lib/CompanyContext';
 
 interface SidebarProps {
   currentView: string;
@@ -18,6 +21,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ currentView, onNavigate }: SidebarProps) {
+  const { isExpert } = useCompany();
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({
     boekhouding: true,
     facturatie: false,
@@ -35,6 +39,12 @@ export function Sidebar({ currentView, onNavigate }: SidebarProps) {
   const isActive = (view: string) => currentView === view;
 
   const menuItems = [
+    ...(isExpert ? [{
+      id: 'office',
+      label: 'Mijn Kantoor',
+      icon: Building2,
+      view: 'office',
+    }] : []),
     {
       id: 'dashboard',
       label: 'Dashboard',
@@ -107,6 +117,8 @@ export function Sidebar({ currentView, onNavigate }: SidebarProps) {
             </div>
           </div>
         </div>
+
+        <CompanySwitcher />
 
         <nav className="flex-1 overflow-y-auto py-4 px-3">
           {menuItems.map((item) => (

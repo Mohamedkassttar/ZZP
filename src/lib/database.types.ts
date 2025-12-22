@@ -52,6 +52,73 @@ export interface ExtractedInvoiceData {
 export interface Database {
   public: {
     Tables: {
+      companies: {
+        Row: {
+          id: string;
+          name: string;
+          address: string | null;
+          zip_code: string | null;
+          city: string | null;
+          vat_number: string | null;
+          coc_number: string | null;
+          legal_form: string | null;
+          fiscal_year_start: string | null;
+          is_active: boolean;
+          created_at: string;
+          created_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          address?: string | null;
+          zip_code?: string | null;
+          city?: string | null;
+          vat_number?: string | null;
+          coc_number?: string | null;
+          legal_form?: string | null;
+          fiscal_year_start?: string | null;
+          is_active?: boolean;
+          created_at?: string;
+          created_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          address?: string | null;
+          zip_code?: string | null;
+          city?: string | null;
+          vat_number?: string | null;
+          coc_number?: string | null;
+          legal_form?: string | null;
+          fiscal_year_start?: string | null;
+          is_active?: boolean;
+          created_at?: string;
+          created_by?: string | null;
+        };
+      };
+      company_users: {
+        Row: {
+          id: string;
+          company_id: string;
+          user_id: string;
+          role: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          user_id: string;
+          role: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          company_id?: string;
+          user_id?: string;
+          role?: string;
+          created_at?: string;
+        };
+      };
       accounts: {
         Row: {
           id: string;
@@ -62,6 +129,8 @@ export interface Database {
           description: string | null;
           is_active: boolean;
           tax_category: DutchTaxCategory | null;
+          company_id: string | null;
+          rgs_code: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -74,6 +143,8 @@ export interface Database {
           description?: string | null;
           is_active?: boolean;
           tax_category?: DutchTaxCategory | null;
+          company_id?: string | null;
+          rgs_code?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -86,6 +157,8 @@ export interface Database {
           description?: string | null;
           is_active?: boolean;
           tax_category?: DutchTaxCategory | null;
+          company_id?: string | null;
+          rgs_code?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -101,6 +174,7 @@ export interface Database {
           address: string | null;
           default_ledger_account_id: string | null;
           is_active: boolean;
+          company_id: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -114,6 +188,7 @@ export interface Database {
           address?: string | null;
           default_ledger_account_id?: string | null;
           is_active?: boolean;
+          company_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -127,6 +202,7 @@ export interface Database {
           phone?: string | null;
           address?: string | null;
           is_active?: boolean;
+          company_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -140,6 +216,8 @@ export interface Database {
           status: JournalStatus;
           contact_id: string | null;
           memoriaal_type: string | null;
+          company_id: string | null;
+          transaction_hash: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -147,6 +225,8 @@ export interface Database {
           id?: string;
           entry_date?: string;
           description: string;
+          company_id?: string | null;
+          transaction_hash?: string | null;
           reference?: string | null;
           status?: JournalStatus;
           contact_id?: string | null;
