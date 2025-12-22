@@ -2,6 +2,7 @@ import { supabase } from './supabase';
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { callOpenAIWithRetry, extractJSON } from './openaiRetryHelper';
+import { getCurrentCompanyId } from './companyHelper';
 
 try {
   pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
@@ -678,11 +679,18 @@ export async function importBankTransactions(
   const duplicateCount = transactionsWithHashes.length - newTransactions.length;
   result.duplicates = duplicateCount;
 
+  const companyId = await getCurrentCompanyId();
+  if (!companyId) {
+    result.errors.push('Geen bedrijf geselecteerd');
+    return result;
+  }
+
   for (const txn of newTransactions) {
     try {
       const { data, error: bankError } = await supabase
         .from('bank_transactions')
         .insert({
+          company_id: companyId,
           bank_account_id: bankAccountId,
           transaction_date: txn.transaction_date,
           amount: txn.amount,

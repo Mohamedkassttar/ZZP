@@ -21,6 +21,7 @@ export function PortalCreateInvoice() {
   const [selectedContactId, setSelectedContactId] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
   const [showNewContactModal, setShowNewContactModal] = useState(false);
+  const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split('T')[0]);
   const [lines, setLines] = useState<InvoiceLine[]>([
     { id: crypto.randomUUID(), description: '', amount: 0, vatRate: 21 },
   ]);
@@ -92,6 +93,7 @@ export function PortalCreateInvoice() {
       const result = await createAndBookInvoice({
         contactId: selectedContactId,
         lines: validLines,
+        invoiceDate: invoiceDate,
       });
 
       if (!result.success) {
@@ -110,6 +112,7 @@ export function PortalCreateInvoice() {
   function reset() {
     setSelectedContactId('');
     setSearchTerm('');
+    setInvoiceDate(new Date().toISOString().split('T')[0]);
     setLines([{ id: crypto.randomUUID(), description: '', amount: 0, vatRate: 21 }]);
     setSuccess(false);
   }
@@ -185,6 +188,16 @@ export function PortalCreateInvoice() {
           <Plus className="w-5 h-5" />
           Nieuwe klant
         </button>
+      </div>
+
+      <div className="bg-white rounded-2xl shadow-md p-6 border border-gray-100">
+        <label className="block text-sm font-semibold text-gray-900 mb-3">Factuurdatum</label>
+        <input
+          type="date"
+          value={invoiceDate}
+          onChange={(e) => setInvoiceDate(e.target.value)}
+          className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none"
+        />
       </div>
 
       <div className="bg-white rounded-2xl shadow-md p-6 border border-gray-100">
