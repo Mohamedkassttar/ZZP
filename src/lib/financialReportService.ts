@@ -57,7 +57,6 @@ export async function getFinancialContext(
   const { data: lines } = await supabase
     .from('journal_lines')
     .select('account_id, debit, credit, journal_entry_id')
-    .eq('company_id', companyId)
     .in('journal_entry_id', entryIds);
 
   if (!lines) throw new Error('Failed to load journal lines');
