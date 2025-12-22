@@ -218,24 +218,33 @@ export function FactuurInbox() {
     setUploading(true);
 
     for (const file of files) {
+      // CRITICAL: Sanitize filename first - strip any directory paths
+      // If file.name contains "invoices/file.pdf", we only want "file.pdf"
+      const rawFileName = file.name.split('/').pop()?.split('\\').pop() || 'unknown';
+
       if (!file.type.match(/^(image\/(jpeg|jpg|png|webp)|application\/pdf)$/)) {
-        alert(`${file.name}: Alleen PDF en afbeeldingen worden ondersteund`);
+        alert(`${rawFileName}: Alleen PDF en afbeeldingen worden ondersteund`);
         continue;
       }
 
       if (file.size > 10 * 1024 * 1024) {
-        alert(`${file.name}: Bestand is te groot (max 10MB)`);
+        alert(`${rawFileName}: Bestand is te groot (max 10MB)`);
         continue;
       }
 
       try {
+        // Build clean path with timestamp
         const timestamp = Date.now();
-        const fileName = `${timestamp}_${file.name}`;
-        const filePath = `invoices/${fileName}`;
+        const uniqueFileName = `${timestamp}_${rawFileName}`;
+
+        // Define storage structure (never trust input paths)
+        const BUCKET = 'invoices';
+        const FOLDER = 'invoices';
+        const storagePath = `${FOLDER}/${uniqueFileName}`;
 
         const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('invoices')
-          .upload(filePath, file, {
+          .from(BUCKET)
+          .upload(storagePath, file, {
             contentType: file.type,
             upsert: false,
           });
@@ -244,13 +253,13 @@ export function FactuurInbox() {
 
         await supabase.from('documents_inbox').insert({
           file_url: uploadData.path,
-          file_name: file.name,
+          file_name: rawFileName,
           file_type: file.type,
           status: 'Processing',
         });
       } catch (error) {
         console.error('Error uploading file:', error);
-        alert(`Fout bij uploaden van ${file.name}`);
+        alert(`Fout bij uploaden van ${rawFileName}`);
       }
     }
 

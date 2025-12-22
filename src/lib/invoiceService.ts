@@ -47,29 +47,48 @@ export async function uploadInvoiceFile(file: File): Promise<UploadInvoiceResult
       };
     }
 
+    // CRITICAL: Sanitize filename - strip any directory paths
+    // If file.name contains "invoices/file.pdf", we only want "file.pdf"
+    const rawFileName = file.name.split('/').pop()?.split('\\').pop() || 'unknown';
+
+    // Build clean path with timestamp
     const timestamp = Date.now();
-    const fileName = `${timestamp}_${file.name}`;
-    const filePath = `invoices/${fileName}`;
+    const uniqueFileName = `${timestamp}_${rawFileName}`;
+
+    // Define storage structure (never trust input paths)
+    const BUCKET = 'invoices';
+    const FOLDER = 'invoices';
+    const storagePath = `${FOLDER}/${uniqueFileName}`;
+
+    console.log('📤 Upload Info:', {
+      originalName: file.name,
+      sanitizedName: rawFileName,
+      storagePath,
+      bucket: BUCKET
+    });
 
     const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('invoices')
-      .upload(filePath, file, {
+      .from(BUCKET)
+      .upload(storagePath, file, {
         contentType: file.type,
         upsert: false,
       });
 
     if (uploadError) {
+      console.error('Upload error:', uploadError);
       return {
         success: false,
         error: `Upload fout: ${uploadError.message}`,
       };
     }
 
+    console.log('✓ Upload successful, path:', uploadData.path);
+
     const { data: document, error: insertError } = await supabase
       .from('documents_inbox')
       .insert({
         file_url: uploadData.path,
-        file_name: file.name,
+        file_name: rawFileName,
         file_type: file.type,
         status: 'Processing',
         source: 'portal',
@@ -115,11 +134,28 @@ export async function processAndExtractInvoice(
       };
     }
 
-    const { data: publicUrlData } = supabase.storage
-      .from('invoices')
-      .getPublicUrl(document.file_url);
+    console.log('📄 Processing document:', {
+      documentId,
+      file_url: document.file_url
+    });
 
-    const extractedData = await processInvoiceWithAI(publicUrlData.publicUrl, documentId);
+    // CRITICAL: Use signed URL for external access (OpenAI)
+    // Public URLs may not work for all Supabase configurations
+    const BUCKET = 'invoices';
+    const EXPIRY_SECONDS = 3600; // 1 hour
+
+    const { data: signedUrlData, error: urlError } = await supabase.storage
+      .from(BUCKET)
+      .createSignedUrl(document.file_url, EXPIRY_SECONDS);
+
+    if (urlError || !signedUrlData) {
+      console.error('Failed to create signed URL:', urlError);
+      throw new Error(`Kan geen toegangslink maken: ${urlError?.message}`);
+    }
+
+    console.log('✓ Signed URL created for OpenAI:', signedUrlData.signedUrl.substring(0, 100) + '...');
+
+    const extractedData = await processInvoiceWithAI(signedUrlData.signedUrl, documentId);
 
     const { error: updateError } = await supabase
       .from('documents_inbox')
@@ -132,6 +168,8 @@ export async function processAndExtractInvoice(
     if (updateError) {
       console.error('Failed to update document status:', updateError);
     }
+
+    console.log('✓ Document processed successfully');
 
     return {
       success: true,
