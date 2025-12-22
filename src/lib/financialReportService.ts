@@ -108,7 +108,7 @@ export async function getFinancialContext(
       expensesByCategory[category] = (expensesByCategory[category] || 0) + expenseAmount;
     }
 
-    if (code >= 1000 && code <= 1099) {
+    if (code >= 1000 && code <= 1199) {
       bankBalance += Number(line.debit) - Number(line.credit);
     }
 
@@ -116,15 +116,15 @@ export async function getFinancialContext(
       accountsReceivable += Number(line.debit) - Number(line.credit);
     }
 
-    if (code >= 1600 && code <= 1699) {
+    if (code >= 1500 && code <= 1599) {
       accountsPayable += Number(line.credit) - Number(line.debit);
     }
 
-    if (code >= 1000 && code <= 1999) {
+    if (code >= 100 && code <= 1499) {
       totalAssets += Number(line.debit) - Number(line.credit);
     }
 
-    if (code >= 1600 && code <= 1999) {
+    if (code >= 1500 && code <= 1999) {
       totalLiabilities += Number(line.credit) - Number(line.debit);
     }
   }
