@@ -1,16 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Book, FileText, Package, Car, Zap, AlertTriangle, Trash2, RotateCcw, Download, DollarSign } from 'lucide-react';
+import { Settings as SettingsIcon, Book, Zap, AlertTriangle, RotateCcw, Download, DollarSign } from 'lucide-react';
 import { AccountsManager } from './settings/AccountsManager';
-import { InvoicesManager } from './settings/InvoicesManager';
-import { FixedAssetsManager } from './settings/FixedAssetsManager';
-import { MileageTracker } from './settings/MileageTracker';
 import { BankRulesManager } from './settings/BankRulesManager';
 import { FinancialSettings } from './settings/FinancialSettings';
-import { clearAllData } from '../lib/taxCalculationService';
 import { resetAdministration } from '../lib/adminResetService';
 import { downloadConfigurationBackup, getConfigurationStats } from '../lib/configExportService';
 
-type SettingsTab = 'accounts' | 'invoices' | 'assets' | 'mileage' | 'bankrules' | 'financial' | 'system';
+type SettingsTab = 'accounts' | 'bankrules' | 'financial' | 'system';
 
 interface SettingsProps {
   initialTab?: SettingsTab;
@@ -18,18 +14,13 @@ interface SettingsProps {
 
 export function Settings({ initialTab }: SettingsProps) {
   const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab || 'accounts');
-  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
-  const [clearing, setClearing] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [configStats, setConfigStats] = useState({ accountsCount: 0, bankRulesCount: 0 });
 
   const tabs = [
     { id: 'accounts' as SettingsTab, label: 'Grootboekrekeningen', icon: Book },
-    { id: 'invoices' as SettingsTab, label: 'Facturen', icon: FileText },
-    { id: 'assets' as SettingsTab, label: 'Vaste Activa', icon: Package },
-    { id: 'mileage' as SettingsTab, label: 'Kilometers', icon: Car },
     { id: 'bankrules' as SettingsTab, label: 'Bankregels', icon: Zap },
     { id: 'financial' as SettingsTab, label: 'Financiële Instellingen', icon: DollarSign },
     { id: 'system' as SettingsTab, label: 'Systeem', icon: AlertTriangle },
@@ -41,24 +32,6 @@ export function Settings({ initialTab }: SettingsProps) {
     }
   }, [activeTab]);
 
-  async function handleClearAllData() {
-    setClearing(true);
-    try {
-      const result = await clearAllData();
-      if (result.success) {
-        alert('Alle data succesvol verwijderd!');
-        window.location.reload();
-      } else {
-        alert('Fout bij verwijderen: ' + result.error);
-      }
-    } catch (error) {
-      alert('Fout bij verwijderen van data');
-    } finally {
-      setClearing(false);
-      setShowClearConfirm(false);
-    }
-  }
-
   async function handleResetAdministration() {
     setResetting(true);
     try {
@@ -66,15 +39,18 @@ export function Settings({ initialTab }: SettingsProps) {
       if (result.success) {
         const stats = result.stats!;
         alert(
-          `Administratie succesvol gereset!\n\n` +
+          `✅ Smart Reset voltooid!\n\n` +
           `Verwijderd:\n` +
           `- ${stats.journalEntriesDeleted} journaalposten (${stats.journalLinesDeleted} regels)\n` +
-          `- ${stats.invoicesDeleted} facturen (${stats.invoiceLinesDeleted} regels)\n` +
+          `- ${stats.purchaseInvoicesDeleted} inkoopfacturen\n` +
+          `- ${stats.salesInvoicesDeleted} verkoopfacturen\n` +
+          `- ${stats.documentsDeleted} documenten (inbox)\n` +
           `- ${stats.bankTransactionsDeleted} banktransacties\n` +
           `- ${stats.contactsDeleted} relaties/contacten\n\n` +
-          `Behouden:\n` +
+          `✓ Behouden:\n` +
           `- Grootboekrekeningen (inclusief belastingcategorieën)\n` +
-          `- Bankregels (AI automatisering)`
+          `- Bankregels (AI automatisering)\n` +
+          `- Financiële instellingen (kas/privé rekeningen)`
         );
         window.location.href = '/';
       } else {
@@ -135,9 +111,6 @@ export function Settings({ initialTab }: SettingsProps) {
 
         <div className="p-6">
           {activeTab === 'accounts' && <AccountsManager />}
-          {activeTab === 'invoices' && <InvoicesManager />}
-          {activeTab === 'assets' && <FixedAssetsManager />}
-          {activeTab === 'mileage' && <MileageTracker />}
           {activeTab === 'bankrules' && <BankRulesManager />}
           {activeTab === 'financial' && <FinancialSettings />}
           {activeTab === 'system' && (
@@ -193,18 +166,21 @@ export function Settings({ initialTab }: SettingsProps) {
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <h4 className="font-semibold text-slate-900 mb-1">
-                          Administratie Resetten (Behoud Instellingen)
+                          Start Opnieuw (Smart Reset)
                         </h4>
                         <p className="text-sm text-slate-600 mb-3">
-                          Verwijder alle boekingen, facturen, banktransacties en relaties, maar behoud je configuratie.
+                          Verwijder alle transactionele data maar behoud je volledige configuratie.
+                          Perfect voor een nieuwe boekperiode of na een testfase.
                         </p>
                         <ul className="text-xs text-slate-500 space-y-1 mb-4">
                           <li className="text-red-600">✗ Journaalposten (alle boekingen worden verwijderd)</li>
-                          <li className="text-red-600">✗ Facturen (alle facturen worden verwijderd)</li>
+                          <li className="text-red-600">✗ Facturen (inkoop & verkoop)</li>
+                          <li className="text-red-600">✗ Documenten inbox</li>
                           <li className="text-red-600">✗ Banktransacties (volledig verwijderd)</li>
                           <li className="text-red-600">✗ Relaties/Contacten (volledig verwijderd)</li>
                           <li className="text-green-600">✓ Grootboekrekeningen (blijven behouden)</li>
                           <li className="text-green-600">✓ Bankregels (blijven behouden)</li>
+                          <li className="text-green-600">✓ Financiële instellingen (blijven behouden)</li>
                         </ul>
                       </div>
                       <button
@@ -214,40 +190,6 @@ export function Settings({ initialTab }: SettingsProps) {
                       >
                         <RotateCcw className="w-4 h-4" />
                         Start Opnieuw
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="bg-white rounded-lg border border-red-200 p-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <h4 className="font-semibold text-slate-900 mb-1">
-                          Alle Data Verwijderen
-                        </h4>
-                        <p className="text-sm text-slate-600 mb-3">
-                          Verwijdert ALLE data uit het systeem: boekingen, bankgegevens, facturen,
-                          relaties, activa, kilometers en fiscale jaren. De grootboekrekeningen blijven
-                          behouden.
-                        </p>
-                        <ul className="text-xs text-slate-500 space-y-1 mb-4">
-                          <li>✗ Journaalposten (alle boekingen)</li>
-                          <li>✗ Banktransacties</li>
-                          <li>✗ Facturen</li>
-                          <li>✗ Relaties</li>
-                          <li>✗ Vaste activa</li>
-                          <li>✗ Kilometeradministratie</li>
-                          <li>✗ Fiscale jaren</li>
-                          <li>✗ Bankregels</li>
-                          <li>✓ Grootboekrekeningen (blijven behouden)</li>
-                        </ul>
-                      </div>
-                      <button
-                        onClick={() => setShowClearConfirm(true)}
-                        disabled={clearing}
-                        className="h-9 flex items-center gap-2 px-4 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-semibold disabled:bg-red-400"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        Verwijder Alles
                       </button>
                     </div>
                   </div>
@@ -268,18 +210,20 @@ export function Settings({ initialTab }: SettingsProps) {
                   Weet je zeker dat je opnieuw wilt beginnen?
                 </h3>
                 <p className="text-sm text-slate-600 mb-3">
-                  Alle boekingen, facturen, banktransacties en relaties worden volledig verwijderd.
-                  Alleen je configuratie blijft behouden.
+                  Alle transactionele data wordt verwijderd, maar je configuratie blijft volledig intact.
+                  Perfect voor een nieuwe boekperiode of na een testfase.
                 </p>
                 <div className="text-xs text-slate-500 bg-slate-50 rounded p-3 space-y-1">
                   <p className="font-semibold text-red-700 mb-1">Wordt verwijderd:</p>
                   <p className="text-red-600">• Alle journaalposten</p>
-                  <p className="text-red-600">• Alle facturen</p>
+                  <p className="text-red-600">• Alle facturen (inkoop & verkoop)</p>
+                  <p className="text-red-600">• Documenten inbox</p>
                   <p className="text-red-600">• Alle banktransacties</p>
                   <p className="text-red-600">• Alle relaties/contacten</p>
                   <p className="font-semibold text-green-700 mt-2 mb-1">Blijft behouden:</p>
                   <p className="text-green-600">• Grootboekrekeningen (met belastingcategorieën)</p>
                   <p className="text-green-600">• Bankregels (AI automatisering)</p>
+                  <p className="text-green-600">• Financiële instellingen (kas/privé rekeningen)</p>
                 </div>
               </div>
             </div>
@@ -298,41 +242,6 @@ export function Settings({ initialTab }: SettingsProps) {
                 className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors font-semibold disabled:bg-orange-400"
               >
                 {resetting ? 'Bezig...' : 'Ja, Reset Administratie'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showClearConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-            <div className="flex items-start gap-3 mb-4">
-              <AlertTriangle className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" />
-              <div>
-                <h3 className="text-lg font-bold text-slate-900 mb-2">
-                  Weet je het zeker?
-                </h3>
-                <p className="text-sm text-slate-600">
-                  Dit verwijdert ALLE data permanent. Deze actie kan NIET ongedaan worden gemaakt.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowClearConfirm(false)}
-                disabled={clearing}
-                className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
-              >
-                Annuleren
-              </button>
-              <button
-                onClick={handleClearAllData}
-                disabled={clearing}
-                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-semibold disabled:bg-red-400"
-              >
-                {clearing ? 'Bezig...' : 'Ja, Verwijder Alles'}
               </button>
             </div>
           </div>

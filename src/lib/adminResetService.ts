@@ -6,8 +6,9 @@ export interface ResetResult {
   stats?: {
     journalEntriesDeleted: number;
     journalLinesDeleted: number;
-    invoicesDeleted: number;
-    invoiceLinesDeleted: number;
+    purchaseInvoicesDeleted: number;
+    salesInvoicesDeleted: number;
+    documentsDeleted: number;
     bankTransactionsDeleted: number;
     contactsDeleted: number;
   };
@@ -15,11 +16,14 @@ export interface ResetResult {
 
 export async function resetAdministration(): Promise<ResetResult> {
   try {
+    console.log('🔄 Starting Smart Reset - Preserving configuration...');
+
     const stats = {
       journalEntriesDeleted: 0,
       journalLinesDeleted: 0,
-      invoicesDeleted: 0,
-      invoiceLinesDeleted: 0,
+      purchaseInvoicesDeleted: 0,
+      salesInvoicesDeleted: 0,
+      documentsDeleted: 0,
       bankTransactionsDeleted: 0,
       contactsDeleted: 0,
     };
@@ -71,41 +75,41 @@ export async function resetAdministration(): Promise<ResetResult> {
       stats.journalEntriesDeleted = journalEntries.length;
     }
 
-    const { data: invoices, error: invoicesFetchError } = await supabase
-      .from('invoices')
-      .select('id');
+    const { count: purchaseInvoicesCount, error: purchaseInvoicesError } = await supabase
+      .from('purchase_invoices')
+      .delete({ count: 'exact' })
+      .neq('id', '00000000-0000-0000-0000-000000000000');
 
-    if (invoicesFetchError) {
-      console.error('Error fetching invoices:', invoicesFetchError);
-      throw new Error(`Failed to fetch invoices: ${invoicesFetchError.message}`);
+    if (purchaseInvoicesError) {
+      console.error('Error deleting purchase invoices:', purchaseInvoicesError);
+      throw new Error(`Failed to delete purchase invoices: ${purchaseInvoicesError.message}`);
     }
+    stats.purchaseInvoicesDeleted = purchaseInvoicesCount || 0;
+    console.log(`  ✓ Deleted ${purchaseInvoicesCount || 0} purchase invoices`);
 
-    if (invoices && invoices.length > 0) {
-      const invoiceIds = invoices.map(i => i.id);
+    const { count: salesInvoicesCount, error: salesInvoicesError } = await supabase
+      .from('sales_invoices')
+      .delete({ count: 'exact' })
+      .neq('id', '00000000-0000-0000-0000-000000000000');
 
-      const { count: invoiceLinesCount, error: invoiceLinesError } = await supabase
-        .from('invoice_lines')
-        .delete({ count: 'exact' })
-        .in('invoice_id', invoiceIds);
-
-      if (invoiceLinesError) {
-        console.error('Error deleting invoice lines:', invoiceLinesError);
-        throw new Error(`Failed to delete invoice lines: ${invoiceLinesError.message}`);
-      }
-      stats.invoiceLinesDeleted = invoiceLinesCount || 0;
-
-      const { error: invoicesError } = await supabase
-        .from('invoices')
-        .delete()
-        .in('id', invoiceIds);
-
-      if (invoicesError) {
-        console.error('Error deleting invoices:', invoicesError);
-        throw new Error(`Failed to delete invoices: ${invoicesError.message}`);
-      }
-
-      stats.invoicesDeleted = invoices.length;
+    if (salesInvoicesError) {
+      console.error('Error deleting sales invoices:', salesInvoicesError);
+      throw new Error(`Failed to delete sales invoices: ${salesInvoicesError.message}`);
     }
+    stats.salesInvoicesDeleted = salesInvoicesCount || 0;
+    console.log(`  ✓ Deleted ${salesInvoicesCount || 0} sales invoices`);
+
+    const { count: documentsCount, error: documentsError } = await supabase
+      .from('documents_inbox')
+      .delete({ count: 'exact' })
+      .neq('id', '00000000-0000-0000-0000-000000000000');
+
+    if (documentsError) {
+      console.error('Error deleting documents:', documentsError);
+      throw new Error(`Failed to delete documents: ${documentsError.message}`);
+    }
+    stats.documentsDeleted = documentsCount || 0;
+    console.log(`  ✓ Deleted ${documentsCount || 0} documents from inbox`);
 
     const { count: contactsCount, error: contactsDeleteError } = await supabase
       .from('contacts')
@@ -117,6 +121,17 @@ export async function resetAdministration(): Promise<ResetResult> {
       throw new Error(`Failed to delete contacts: ${contactsDeleteError.message}`);
     }
     stats.contactsDeleted = contactsCount || 0;
+    console.log(`  ✓ Deleted ${contactsCount || 0} contacts`);
+
+    console.log('\n✅ Smart Reset Complete!');
+    console.log('📊 Summary:');
+    console.log(`  - Journal Entries: ${stats.journalEntriesDeleted} (${stats.journalLinesDeleted} lines)`);
+    console.log(`  - Purchase Invoices: ${stats.purchaseInvoicesDeleted}`);
+    console.log(`  - Sales Invoices: ${stats.salesInvoicesDeleted}`);
+    console.log(`  - Documents: ${stats.documentsDeleted}`);
+    console.log(`  - Bank Transactions: ${stats.bankTransactionsDeleted}`);
+    console.log(`  - Contacts: ${stats.contactsDeleted}`);
+    console.log('\n✓ Configuration preserved (accounts, bank_rules, company_settings)');
 
     return {
       success: true,
