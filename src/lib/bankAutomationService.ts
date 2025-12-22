@@ -31,7 +31,7 @@
 
 import { supabase } from './supabase';
 import { bookBankTransaction, bookBankTransactionViaRelatie } from './bankService';
-import { enrichTransactionWithTavily } from './tavilyEnrichmentService';
+import { enrichTransactionWithTavily, type EnrichmentContext } from './tavilyEnrichmentService';
 import { cleanTransactionDescription } from './bankMatchingUtils';
 import { limitConcurrencyWithErrorHandling } from './concurrencyLimiter';
 
@@ -268,6 +268,38 @@ function getCleanInputText(transaction: any): string {
 }
 
 /**
+ * Extract city name from transaction description for location context
+ */
+function extractCityFromDescription(description: string): string | undefined {
+  // Common Dutch cities (ordered by size for better matching)
+  const dutchCities = [
+    'amsterdam', 'rotterdam', 'den haag', 'utrecht', 'eindhoven',
+    'groningen', 'tilburg', 'almere', 'breda', 'nijmegen',
+    'apeldoorn', 'haarlem', 'arnhem', 'zaanstad', 'amersfoort',
+    'den bosch', 's-hertogenbosch', 'hoofddorp', 'maastricht', 'leiden',
+    'dordrecht', 'zoetermeer', 'zwolle', 'deventer', 'delft',
+    'alkmaar', 'heerlen', 'venlo', 'leeuwarden', 'hilversum',
+  ];
+
+  const lowerDesc = description.toLowerCase();
+
+  // Check for each city name in description
+  for (const city of dutchCities) {
+    // Use word boundary matching to avoid partial matches
+    const regex = new RegExp(`\\b${city}\\b`, 'i');
+    if (regex.test(lowerDesc)) {
+      // Return with proper capitalization
+      return city
+        .split(/[\s-]/)
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
+    }
+  }
+
+  return undefined;
+}
+
+/**
  * ═══════════════════════════════════════════════════════════════
  * STEP 2: THE HARD MATCHER (Word Boundary Regex)
  * ═══════════════════════════════════════════════════════════════
@@ -415,7 +447,22 @@ async function checkCRMRelation(cleanText: string, transaction: any): Promise<Co
     // SCENARIO B: Relation found but NO default account - Use AI
     console.log(`→ [CRM] No default account, calling AI for classification...`);
 
-    const aiEnrichment = await enrichTransactionWithTavily(cleanText, Math.abs(transaction.amount));
+    // Extract city from description for location context
+    const cityName = extractCityFromDescription(transaction.description || '');
+
+    // Build enrichment context with location data
+    const enrichmentContext: EnrichmentContext = {
+      name: cleanText,
+      city: cityName || undefined,
+      address: undefined,
+      categoryClues: undefined,
+    };
+
+    if (cityName) {
+      console.log(`  📍 [CONTEXT] Extracted city for AI: ${cityName}`);
+    }
+
+    const aiEnrichment = await enrichTransactionWithTavily(enrichmentContext, Math.abs(transaction.amount));
 
     if (aiEnrichment && aiEnrichment.accountId) {
       console.log(`✓ [CRM + AI] Matched relation with AI account suggestion`);
@@ -579,7 +626,22 @@ async function checkTavilyEnrichment(cleanText: string, transaction: any): Promi
   console.log(`→ [TAVILY] Searching for: "${cleanText}" (€${Math.abs(transaction.amount)})`);
 
   try {
-    const enrichment = await enrichTransactionWithTavily(cleanText, Math.abs(transaction.amount));
+    // Extract city from description for location context
+    const cityName = extractCityFromDescription(transaction.description || '');
+
+    // Build enrichment context with location data
+    const enrichmentContext: EnrichmentContext = {
+      name: cleanText,
+      city: cityName || undefined,
+      address: undefined, // Not available in bank transaction data
+      categoryClues: undefined,
+    };
+
+    if (cityName) {
+      console.log(`  📍 [CONTEXT] Extracted city: ${cityName}`);
+    }
+
+    const enrichment = await enrichTransactionWithTavily(enrichmentContext, Math.abs(transaction.amount));
 
     if (!enrichment) {
       console.log(`→ [TAVILY] No match found - enrichment returned null`);
