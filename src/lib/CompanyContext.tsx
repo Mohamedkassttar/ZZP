@@ -33,6 +33,8 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      await supabase.rpc('ensure_user_has_company');
+
       const { data: companyUsers, error: cuError } = await supabase
         .from('company_users')
         .select('company_id, role, companies!inner(*)')
@@ -49,10 +51,10 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
           .from('companies')
           .select('*')
           .eq('name', 'Demo Bedrijf')
-          .single();
+          .maybeSingle();
 
         if (demoCompany) {
-          await supabase
+          const { error: insertError } = await supabase
             .from('company_users')
             .insert({
               company_id: demoCompany.id,
@@ -60,10 +62,12 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
               role: 'expert',
             });
 
-          setCompanies([demoCompany]);
-          setCurrentCompany(demoCompany);
-          setUserRole('expert');
-          localStorage.setItem('currentCompanyId', demoCompany.id);
+          if (!insertError) {
+            setCompanies([demoCompany]);
+            setCurrentCompany(demoCompany);
+            setUserRole('expert');
+            localStorage.setItem('currentCompanyId', demoCompany.id);
+          }
         }
 
         setLoading(false);

@@ -24,6 +24,7 @@ import { PortalAssistant } from './components/portal/PortalAssistant';
 import { PortalExpense } from './components/portal/PortalExpense';
 import { seedAccounts } from './lib/seedAccounts';
 import { isSupabaseConfigured } from './lib/supabase';
+import { DebugCompanyStatus } from './components/DebugCompanyStatus';
 
 type View = 'dashboard' | 'inbox' | 'boeken' | 'memoriaal-boekingen' | 'bankboekingen' | 'bank' | 'reports' | 'settings' | 'outstanding' | 'account-detail' | 'relations' | 'tax' | 'ib-aangifte' | 'sales' | 'office' | 'portal-home' | 'portal-scan' | 'portal-invoice' | 'portal-assistant' | 'portal-expense';
 
@@ -187,21 +188,27 @@ function App() {
 
   if (isPortalView) {
     return (
-      <PortalLayout currentView={viewState.view} onNavigate={navigate}>
-        {renderView()}
-      </PortalLayout>
+      <>
+        <PortalLayout currentView={viewState.view} onNavigate={navigate}>
+          {renderView()}
+        </PortalLayout>
+        <DebugCompanyStatus />
+      </>
     );
   }
 
   return (
-    <Layout
-      currentView={viewState.view}
-      onNavigate={navigate}
-      fiscalYear={fiscalYear}
-      onFiscalYearChange={handleFiscalYearChange}
-    >
-      {renderView()}
-    </Layout>
+    <>
+      <Layout
+        currentView={viewState.view}
+        onNavigate={navigate}
+        fiscalYear={fiscalYear}
+        onFiscalYearChange={handleFiscalYearChange}
+      >
+        {renderView()}
+      </Layout>
+      <DebugCompanyStatus />
+    </>
   );
 }
 
