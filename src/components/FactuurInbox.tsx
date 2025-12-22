@@ -21,6 +21,14 @@ import {
 import { supabase } from '../lib/supabase';
 import { processInvoiceWithAI, bulkProcessDocuments } from '../lib/intelligentInvoiceProcessor';
 import { bookInvoice } from '../lib/invoiceBookingService';
+import {
+  getInboxDocuments,
+  getBookedInvoices,
+  getAllAccounts,
+  getAllContacts,
+  uploadInvoiceFile,
+  deleteInvoiceDocument,
+} from '../lib/invoiceService';
 import { InvoiceReviewModal } from './InvoiceReviewModal';
 import type { Database } from '../lib/database.types';
 import type { EnhancedInvoiceData } from '../lib/intelligentInvoiceProcessor';
@@ -80,9 +88,7 @@ export function FactuurInbox() {
   }, [activeTab]);
 
   async function loadData() {
-    // Prevent multiple simultaneous loads (infinite loop protection)
     if (loadingRef.current) {
-      console.log('[FactuurInbox] Load already in progress, skipping...');
       return;
     }
 
@@ -92,64 +98,23 @@ export function FactuurInbox() {
       setError(null);
 
       if (activeTab === 'inbox') {
-        const [docsRes, accountsRes, contactsRes] = await Promise.all([
-          supabase
-            .from('documents_inbox')
-            .select('*')
-            .in('status', ['Review_Needed', 'Processing'])
-            .order('created_at', { ascending: false }),
-          supabase.from('accounts').select('*').eq('is_active', true),
-          supabase.from('contacts').select('*').eq('is_active', true),
+        const [docs, accounts, contacts] = await Promise.all([
+          getInboxDocuments(),
+          getAllAccounts(),
+          getAllContacts(),
         ]);
 
-        if (docsRes.error) throw docsRes.error;
-        if (accountsRes.error) throw accountsRes.error;
-        if (contactsRes.error) throw contactsRes.error;
+        const enrichedDocs = docs.map(doc => ({
+          ...doc,
+          extracted: doc.extracted_data as EnhancedInvoiceData | undefined,
+        }));
 
-        if (docsRes.data) {
-          const enrichedDocs = docsRes.data.map(doc => ({
-            ...doc,
-            extracted: doc.extracted_data as EnhancedInvoiceData | undefined,
-          }));
-          setDocuments(enrichedDocs);
-        } else {
-          setDocuments([]);
-        }
-
-        if (accountsRes.data) {
-          const sorted = accountsRes.data.sort((a, b) =>
-            parseInt(a.code) - parseInt(b.code)
-          );
-          setAccounts(sorted);
-        } else {
-          setAccounts([]);
-        }
-
-        if (contactsRes.data) {
-          const sorted = contactsRes.data.sort((a, b) =>
-            a.company_name.localeCompare(b.company_name)
-          );
-          setContacts(sorted);
-        } else {
-          setContacts([]);
-        }
+        setDocuments(enrichedDocs);
+        setAccounts(accounts);
+        setContacts(contacts);
       } else {
-        const { data: invoices, error: invoicesError } = await supabase
-          .from('purchase_invoices')
-          .select(`
-            id,
-            invoice_number,
-            invoice_date,
-            total_amount,
-            status,
-            contact:contacts(company_name),
-            document:documents_inbox(file_url, file_name)
-          `)
-          .order('invoice_date', { ascending: false });
-
-        if (invoicesError) throw invoicesError;
-
-        setBookedInvoices(invoices as any || []);
+        const invoices = await getBookedInvoices();
+        setBookedInvoices(invoices as any);
       }
     } catch (error) {
       console.error('Error loading data:', error);
@@ -176,7 +141,6 @@ export function FactuurInbox() {
             clearTimeout(debounceTimerRef.current);
           }
           debounceTimerRef.current = setTimeout(() => {
-            console.log('[FactuurInbox] Database change detected, reloading data...');
             loadData();
           }, 500); // Wait 500ms after last change before reloading
         }
@@ -218,48 +182,10 @@ export function FactuurInbox() {
     setUploading(true);
 
     for (const file of files) {
-      // CRITICAL: Sanitize filename first - strip any directory paths
-      // If file.name contains "invoices/file.pdf", we only want "file.pdf"
-      const rawFileName = file.name.split('/').pop()?.split('\\').pop() || 'unknown';
+      const result = await uploadInvoiceFile(file);
 
-      if (!file.type.match(/^(image\/(jpeg|jpg|png|webp)|application\/pdf)$/)) {
-        alert(`${rawFileName}: Alleen PDF en afbeeldingen worden ondersteund`);
-        continue;
-      }
-
-      if (file.size > 10 * 1024 * 1024) {
-        alert(`${rawFileName}: Bestand is te groot (max 10MB)`);
-        continue;
-      }
-
-      try {
-        // Build clean path with timestamp
-        const timestamp = Date.now();
-        const uniqueFileName = `${timestamp}_${rawFileName}`;
-
-        // Define storage structure (never trust input paths)
-        const BUCKET = 'invoices';
-        const FOLDER = 'invoices';
-        const storagePath = `${FOLDER}/${uniqueFileName}`;
-
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from(BUCKET)
-          .upload(storagePath, file, {
-            contentType: file.type,
-            upsert: false,
-          });
-
-        if (uploadError) throw uploadError;
-
-        await supabase.from('documents_inbox').insert({
-          file_url: uploadData.path,
-          file_name: rawFileName,
-          file_type: file.type,
-          status: 'Processing',
-        });
-      } catch (error) {
-        console.error('Error uploading file:', error);
-        alert(`Fout bij uploaden van ${rawFileName}`);
+      if (!result.success) {
+        alert(`${file.name}: ${result.error}`);
       }
     }
 
@@ -331,8 +257,10 @@ export function FactuurInbox() {
     if (!confirm('Document verwijderen?')) return;
 
     try {
-      await supabase.from('documents_inbox').delete().eq('id', doc.id);
-      await supabase.storage.from('invoices').remove([doc.file_url]);
+      const result = await deleteInvoiceDocument(doc.id, doc.file_url);
+      if (!result.success) {
+        throw new Error(result.error);
+      }
       await loadData();
     } catch (error) {
       console.error('Error deleting document:', error);

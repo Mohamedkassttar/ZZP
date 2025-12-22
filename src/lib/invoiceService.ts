@@ -60,13 +60,6 @@ export async function uploadInvoiceFile(file: File): Promise<UploadInvoiceResult
     const FOLDER = 'invoices';
     const storagePath = `${FOLDER}/${uniqueFileName}`;
 
-    console.log('📤 Upload Info:', {
-      originalName: file.name,
-      sanitizedName: rawFileName,
-      storagePath,
-      bucket: BUCKET
-    });
-
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from(BUCKET)
       .upload(storagePath, file, {
@@ -81,8 +74,6 @@ export async function uploadInvoiceFile(file: File): Promise<UploadInvoiceResult
         error: `Upload fout: ${uploadError.message}`,
       };
     }
-
-    console.log('✓ Upload successful, path:', uploadData.path);
 
     const { data: document, error: insertError } = await supabase
       .from('documents_inbox')
@@ -134,11 +125,6 @@ export async function processAndExtractInvoice(
       };
     }
 
-    console.log('📄 Processing document:', {
-      documentId,
-      file_url: document.file_url
-    });
-
     // CRITICAL: Use signed URL for external access (OpenAI)
     // Public URLs may not work for all Supabase configurations
     const BUCKET = 'invoices';
@@ -153,14 +139,7 @@ export async function processAndExtractInvoice(
       throw new Error(`Kan geen toegangslink maken: ${urlError?.message}`);
     }
 
-    console.log('✓ Signed URL created for OpenAI:', signedUrlData.signedUrl.substring(0, 100) + '...');
-
     const extractedData = await processInvoiceWithAI(signedUrlData.signedUrl, documentId);
-
-    console.log('\n📦 [INVOICE SERVICE] Received data from processor:');
-    console.log('   suggested_account_id:', extractedData.suggested_account_id);
-    console.log('   suggested_account_code:', extractedData.suggested_account_code);
-    console.log('   suggested_account_name:', extractedData.suggested_account_name);
 
     const { error: updateError } = await supabase
       .from('documents_inbox')
@@ -173,9 +152,6 @@ export async function processAndExtractInvoice(
     if (updateError) {
       console.error('Failed to update document status:', updateError);
     }
-
-    console.log('✓ Document processed successfully');
-    console.log('📤 [INVOICE SERVICE] Returning to client with extractedData\n');
 
     return {
       success: true,
@@ -293,4 +269,73 @@ export async function getSuppliers() {
   }
 
   return data || [];
+}
+
+export async function getInboxDocuments() {
+  const { data, error } = await supabase
+    .from('documents_inbox')
+    .select('*')
+    .in('status', ['Review_Needed', 'Processing'])
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Failed to load inbox documents:', error);
+    throw error;
+  }
+
+  return data || [];
+}
+
+export async function getBookedInvoices() {
+  const { data, error } = await supabase
+    .from('purchase_invoices')
+    .select(`
+      id,
+      invoice_number,
+      invoice_date,
+      total_amount,
+      status,
+      contact:contacts(company_name),
+      document:documents_inbox(file_url, file_name)
+    `)
+    .order('invoice_date', { ascending: false });
+
+  if (error) {
+    console.error('Failed to load booked invoices:', error);
+    throw error;
+  }
+
+  return data || [];
+}
+
+export async function getAllAccounts() {
+  const { data, error } = await supabase
+    .from('accounts')
+    .select('*')
+    .eq('is_active', true);
+
+  if (error) {
+    console.error('Failed to load accounts:', error);
+    throw error;
+  }
+
+  if (!data) return [];
+
+  return data.sort((a, b) => parseInt(a.code) - parseInt(b.code));
+}
+
+export async function getAllContacts() {
+  const { data, error } = await supabase
+    .from('contacts')
+    .select('*')
+    .eq('is_active', true);
+
+  if (error) {
+    console.error('Failed to load contacts:', error);
+    throw error;
+  }
+
+  if (!data) return [];
+
+  return data.sort((a, b) => a.company_name.localeCompare(b.company_name));
 }

@@ -58,19 +58,10 @@ export function AIReconciliationCard({ transaction, onComplete }: AIReconciliati
         ? transaction.contra_name
         : transaction.description;
 
-      console.log('\n' + '═'.repeat(60));
-      console.log('[AI CARD] Starting transaction analysis');
-      console.log(`Input text: "${analysisText}"`);
-      console.log(`Source: ${transaction.contra_name ? 'contra_name' : 'description'}`);
-      console.log(`Amount: €${transaction.amount}`);
-      console.log('═'.repeat(60));
-
       const result = await analyzeUnmatchedTransaction(
         analysisText,
         transaction.amount
       );
-
-      console.log('[AI CARD] Analysis successful');
 
       setSuggestion(result);
       setCreditorName(result.suggested_creditor);
