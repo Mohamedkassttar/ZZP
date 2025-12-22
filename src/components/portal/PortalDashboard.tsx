@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useCompany } from '../../lib/CompanyContext';
-import { Wallet, TrendingDown, TrendingUp, Clock, ArrowRight } from 'lucide-react';
+import { Wallet, TrendingDown, TrendingUp, Clock, ArrowRight, FileText, Receipt, CheckCircle2, AlertCircle } from 'lucide-react';
 
 interface DashboardData {
   bankBalance: number;
@@ -14,6 +14,19 @@ interface DashboardData {
     amount: number;
     date: string;
   }>;
+  recentDocuments: Array<{
+    id: string;
+    filename: string;
+    status: string;
+    created_at: string;
+  }>;
+  recentInvoices: Array<{
+    id: string;
+    invoice_number: string;
+    total_amount: number;
+    status: string;
+    invoice_date: string;
+  }>;
 }
 
 export function PortalDashboard() {
@@ -23,6 +36,8 @@ export function PortalDashboard() {
     unpaidPurchases: 0,
     unpaidSales: 0,
     recentActivities: [],
+    recentDocuments: [],
+    recentInvoices: [],
   });
   const [loading, setLoading] = useState(true);
 
@@ -36,7 +51,14 @@ export function PortalDashboard() {
     if (!currentCompany) return;
 
     try {
-      const [bankAccountsResult, purchasesResult, salesResult, activitiesResult] = await Promise.all([
+      const [
+        bankAccountsResult,
+        purchasesResult,
+        salesResult,
+        activitiesResult,
+        documentsResult,
+        invoicesResult
+      ] = await Promise.all([
         supabase
           .from('accounts')
           .select('id, code, name')
@@ -60,6 +82,18 @@ export function PortalDashboard() {
           .eq('company_id', currentCompany.id)
           .eq('status', 'Final')
           .order('entry_date', { ascending: false })
+          .limit(10),
+        supabase
+          .from('documents_inbox')
+          .select('id, filename, status, created_at')
+          .eq('company_id', currentCompany.id)
+          .order('created_at', { ascending: false })
+          .limit(10),
+        supabase
+          .from('invoices')
+          .select('id, invoice_number, total_amount, status, invoice_date')
+          .eq('company_id', currentCompany.id)
+          .order('invoice_date', { ascending: false })
           .limit(10),
       ]);
 
@@ -98,11 +132,30 @@ export function PortalDashboard() {
           date: entry.entry_date,
         })) || [];
 
+      const recentDocuments =
+        documentsResult.data?.map((doc) => ({
+          id: doc.id,
+          filename: doc.filename || 'Onbekend',
+          status: doc.status || 'Pending',
+          created_at: doc.created_at,
+        })) || [];
+
+      const recentInvoices =
+        invoicesResult.data?.map((inv) => ({
+          id: inv.id,
+          invoice_number: inv.invoice_number || '',
+          total_amount: inv.total_amount || 0,
+          status: inv.status || 'Draft',
+          invoice_date: inv.invoice_date || '',
+        })) || [];
+
       setData({
         bankBalance,
         unpaidPurchases,
         unpaidSales,
         recentActivities,
+        recentDocuments,
+        recentInvoices,
       });
     } catch (error) {
       console.error('Error loading dashboard data:', error);
@@ -186,6 +239,119 @@ export function PortalDashboard() {
                     <span className="text-xs text-gray-400">•</span>
                     <span className="text-xs text-gray-500">
                       {new Date(activity.date).toLocaleDateString('nl-NL', {
+                        day: 'numeric',
+                        month: 'short',
+                      })}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl shadow-md p-5 border border-gray-100">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Receipt className="w-5 h-5 text-blue-600" />
+            <h3 className="text-lg font-bold text-gray-900">Geüploade Facturen</h3>
+          </div>
+          <span className="text-xs text-gray-500">{data.recentDocuments.length} totaal</span>
+        </div>
+
+        <div className="space-y-2">
+          {data.recentDocuments.length === 0 ? (
+            <p className="text-sm text-gray-500 text-center py-8">Nog geen facturen geüpload</p>
+          ) : (
+            data.recentDocuments.slice(0, 5).map((doc) => (
+              <div
+                key={doc.id}
+                className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors"
+              >
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                  doc.status === 'Processed' || doc.status === 'Booked'
+                    ? 'bg-green-50'
+                    : doc.status === 'Failed'
+                    ? 'bg-red-50'
+                    : 'bg-blue-50'
+                }`}>
+                  {doc.status === 'Processed' || doc.status === 'Booked' ? (
+                    <CheckCircle2 className="w-4 h-4 text-green-600" />
+                  ) : doc.status === 'Failed' ? (
+                    <AlertCircle className="w-4 h-4 text-red-600" />
+                  ) : (
+                    <FileText className="w-4 h-4 text-blue-600" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">{doc.filename}</p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${
+                      doc.status === 'Processed' || doc.status === 'Booked'
+                        ? 'bg-green-100 text-green-700'
+                        : doc.status === 'Failed'
+                        ? 'bg-red-100 text-red-700'
+                        : 'bg-blue-100 text-blue-700'
+                    }`}>
+                      {doc.status}
+                    </span>
+                    <span className="text-xs text-gray-400">•</span>
+                    <span className="text-xs text-gray-500">
+                      {new Date(doc.created_at).toLocaleDateString('nl-NL', {
+                        day: 'numeric',
+                        month: 'short',
+                      })}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl shadow-md p-5 border border-gray-100">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <FileText className="w-5 h-5 text-green-600" />
+            <h3 className="text-lg font-bold text-gray-900">Mijn Facturen</h3>
+          </div>
+          <span className="text-xs text-gray-500">{data.recentInvoices.length} totaal</span>
+        </div>
+
+        <div className="space-y-2">
+          {data.recentInvoices.length === 0 ? (
+            <p className="text-sm text-gray-500 text-center py-8">Nog geen facturen aangemaakt</p>
+          ) : (
+            data.recentInvoices.slice(0, 5).map((inv) => (
+              <div
+                key={inv.id}
+                className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors"
+              >
+                <div className="w-8 h-8 bg-green-50 rounded-full flex items-center justify-center flex-shrink-0">
+                  <FileText className="w-4 h-4 text-green-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium text-gray-900">{inv.invoice_number || 'Concept'}</p>
+                    <p className="text-sm font-semibold text-gray-900">
+                      {new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR' }).format(inv.total_amount)}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${
+                      inv.status === 'Paid'
+                        ? 'bg-green-100 text-green-700'
+                        : inv.status === 'Sent'
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'bg-gray-100 text-gray-700'
+                    }`}>
+                      {inv.status}
+                    </span>
+                    <span className="text-xs text-gray-400">•</span>
+                    <span className="text-xs text-gray-500">
+                      {new Date(inv.invoice_date).toLocaleDateString('nl-NL', {
                         day: 'numeric',
                         month: 'short',
                       })}
