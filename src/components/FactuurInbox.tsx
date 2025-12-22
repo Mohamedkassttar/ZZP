@@ -414,7 +414,7 @@ export function FactuurInbox() {
               ref={fileInputRef}
               type="file"
               multiple
-              accept="application/pdf,image/jpeg,image/jpg,image/png,image/webp,image/heic,.pdf"
+              accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,application/pdf,image/jpeg,image/png,image/webp,image/heic,image/heif"
               onChange={handleFileInput}
               className="hidden"
             />
