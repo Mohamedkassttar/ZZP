@@ -34,15 +34,49 @@ export interface BookInvoiceResult {
 
 export async function uploadInvoiceFile(file: File): Promise<UploadInvoiceResult> {
   try {
+    console.log('[Upload Debug] Starting upload:', {
+      name: file.name,
+      type: file.type,
+      size: file.size
+    });
+
     const companyId = await getCurrentCompanyId();
     if (!companyId) throw new Error('Geen bedrijf geselecteerd');
 
-    if (!file.type.match(/^(image\/(jpeg|jpg|png|webp)|application\/pdf)$/)) {
+    const fileName = file.name.toLowerCase();
+    const fileExtension = fileName.split('.').pop() || '';
+
+    const validExtensions = ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'];
+    const validMimeTypes = [
+      'application/pdf',
+      'image/jpeg',
+      'image/jpg',
+      'image/png',
+      'image/webp',
+      'image/heic',
+      'image/heif'
+    ];
+
+    const isValidByExtension = validExtensions.includes(fileExtension);
+    const isValidByMimeType = file.type !== '' && (
+      validMimeTypes.includes(file.type) ||
+      validMimeTypes.some(type => file.type.includes(type.split('/')[1]))
+    );
+    const isValidByName = /\.(jpe?g|png|webp|heic|heif|pdf)$/i.test(fileName);
+
+    if (!isValidByExtension && !isValidByMimeType && !isValidByName && file.type !== '') {
+      console.error('[Upload Debug] Invalid file type:', { type: file.type, extension: fileExtension });
       return {
         success: false,
-        error: 'Alleen PDF en afbeeldingen (JPEG, PNG, WebP) worden ondersteund',
+        error: `Ongeldig bestandstype: ${file.type} (.${fileExtension}). Toegestaan: PDF, JPG, PNG, WEBP, HEIC`,
       };
     }
+
+    console.log('[Upload Debug] File validation passed:', {
+      isValidByExtension,
+      isValidByMimeType,
+      isValidByName
+    });
 
     if (file.size > 10 * 1024 * 1024) {
       return {
@@ -51,40 +85,60 @@ export async function uploadInvoiceFile(file: File): Promise<UploadInvoiceResult
       };
     }
 
-    // CRITICAL: Sanitize filename - strip any directory paths
-    // If file.name contains "invoices/file.pdf", we only want "file.pdf"
     const rawFileName = file.name.split('/').pop()?.split('\\').pop() || 'unknown';
 
-    // Build clean path with timestamp
     const timestamp = Date.now();
     const uniqueFileName = `${timestamp}_${rawFileName}`;
 
-    // Define storage structure (never trust input paths)
     const BUCKET = 'invoices';
     const FOLDER = 'invoices';
     const storagePath = `${FOLDER}/${uniqueFileName}`;
 
+    let detectedContentType = file.type;
+    if (!detectedContentType || detectedContentType === '') {
+      if (fileExtension === 'heic' || fileExtension === 'heif') {
+        detectedContentType = 'image/heic';
+      } else if (fileExtension === 'jpg' || fileExtension === 'jpeg') {
+        detectedContentType = 'image/jpeg';
+      } else if (fileExtension === 'png') {
+        detectedContentType = 'image/png';
+      } else if (fileExtension === 'webp') {
+        detectedContentType = 'image/webp';
+      } else if (fileExtension === 'pdf') {
+        detectedContentType = 'application/pdf';
+      } else {
+        detectedContentType = 'application/octet-stream';
+      }
+    }
+
+    console.log('[Upload Debug] Uploading to storage:', {
+      path: storagePath,
+      contentType: detectedContentType
+    });
+
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from(BUCKET)
       .upload(storagePath, file, {
-        contentType: file.type,
+        contentType: detectedContentType,
         upsert: false,
       });
 
     if (uploadError) {
-      console.error('Upload error:', uploadError);
+      console.error('[Upload Debug] Storage error:', uploadError);
       return {
         success: false,
         error: `Upload fout: ${uploadError.message}`,
       };
     }
 
+    console.log('[Upload Debug] Storage upload successful, creating database record...');
+
     const { data: document, error: insertError } = await supabase
       .from('documents_inbox')
       .insert({
         file_url: uploadData.path,
         file_name: rawFileName,
-        file_type: file.type,
+        file_type: detectedContentType,
         status: 'Processing',
         source: 'portal',
         company_id: companyId,

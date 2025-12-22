@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { processInvoiceWithAI } from '../../lib/intelligentInvoiceProcessor';
 import { bookInvoice } from '../../lib/invoiceBookingService';
 import { parseMT940File, parseCSVFile, parseCAMT053, parsePDFFile, importBankTransactions, type ImportResult } from '../../lib/bankImportService';
+import { uploadInvoiceFile } from '../../lib/invoiceService';
 import { getCurrentCompanyId } from '../../lib/companyHelper';
 import type { EnhancedInvoiceData } from '../../lib/intelligentInvoiceProcessor';
 
@@ -32,55 +33,10 @@ export function PortalUpload({ type }: PortalUploadProps) {
   async function handleFileSelect(selectedFile: File) {
     if (!selectedFile) return;
 
-    console.log('[Mobile Upload Debug] File selected:', {
+    console.log('[Portal Upload] File selected:', {
       name: selectedFile.name,
       type: selectedFile.type,
-      size: selectedFile.size,
-      lastModified: selectedFile.lastModified
-    });
-
-    const maxSize = 10 * 1024 * 1024;
-    if (selectedFile.size > maxSize) {
-      const errorMsg = `Bestand is te groot: ${(selectedFile.size / 1024 / 1024).toFixed(2)}MB. Maximum is 10MB.`;
-      console.error('[Mobile Upload Debug] File too large:', errorMsg);
-      setError(errorMsg);
-      return;
-    }
-
-    const fileName = selectedFile.name.toLowerCase();
-    const fileExtension = fileName.split('.').pop() || '';
-
-    const validTypes = isInvoice
-      ? ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
-      : ['application/pdf', 'text/csv', 'application/xml', 'text/xml', 'text/plain'];
-
-    const validExtensions = isInvoice
-      ? ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'heic', 'heif']
-      : ['pdf', 'csv', 'xml', 'sta', '940', 'txt'];
-
-    const isValidByMimeType = validTypes.some(type => {
-      const baseType = type.split('/')[1];
-      return selectedFile.type === type ||
-             selectedFile.type.includes(baseType);
-    });
-
-    const isValidByExtension = validExtensions.includes(fileExtension);
-
-    const isValidByName = isInvoice && /\.(jpe?g|png|webp|heic|heif|pdf)$/i.test(fileName);
-
-    if (!isValidByMimeType && !isValidByExtension && !isValidByName && selectedFile.type !== '') {
-      const errorMsg = `Ongeldig bestandstype: ${selectedFile.type} (.${fileExtension}). Toegestaan: PDF, JPG, PNG, WEBP, HEIC`;
-      console.error('[Mobile Upload Debug] Invalid file type:', errorMsg);
-      setError(errorMsg);
-      return;
-    }
-
-    console.log('[Mobile Upload Debug] File validation passed:', {
-      isValidByMimeType,
-      isValidByExtension,
-      isValidByName,
-      mimeType: selectedFile.type,
-      extension: fileExtension
+      size: selectedFile.size
     });
 
     setFile(selectedFile);
@@ -88,111 +44,55 @@ export function PortalUpload({ type }: PortalUploadProps) {
     setError(null);
 
     try {
-      console.log('[Mobile Upload Debug] Getting company ID...');
-      const companyId = await getCurrentCompanyId();
-      if (!companyId) {
-        throw new Error('Geen bedrijf geselecteerd');
-      }
-      console.log('[Mobile Upload Debug] Company ID:', companyId);
-
-      const timestamp = Date.now();
-      const fileName = `${timestamp}_${selectedFile.name}`;
-      const filePath = `invoices/${fileName}`;
-
-      let detectedContentType = selectedFile.type;
-      if (!detectedContentType || detectedContentType === '') {
-        if (fileExtension === 'heic' || fileExtension === 'heif') {
-          detectedContentType = 'image/heic';
-        } else if (fileExtension === 'jpg' || fileExtension === 'jpeg') {
-          detectedContentType = 'image/jpeg';
-        } else if (fileExtension === 'png') {
-          detectedContentType = 'image/png';
-        } else if (fileExtension === 'webp') {
-          detectedContentType = 'image/webp';
-        } else if (fileExtension === 'pdf') {
-          detectedContentType = 'application/pdf';
-        } else {
-          detectedContentType = 'application/octet-stream';
-        }
-      }
-
-      console.log('[Mobile Upload Debug] Starting upload to Supabase Storage...');
-      console.log('[Mobile Upload Debug] Path:', filePath);
-      console.log('[Mobile Upload Debug] Content-Type (original):', selectedFile.type);
-      console.log('[Mobile Upload Debug] Content-Type (detected):', detectedContentType);
-
-      const uploadOptions: any = {
-        upsert: false,
-        contentType: detectedContentType,
-      };
-
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('invoices')
-        .upload(filePath, selectedFile, uploadOptions);
-
-      if (uploadError) {
-        console.error('[Mobile Upload Debug] Supabase Storage Error:', uploadError);
-        throw uploadError;
-      }
-
-      console.log('[Mobile Upload Debug] Upload successful:', uploadData);
-
-      console.log('[Mobile Upload Debug] Creating document record in database...');
-      const { data: document, error: docError } = await supabase
-        .from('documents_inbox')
-        .insert({
-          company_id: companyId,
-          file_url: uploadData.path,
-          file_name: selectedFile.name,
-          file_type: detectedContentType,
-          status: 'Processing',
-          source: 'portal',
-        })
-        .select()
-        .single();
-
-      if (docError) {
-        console.error('[Mobile Upload Debug] Database Error:', docError);
-        throw new Error(`Database error: ${docError.message}`);
-      }
-
-      if (!document) {
-        throw new Error('Failed to create document record - no data returned');
-      }
-
-      console.log('[Mobile Upload Debug] Document record created:', document.id);
-      setDocumentId(document.id);
-
       if (isInvoice) {
-        console.log('[Mobile Upload Debug] Starting AI analysis...');
+        console.log('[Portal Upload] Using uploadInvoiceFile (same as expert mode)...');
+        const uploadResult = await uploadInvoiceFile(selectedFile);
+
+        if (!uploadResult.success) {
+          throw new Error(uploadResult.error || 'Upload failed');
+        }
+
+        if (!uploadResult.documentId) {
+          throw new Error('No document ID returned');
+        }
+
+        console.log('[Portal Upload] Upload successful, document ID:', uploadResult.documentId);
+        setDocumentId(uploadResult.documentId);
+
+        console.log('[Portal Upload] Starting AI analysis...');
         setState('analyzing');
+
+        const { data: document } = await supabase
+          .from('documents_inbox')
+          .select('file_url')
+          .eq('id', uploadResult.documentId)
+          .single();
+
+        if (!document?.file_url) {
+          throw new Error('Could not retrieve file URL');
+        }
 
         const { data: signedUrlData, error: signedUrlError } = await supabase.storage
           .from('invoices')
-          .createSignedUrl(uploadData.path, 300);
+          .createSignedUrl(document.file_url, 300);
 
-        if (signedUrlError) {
-          console.error('[Mobile Upload Debug] Signed URL Error:', signedUrlError);
-          throw new Error(`Signed URL error: ${signedUrlError.message}`);
-        }
-
-        if (!signedUrlData) {
+        if (signedUrlError || !signedUrlData) {
           throw new Error('Kon geen signed URL maken voor AI verwerking');
         }
 
-        console.log('[Mobile Upload Debug] Processing with AI...');
-        const invoiceData = await processInvoiceWithAI(signedUrlData.signedUrl, document.id);
-        console.log('[Mobile Upload Debug] AI processing complete');
+        console.log('[Portal Upload] Processing with AI...');
+        const invoiceData = await processInvoiceWithAI(signedUrlData.signedUrl, uploadResult.documentId);
+        console.log('[Portal Upload] AI processing complete');
         setPreview(invoiceData);
         setState('preview');
       } else {
-        console.log('[Mobile Upload Debug] Processing as bank import...');
+        console.log('[Portal Upload] Processing as bank import...');
         await handleBankImport(selectedFile);
       }
     } catch (err) {
-      console.error('[Mobile Upload Debug] ERROR:', err);
+      console.error('[Portal Upload] ERROR:', err);
       const errorMessage = err instanceof Error ? err.message : 'Upload failed';
-      console.error('[Mobile Upload Debug] Error message:', errorMessage);
+      console.error('[Portal Upload] Error message:', errorMessage);
       setError(errorMessage);
       setState('error');
     }
