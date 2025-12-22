@@ -144,13 +144,13 @@ export async function getFinancialContext(
 
   const { data: salesInvoices } = await supabase
     .from('sales_invoices')
-    .select('id, status, due_date')
+    .select('id, status')
     .eq('company_id', companyId)
     .in('status', ['Sent', 'Overdue']);
 
   const outstandingCount = salesInvoices?.length || 0;
   const overdueCount =
-    salesInvoices?.filter((inv) => inv.status === 'Overdue' || (inv.due_date && inv.due_date < today))
+    salesInvoices?.filter((inv) => inv.status === 'Overdue')
       .length || 0;
 
   const monthlyRevenueTrend = Object.entries(monthlyRevenue)

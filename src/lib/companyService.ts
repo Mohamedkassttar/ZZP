@@ -178,5 +178,12 @@ async function seedCompanyAccounts(companyId: string): Promise<void> {
     is_active: true,
   }));
 
-  await supabase.from('accounts').insert(accountsToInsert);
+  const { error } = await supabase.from('accounts').insert(accountsToInsert);
+
+  if (error) {
+    console.error('Failed to seed company accounts:', error);
+    throw new Error(`Failed to seed accounts: ${error.message}`);
+  }
+
+  console.log(`✓ Seeded ${accountsToInsert.length} accounts for company ${companyId}`);
 }
