@@ -187,7 +187,16 @@ export function extractJSON(content: string): any {
 
   console.log('📄 [JSON EXTRACT] Raw OpenAI response:', content.substring(0, 500));
 
-  const jsonMatch = content.match(/\{[\s\S]*\}/);
+  const objectMatch = content.match(/\{[\s\S]*\}/);
+  const arrayMatch = content.match(/\[[\s\S]*\]/);
+
+  let jsonMatch = null;
+  if (arrayMatch && (!objectMatch || arrayMatch.index! < objectMatch.index!)) {
+    jsonMatch = arrayMatch;
+  } else if (objectMatch) {
+    jsonMatch = objectMatch;
+  }
+
   if (!jsonMatch) {
     console.error('❌ [JSON EXTRACT] Could not find JSON in response. Full response:', content);
     throw new Error(`Could not extract JSON from OpenAI response. AI returned: "${content.substring(0, 200)}..."`);

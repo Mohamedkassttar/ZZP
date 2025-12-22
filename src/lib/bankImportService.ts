@@ -289,16 +289,22 @@ BELANGRIJK:
 
     const userPrompt = `Parseer deze bankafschrift tekst:\n\n${fullText}`;
 
-    const response = await callOpenAIWithRetry(
-      [
+    const data = await callOpenAIWithRetry(OPENAI_API_KEY, {
+      model: 'gpt-4o-mini',
+      messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
       ],
-      'gpt-4o-mini',
-      0.0
-    );
+      max_tokens: 2000,
+      temperature: 0.0,
+    });
 
-    const jsonData = extractJSON(response);
+    const content = data.choices?.[0]?.message?.content;
+    if (!content) {
+      throw new Error('Geen response van OpenAI ontvangen');
+    }
+
+    const jsonData = extractJSON(content);
 
     if (!Array.isArray(jsonData)) {
       throw new Error('AI response is geen array');
