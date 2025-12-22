@@ -1,15 +1,16 @@
 import { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Book, FileText, Package, Car, Zap, AlertTriangle, Trash2, RotateCcw, Download } from 'lucide-react';
+import { Settings as SettingsIcon, Book, FileText, Package, Car, Zap, AlertTriangle, Trash2, RotateCcw, Download, DollarSign } from 'lucide-react';
 import { AccountsManager } from './settings/AccountsManager';
 import { InvoicesManager } from './settings/InvoicesManager';
 import { FixedAssetsManager } from './settings/FixedAssetsManager';
 import { MileageTracker } from './settings/MileageTracker';
 import { BankRulesManager } from './settings/BankRulesManager';
+import { FinancialSettings } from './settings/FinancialSettings';
 import { clearAllData } from '../lib/taxCalculationService';
 import { resetAdministration } from '../lib/adminResetService';
 import { downloadConfigurationBackup, getConfigurationStats } from '../lib/configExportService';
 
-type SettingsTab = 'accounts' | 'invoices' | 'assets' | 'mileage' | 'bankrules' | 'system';
+type SettingsTab = 'accounts' | 'invoices' | 'assets' | 'mileage' | 'bankrules' | 'financial' | 'system';
 
 interface SettingsProps {
   initialTab?: SettingsTab;
@@ -30,6 +31,7 @@ export function Settings({ initialTab }: SettingsProps) {
     { id: 'assets' as SettingsTab, label: 'Vaste Activa', icon: Package },
     { id: 'mileage' as SettingsTab, label: 'Kilometers', icon: Car },
     { id: 'bankrules' as SettingsTab, label: 'Bankregels', icon: Zap },
+    { id: 'financial' as SettingsTab, label: 'Financiële Instellingen', icon: DollarSign },
     { id: 'system' as SettingsTab, label: 'Systeem', icon: AlertTriangle },
   ];
 
@@ -137,6 +139,7 @@ export function Settings({ initialTab }: SettingsProps) {
           {activeTab === 'assets' && <FixedAssetsManager />}
           {activeTab === 'mileage' && <MileageTracker />}
           {activeTab === 'bankrules' && <BankRulesManager />}
+          {activeTab === 'financial' && <FinancialSettings />}
           {activeTab === 'system' && (
             <div className="space-y-6">
               <div>

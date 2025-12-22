@@ -23,32 +23,11 @@ import type { Database } from './database.types';
 import type { EnhancedInvoiceData } from './intelligentInvoiceProcessor';
 import { findActiveAccountsPayable } from './systemAccountsService';
 import { getAccountIdByCode } from './bankService';
+import { getCashAccount, getPrivateAccount } from './financialSettingsService';
 
 type Contact = Database['public']['Tables']['contacts']['Row'];
 type Account = Database['public']['Tables']['accounts']['Row'];
 
-/**
- * Helper: Search for account by name pattern (fuzzy match)
- * Used to find Cash or Private accounts without hardcoding codes
- *
- * @param pattern - Name pattern to search for (e.g., 'Kas', 'Privé', 'Prive opname')
- * @returns Account ID and details
- */
-async function getAccountByNamePattern(pattern: string): Promise<{ id: string; code: string; name: string }> {
-  const { data, error } = await supabase
-    .from('accounts')
-    .select('id, name, code')
-    .ilike('name', `%${pattern}%`)
-    .eq('is_active', true)
-    .limit(1)
-    .maybeSingle();
-
-  if (error || !data) {
-    throw new Error(`Geen rekening gevonden met '${pattern}' in de naam. Controleer je grootboekschema en zorg dat een rekening bestaat met deze naam.`);
-  }
-
-  return data;
-}
 
 export type PaymentMethod = 'none' | 'cash' | 'private';
 
@@ -377,11 +356,19 @@ export async function bookInvoice(params: BookInvoiceParams): Promise<BookInvoic
       console.log(`  Payment Method: ${paymentMethod === 'cash' ? 'Kas (Cash)' : 'Privé opname'}`);
 
       try {
-        // Determine search pattern based on payment method
-        const searchPattern = paymentMethod === 'cash' ? 'Kas' : 'Prive';
-        const paymentAccount = await getAccountByNamePattern(searchPattern);
+        // Get payment account from financial settings
+        const paymentAccount = paymentMethod === 'cash'
+          ? await getCashAccount()
+          : await getPrivateAccount();
 
-        console.log(`  ✓ Found payment account: ${paymentAccount.code} - ${paymentAccount.name}`);
+        if (!paymentAccount) {
+          throw new Error(
+            `Geen ${paymentMethod === 'cash' ? 'kas' : 'privé'}-rekening geconfigureerd. ` +
+            'Stel deze in via Instellingen → Financiële Instellingen.'
+          );
+        }
+
+        console.log(`  ✓ Using configured account: ${paymentAccount.code} - ${paymentAccount.name}`);
         paymentAccountUsed = { code: paymentAccount.code, name: paymentAccount.name };
 
         // Create payment journal entry
