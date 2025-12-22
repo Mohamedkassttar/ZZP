@@ -314,17 +314,17 @@ export function PortalCreateInvoice() {
       const companyId = await getCurrentCompanyId();
       if (!companyId) throw new Error('Geen bedrijf geselecteerd');
 
-      const { findSystemAccountsByPattern } = await import('../../lib/systemAccountsService');
-      const systemAccounts = await findSystemAccountsByPattern();
+      const { fetchSystemAccounts } = await import('../../lib/systemAccountsService');
+      const systemAccounts = await fetchSystemAccounts();
 
-      if (!systemAccounts.debtorsAccount || !systemAccounts.vatPayableAccount) {
+      if (!systemAccounts.accountsReceivable || !systemAccounts.vatPayable) {
         throw new Error('Systeem grootboekrekeningen niet gevonden');
       }
 
       const journalLines = [];
 
       journalLines.push({
-        account_id: systemAccounts.debtorsAccount.id,
+        account_id: systemAccounts.accountsReceivable.id,
         debit: invoiceData.total_amount,
         credit: 0,
         description: `Factuur ${invoiceData.invoice_number}`,
@@ -340,7 +340,7 @@ export function PortalCreateInvoice() {
 
         if (line.vat_amount > 0) {
           journalLines.push({
-            account_id: systemAccounts.vatPayableAccount.id,
+            account_id: systemAccounts.vatPayable.id,
             debit: 0,
             credit: line.vat_amount,
             description: `BTW ${line.vat_rate}% - ${line.description}`,
