@@ -22,8 +22,9 @@ import { PortalBank } from './components/portal/PortalBank';
 import { PortalCreateInvoice } from './components/portal/PortalCreateInvoice';
 import { PortalAssistant } from './components/portal/PortalAssistant';
 import { PortalExpense } from './components/portal/PortalExpense';
+import { Auth } from './components/Auth';
 import { seedAccounts } from './lib/seedAccounts';
-import { isSupabaseConfigured } from './lib/supabase';
+import { supabase, isSupabaseConfigured } from './lib/supabase';
 import { DebugCompanyStatus } from './components/DebugCompanyStatus';
 
 type View = 'dashboard' | 'inbox' | 'boeken' | 'memoriaal-boekingen' | 'bankboekingen' | 'bank' | 'reports' | 'settings' | 'outstanding' | 'account-detail' | 'relations' | 'tax' | 'ib-aangifte' | 'sales' | 'office' | 'portal-home' | 'portal-scan' | 'portal-invoice' | 'portal-assistant' | 'portal-expense';
@@ -42,6 +43,8 @@ function App() {
     message: string;
     count: number;
   } | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [checkingAuth, setCheckingAuth] = useState(true);
 
   function navigate(view: View, data?: any) {
     setViewState({ view, data });
@@ -52,12 +55,50 @@ function App() {
   }
 
   useEffect(() => {
-    initializeApp();
+    checkAuthAndInitialize();
   }, []);
+
+  async function checkAuthAndInitialize() {
+    try {
+      // Check if user is logged in
+      const { data: { session } } = await supabase.auth.getSession();
+      setIsAuthenticated(!!session);
+      setCheckingAuth(false);
+
+      if (session) {
+        // Only initialize if authenticated
+        console.log('App: User authenticated, starting initialization...');
+        const result = await seedAccounts();
+        console.log('App: Seed result:', result);
+        setSeedStatus(result);
+        setSeeding(false);
+      } else {
+        console.log('App: No session, showing auth screen');
+        setSeeding(false);
+      }
+    } catch (error) {
+      console.error('App: Auth check error:', error);
+      setIsAuthenticated(false);
+      setCheckingAuth(false);
+      setSeeding(false);
+    }
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsAuthenticated(!!session);
+      if (session && !seedStatus) {
+        // User just logged in, initialize
+        initializeApp();
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }
 
   async function initializeApp() {
     try {
       console.log('App: Starting initialization...');
+      setSeeding(true);
       const result = await seedAccounts();
       console.log('App: Seed result:', result);
       setSeedStatus(result);
@@ -68,6 +109,11 @@ function App() {
       setSeedStatus({ success: false, message: 'Failed to initialize', count: 0 });
       setSeeding(false);
     }
+  }
+
+  function handleAuthSuccess() {
+    setIsAuthenticated(true);
+    initializeApp();
   }
 
   if (!isSupabaseConfigured) {
@@ -96,6 +142,21 @@ function App() {
         </div>
       </div>
     );
+  }
+
+  // Show auth screen if not authenticated
+  if (checkingAuth || (isAuthenticated === false && !seeding)) {
+    if (checkingAuth) {
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-gray-100 flex items-center justify-center">
+          <div className="text-center">
+            <Database className="w-16 h-16 text-blue-600 mx-auto mb-4 animate-pulse" />
+            <p className="text-gray-700 text-lg">Laden...</p>
+          </div>
+        </div>
+      );
+    }
+    return <Auth onAuthSuccess={handleAuthSuccess} />;
   }
 
   if (seeding) {
