@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { processInvoiceWithAI } from '../../lib/intelligentInvoiceProcessor';
 import { bookInvoice } from '../../lib/invoiceBookingService';
 import { parseMT940File, parseCSVFile, parseCAMT053, parsePDFFile, importBankTransactions, type ImportResult } from '../../lib/bankImportService';
+import { getCurrentCompanyId } from '../../lib/companyHelper';
 import type { EnhancedInvoiceData } from '../../lib/intelligentInvoiceProcessor';
 
 interface PortalUploadProps {
@@ -35,6 +36,11 @@ export function PortalUpload({ type }: PortalUploadProps) {
     setError(null);
 
     try {
+      const companyId = await getCurrentCompanyId();
+      if (!companyId) {
+        throw new Error('Geen bedrijf geselecteerd');
+      }
+
       const timestamp = Date.now();
       const fileName = `${timestamp}_${selectedFile.name}`;
       const filePath = `invoices/${fileName}`;
@@ -51,6 +57,7 @@ export function PortalUpload({ type }: PortalUploadProps) {
       const { data: document, error: docError } = await supabase
         .from('documents_inbox')
         .insert({
+          company_id: companyId,
           file_url: uploadData.path,
           file_name: selectedFile.name,
           file_type: selectedFile.type,
@@ -93,9 +100,15 @@ export function PortalUpload({ type }: PortalUploadProps) {
     setError(null);
 
     try {
+      const companyId = await getCurrentCompanyId();
+      if (!companyId) {
+        throw new Error('Geen bedrijf geselecteerd');
+      }
+
       const { data: bankAccount } = await supabase
         .from('accounts')
         .select('id')
+        .eq('company_id', companyId)
         .eq('code', '1100')
         .eq('is_active', true)
         .maybeSingle();
