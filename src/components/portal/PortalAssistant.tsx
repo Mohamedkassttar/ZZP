@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Loader2, Bot, User } from 'lucide-react';
+import { Send, Loader2, Bot, User, TrendingUp } from 'lucide-react';
+import { chatWithFinancialAdvisor, type ChatMessage } from '../../lib/aiService';
+import { useCompany } from '../../lib/CompanyContext';
 
 interface Message {
   id: string;
@@ -8,40 +10,13 @@ interface Message {
   timestamp: Date;
 }
 
-const SYSTEM_PROMPT = `Je bent een strikte Nederlandse belastingassistent voor ZZP'ers en kleine ondernemers.
-
-REGELS:
-- Baseer je antwoorden UITSLUITEND op informatie van belastingdienst.nl, kvk.nl of rijksoverheid.nl
-- Geef extreem korte, bondige antwoorden
-- Gebruik bulletpoints waar mogelijk
-- Maximaal 3-4 zinnen per antwoord
-- Voeg ALTIJD toe: "⚠️ Check dit bij je boekhouder"
-- Als je het niet zeker weet, zeg dan eerlijk: "Ik weet het niet zeker"
-- Geen lappen tekst, direct to the point
-
-VOORBEELDEN:
-User: "Mag ik mijn telefoon aftrekken?"
-Assistent: "Ja, als je deze zakelijk gebruikt:
-• 100% zakelijk = volledig aftrekbaar
-• Ook privé = 80% aftrekbaar (zakelijk deel)
-• BTW kan je terugvragen
-
-⚠️ Check dit bij je boekhouder"
-
-User: "Wat is de BTW-vrijstelling?"
-Assistent: "€20.000 omzet in het jaar.
-• Daaronder = vrijstelling mogelijk
-• Voordeel: geen BTW berekenen
-• Nadeel: geen BTW terugvragen
-
-⚠️ Check dit bij je boekhouder"`;
-
 export function PortalAssistant() {
+  const { currentCompany } = useCompany();
   const [messages, setMessages] = useState<Message[]>([
     {
       id: crypto.randomUUID(),
       role: 'assistant',
-      content: 'Hoi! Ik help je met Nederlandse belastingvragen. Stel je vraag!',
+      content: 'Hoi! Ik ben je Virtual CFO. Ik kan je helpen met:\n\n• Financiële analyses van je bedrijf\n• Liquiditeits- en solvabiliteitsbeoordeling\n• Advies over investeringen en uitgaven\n• Prognoses en trendanalyses\n• Bankfinancieringsmogelijkheden\n\nStel me een vraag!',
       timestamp: new Date(),
     },
   ]);
@@ -57,6 +32,17 @@ export function PortalAssistant() {
   async function handleSend() {
     if (!input.trim() || isLoading) return;
 
+    if (!currentCompany) {
+      const errorMessage: Message = {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: 'Geen bedrijf geselecteerd. Selecteer eerst een bedrijf om de AI assistent te gebruiken.',
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+      return;
+    }
+
     const userMessage: Message = {
       id: crypto.randomUUID(),
       role: 'user',
@@ -69,73 +55,35 @@ export function PortalAssistant() {
     setIsLoading(true);
 
     try {
-      const tavilyApiKey = import.meta.env.VITE_TAVILY_API_KEY;
-      let context = '';
+      const conversationHistory: ChatMessage[] = messages
+        .slice(1)
+        .map((msg) => ({
+          role: msg.role === 'user' ? 'user' : 'assistant',
+          content: msg.content,
+        }));
 
-      if (tavilyApiKey) {
-        try {
-          const searchQuery = `${userMessage.content} Nederlands belasting ZZP`;
-          const tavilyResponse = await fetch('https://api.tavily.com/search', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              api_key: tavilyApiKey,
-              query: searchQuery,
-              search_depth: 'basic',
-              max_results: 3,
-              include_answer: true,
-              include_domains: ['belastingdienst.nl', 'kvk.nl', 'rijksoverheid.nl'],
-            }),
-          });
-
-          if (tavilyResponse.ok) {
-            const tavilyData = await tavilyResponse.json();
-            context = tavilyData.answer || tavilyData.results?.map((r: any) => r.content).join('\n') || '';
-          }
-        } catch (error) {
-          console.warn('Tavily search failed, proceeding without context');
-        }
-      }
-
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o-mini',
-          messages: [
-            { role: 'system', content: SYSTEM_PROMPT },
-            {
-              role: 'user',
-              content: `Context van betrouwbare bronnen:\n${context}\n\nVraag: ${userMessage.content}`,
-            },
-          ],
-          temperature: 0.7,
-          max_tokens: 300,
-        }),
-      });
-
-      if (!response.ok) throw new Error('API request failed');
-
-      const data = await response.json();
-      const assistantContent = data.choices[0]?.message?.content || 'Sorry, ik kon geen antwoord genereren.';
+      const response = await chatWithFinancialAdvisor(
+        currentCompany.id,
+        userMessage.content,
+        conversationHistory
+      );
 
       const assistantMessage: Message = {
         id: crypto.randomUUID(),
         role: 'assistant',
-        content: assistantContent,
+        content: response.message,
         timestamp: new Date(),
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
     } catch (error) {
-      console.error('Assistant error:', error);
+      console.error('Financial Advisor error:', error);
       const errorMessage: Message = {
         id: crypto.randomUUID(),
         role: 'assistant',
-        content: 'Sorry, er ging iets fout. Probeer het opnieuw.',
+        content: error instanceof Error
+          ? `Sorry, er ging iets fout: ${error.message}`
+          : 'Sorry, er ging iets fout. Probeer het opnieuw.',
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMessage]);
@@ -156,12 +104,14 @@ export function PortalAssistant() {
     <div className="flex flex-col h-[calc(100vh-180px)] max-w-2xl mx-auto">
       <div className="bg-white rounded-t-3xl shadow-lg p-4 border border-gray-100 border-b-0">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
-            <Bot className="w-6 h-6 text-white" />
+          <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-full flex items-center justify-center">
+            <TrendingUp className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h2 className="font-bold text-gray-900">Fiscale AI Assistent</h2>
-            <p className="text-xs text-gray-500">Belastingdienst.nl informatie</p>
+            <h2 className="font-bold text-gray-900">Virtual CFO</h2>
+            <p className="text-xs text-gray-500">
+              {currentCompany ? `Advies voor ${currentCompany.name}` : 'Selecteer een bedrijf'}
+            </p>
           </div>
         </div>
       </div>
@@ -176,13 +126,13 @@ export function PortalAssistant() {
               className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
                 message.role === 'user'
                   ? 'bg-gradient-to-br from-gray-600 to-gray-700'
-                  : 'bg-gradient-to-br from-blue-500 to-blue-600'
+                  : 'bg-gradient-to-br from-emerald-500 to-emerald-600'
               }`}
             >
               {message.role === 'user' ? (
                 <User className="w-4 h-4 text-white" />
               ) : (
-                <Bot className="w-4 h-4 text-white" />
+                <TrendingUp className="w-4 h-4 text-white" />
               )}
             </div>
 
@@ -210,13 +160,13 @@ export function PortalAssistant() {
 
         {isLoading && (
           <div className="flex gap-3">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
-              <Bot className="w-4 h-4 text-white" />
+            <div className="w-8 h-8 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-full flex items-center justify-center flex-shrink-0">
+              <TrendingUp className="w-4 h-4 text-white" />
             </div>
             <div className="bg-gray-100 rounded-2xl px-4 py-3">
               <div className="flex items-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
-                <span className="text-sm text-gray-600">Zoekt informatie...</span>
+                <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
+                <span className="text-sm text-gray-600">Analyseert je financiële situatie...</span>
               </div>
             </div>
           </div>
@@ -232,21 +182,21 @@ export function PortalAssistant() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyPress}
-            placeholder="Stel je belastingvraag..."
+            placeholder="Bijv: Hoe sta ik er financieel voor? Of: Kan ik een nieuwe auto van €30k betalen?"
             rows={1}
-            className="flex-1 px-4 py-3 border-2 border-gray-200 rounded-2xl focus:border-blue-500 focus:outline-none resize-none"
+            className="flex-1 px-4 py-3 border-2 border-gray-200 rounded-2xl focus:border-emerald-500 focus:outline-none resize-none"
             style={{ minHeight: '48px', maxHeight: '120px' }}
           />
           <button
             onClick={handleSend}
             disabled={!input.trim() || isLoading}
-            className="bg-blue-600 text-white p-3 rounded-2xl hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+            className="bg-emerald-600 text-white p-3 rounded-2xl hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
           >
             <Send className="w-5 h-5" />
           </button>
         </div>
         <p className="text-xs text-gray-500 mt-2 text-center">
-          Antwoorden zijn gebaseerd op officiële bronnen. Altijd dubbelchecken bij je boekhouder!
+          Analyses zijn gebaseerd op je actuele financiële cijfers. Altijd dubbelchecken bij belangrijke beslissingen!
         </p>
       </div>
     </div>

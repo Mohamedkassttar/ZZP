@@ -1,6 +1,7 @@
 import type { Database, ExtractedInvoiceData } from './database.types';
 import { supabase } from './supabase';
 import { callOpenAIWithRetry, extractJSON } from './openaiRetryHelper';
+import { getFinancialContext, formatFinancialContextForAI } from './financialReportService';
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
@@ -244,5 +245,134 @@ ${JSON.stringify(accountList, null, 2)}`;
     // Re-throw with more context
     const errorMessage = error instanceof Error ? error.message : String(error);
     throw new Error(`Invoice AI analysis failed: ${errorMessage}`);
+  }
+}
+
+export interface ChatMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+}
+
+export interface ChatResponse {
+  message: string;
+  usage?: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  };
+}
+
+export async function chatWithFinancialAdvisor(
+  companyId: string,
+  userMessage: string,
+  conversationHistory: ChatMessage[] = []
+): Promise<ChatResponse> {
+  if (!OPENAI_API_KEY) {
+    throw new Error('OpenAI API key is not configured. Please add VITE_OPENAI_API_KEY to your .env file.');
+  }
+
+  if (!companyId) {
+    throw new Error('Company ID is required for financial context');
+  }
+
+  try {
+    console.log('\n' + '═'.repeat(60));
+    console.log('💼 [FINANCIAL ADVISOR] Starting chat session');
+    console.log(`🏢 Company ID: ${companyId}`);
+    console.log(`💬 User message: ${userMessage.substring(0, 100)}...`);
+    console.log('═'.repeat(60));
+
+    console.log('📊 [FINANCIAL ADVISOR] Fetching financial context...');
+    const financialContext = await getFinancialContext(companyId);
+    const contextSummary = formatFinancialContextForAI(financialContext);
+
+    console.log('✓ [FINANCIAL ADVISOR] Financial context retrieved');
+    console.log(`💰 Revenue YTD: €${financialContext.revenue_ytd}`);
+    console.log(`📈 Net Profit: €${financialContext.net_profit_ytd}`);
+    console.log(`🏦 Bank Balance: €${financialContext.bank_balance}`);
+
+    const systemPrompt = `Je bent een ervaren Financieel Adviseur en Virtual CFO voor Nederlandse ZZP'ers en MKB-ondernemers.
+
+Je hebt toegang tot de actuele financiële cijfers van het bedrijf. Gebruik deze data om concrete, zakelijke adviezen te geven.
+
+${contextSummary}
+
+BELANGRIJKE RICHTLIJNEN:
+1. Geef altijd concrete, praktische adviezen gebaseerd op de cijfers
+2. Bereken liquiditeit en solvabiliteit wanneer relevant
+3. Waarschuw bij lage liquiditeit (Current Ratio < 1.0) of negatief banksaldo
+4. Bij vragen over financiering: beoordeel solvabiliteit (ideaal >30% voor bank)
+5. Bij vragen over investeringen: check banksaldo + verwachte inkomsten
+6. Extrapoleer voorzichtig bij prognosevragen (max 6-12 maanden)
+7. Geef altijd scenario's (optimistisch/realistisch/pessimistisch) bij onzekere vragen
+8. Wees zakelijk maar begrijpelijk - geen jargon zonder uitleg
+9. Als data ontbreekt of onvolledig is: vermeld dit expliciet
+
+LIQUIDITEIT RICHTLIJNEN:
+- Current Ratio > 2.0: Uitstekende liquiditeit
+- Current Ratio 1.0 - 2.0: Gezonde liquiditeit
+- Current Ratio < 1.0: Liquiditeitsprobleem, waarschuw de gebruiker
+
+SOLVABILITEIT RICHTLIJNEN:
+- > 40%: Sterke financiële positie, banken lenen graag
+- 20-40%: Gezonde positie voor ZZP/MKB
+- < 20%: Kwetsbaar, financiering moeilijker
+- < 0%: Negatief eigen vermogen, kritieke situatie
+
+INVESTERINGSBEOORDELING:
+- Check banksaldo + openstaande debiteuren
+- Hou rekening met vaste lasten (kosten / 12 maanden)
+- Adviseer minimaal 3 maanden buffer aan te houden
+- Bij grote investeringen (>€10k): check cashflow en seizoenseffecten
+
+Antwoord altijd in het Nederlands en wees praktisch en direct.`;
+
+    const messages: ChatMessage[] = [
+      { role: 'system', content: systemPrompt },
+      ...conversationHistory.slice(-10),
+      { role: 'user', content: userMessage },
+    ];
+
+    console.log('📤 [FINANCIAL ADVISOR] Sending request to OpenAI...');
+    console.log(`📝 Context length: ${contextSummary.length} characters`);
+    console.log(`💬 Conversation history: ${conversationHistory.length} messages`);
+
+    const data = await callOpenAIWithRetry(OPENAI_API_KEY, {
+      model: 'gpt-4o-mini',
+      messages,
+      max_tokens: 2000,
+      temperature: 0.7,
+    });
+
+    console.log('📥 [FINANCIAL ADVISOR] Received response from OpenAI');
+
+    const content = data.choices?.[0]?.message?.content;
+    if (!content) {
+      console.error('❌ [FINANCIAL ADVISOR] No content in OpenAI response');
+      throw new Error('Geen antwoord ontvangen van de AI');
+    }
+
+    const usage = data.usage;
+    console.log('✓ [FINANCIAL ADVISOR] Chat complete');
+    if (usage) {
+      console.log(`📊 Tokens used: ${usage.total_tokens} (prompt: ${usage.prompt_tokens}, completion: ${usage.completion_tokens})`);
+    }
+
+    return {
+      message: content,
+      usage: usage
+        ? {
+            prompt_tokens: usage.prompt_tokens,
+            completion_tokens: usage.completion_tokens,
+            total_tokens: usage.total_tokens,
+          }
+        : undefined,
+    };
+  } catch (error) {
+    console.error('❌ [FINANCIAL ADVISOR] Chat failed');
+    console.error('Error details:', error);
+
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    throw new Error(`Financial Advisor chat failed: ${errorMessage}`);
   }
 }
