@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import type { Database } from './database.types';
+import { getCurrentCompanyId } from './companyHelper';
 
 type Account = Database['public']['Tables']['accounts']['Row'];
 
@@ -93,6 +94,10 @@ export async function createAndBookInvoice(
   input: CreateInvoiceInput
 ): Promise<CreateInvoiceResult> {
   try {
+    const companyId = await getCurrentCompanyId();
+    if (!companyId) {
+      return { success: false, error: 'Geen bedrijf geselecteerd' };
+    }
     const { contactId, lines } = input;
 
     if (!contactId || lines.length === 0) {
@@ -130,6 +135,7 @@ export async function createAndBookInvoice(
     const { data: journalEntry, error: journalError } = await supabase
       .from('journal_entries')
       .insert({
+        company_id: companyId,
         entry_date: invoiceDate,
         description: `Verkoopfactuur ${invoiceNumber}`,
         reference: invoiceNumber,
@@ -186,6 +192,7 @@ export async function createAndBookInvoice(
     const { data: invoiceData, error: invoiceError } = await supabase
       .from('sales_invoices')
       .insert({
+        company_id: companyId,
         contact_id: contactId,
         invoice_number: invoiceNumber,
         date: invoiceDate,
@@ -238,6 +245,11 @@ export async function createCustomer(input: {
   email?: string;
   address?: string;
 }) {
+  const companyId = await getCurrentCompanyId();
+  if (!companyId) {
+    throw new Error('Geen bedrijf geselecteerd');
+  }
+
   const { data: debtorAccount } = await supabase
     .from('accounts')
     .select('id')
@@ -249,6 +261,7 @@ export async function createCustomer(input: {
   const { data, error } = await supabase
     .from('contacts')
     .insert({
+      company_id: companyId,
       company_name: input.company_name,
       email: input.email || null,
       address: input.address || null,

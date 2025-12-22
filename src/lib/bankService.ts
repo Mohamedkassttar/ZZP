@@ -2,6 +2,7 @@ import { supabase } from './supabase';
 import type { Database } from './database.types';
 import { learnFromUserAction } from './bankAutomationService';
 import { findActiveAccountsPayable } from './systemAccountsService';
+import { getCurrentCompanyId } from './companyHelper';
 
 type BankTransaction = Database['public']['Tables']['bank_transactions']['Insert'];
 
@@ -289,6 +290,10 @@ export async function bookBankTransaction(
   description: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const companyId = await getCurrentCompanyId();
+    if (!companyId) {
+      throw new Error('No company selected');
+    }
     const { data: transaction, error: txnError } = await supabase
       .from('bank_transactions')
       .select('*')
@@ -305,6 +310,7 @@ export async function bookBankTransaction(
     const { data: journalEntry, error: entryError } = await supabase
       .from('journal_entries')
       .insert({
+        company_id: companyId,
         entry_date: transaction.transaction_date,
         description: description || transaction.description,
         reference: transaction.reference || transaction.contra_account || undefined,
@@ -403,6 +409,10 @@ export async function bookBankTransactionViaRelatie(
   description: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const companyId = await getCurrentCompanyId();
+    if (!companyId) {
+      throw new Error('No company selected');
+    }
     const { data: transaction, error: txnError } = await supabase
       .from('bank_transactions')
       .select('*')
@@ -431,6 +441,7 @@ export async function bookBankTransactionViaRelatie(
       const { data: revenueEntry, error: revenueError } = await supabase
         .from('journal_entries')
         .insert({
+          company_id: companyId,
           entry_date: transaction.transaction_date,
           description: description || `Omzet ${transaction.contra_name || ''}`.trim(),
           reference: transaction.reference || transaction.contra_account || undefined,
@@ -467,6 +478,7 @@ export async function bookBankTransactionViaRelatie(
       const { data: paymentEntry, error: paymentError } = await supabase
         .from('journal_entries')
         .insert({
+          company_id: companyId,
           entry_date: transaction.transaction_date,
           description: `Betaling debiteur ${transaction.contra_name || ''}`.trim(),
           reference: transaction.reference || transaction.contra_account || undefined,
@@ -522,6 +534,7 @@ export async function bookBankTransactionViaRelatie(
       const { data: paymentEntry, error: paymentError } = await supabase
         .from('journal_entries')
         .insert({
+          company_id: companyId,
           entry_date: transaction.transaction_date,
           description: `Betaling crediteur ${transaction.contra_name || ''}`.trim(),
           reference: transaction.reference || transaction.contra_account || undefined,
@@ -558,6 +571,7 @@ export async function bookBankTransactionViaRelatie(
       const { data: costEntry, error: costError } = await supabase
         .from('journal_entries')
         .insert({
+          company_id: companyId,
           entry_date: transaction.transaction_date,
           description: description || `Kosten ${transaction.contra_name || ''}`.trim(),
           reference: transaction.reference || transaction.contra_account || undefined,

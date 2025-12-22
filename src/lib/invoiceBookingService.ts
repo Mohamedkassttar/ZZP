@@ -24,6 +24,7 @@ import type { EnhancedInvoiceData } from './intelligentInvoiceProcessor';
 import { findActiveAccountsPayable } from './systemAccountsService';
 import { getAccountIdByCode } from './bankService';
 import { getCashAccount, getPrivateAccount } from './financialSettingsService';
+import { getCurrentCompanyId } from './companyHelper';
 
 type Contact = Database['public']['Tables']['contacts']['Row'];
 type Account = Database['public']['Tables']['accounts']['Row'];
@@ -71,6 +72,10 @@ export async function bookInvoice(params: BookInvoiceParams): Promise<BookInvoic
   console.log('─'.repeat(70));
 
   try {
+    const companyId = await getCurrentCompanyId();
+    if (!companyId) {
+      throw new Error('No company selected');
+    }
     // STEP 0: Validate Expense Account Type
     console.log('\n📋 STEP 0: Expense Account Validation');
     console.log('─'.repeat(70));
@@ -185,6 +190,7 @@ export async function bookInvoice(params: BookInvoiceParams): Promise<BookInvoic
     const { data: journalEntry, error: journalError } = await supabase
       .from('journal_entries')
       .insert({
+        company_id: companyId,
         entry_date: invoiceDate,
         description: description,
         reference: invoiceData.invoice_number || null,
@@ -280,6 +286,7 @@ export async function bookInvoice(params: BookInvoiceParams): Promise<BookInvoic
     const { data: purchaseInvoice, error: purchaseError } = await supabase
       .from('purchase_invoices')
       .insert({
+        company_id: companyId,
         contact_id: contactId,
         invoice_number: invoiceData.invoice_number || `INV-${Date.now()}`,
         invoice_date: invoiceDate,
@@ -378,6 +385,7 @@ export async function bookInvoice(params: BookInvoiceParams): Promise<BookInvoic
         const { data: paymentEntry, error: paymentEntryError } = await supabase
           .from('journal_entries')
           .insert({
+            company_id: companyId,
             entry_date: invoiceDate,
             description: paymentDescription,
             reference: invoiceData.invoice_number || null,
@@ -503,9 +511,16 @@ async function createSupplierContact(
     }
 
     // Create new contact
+    const companyId = await getCurrentCompanyId();
+    if (!companyId) {
+      console.error('  ❌ No company selected');
+      return null;
+    }
+
     const { data: newContact, error } = await supabase
       .from('contacts')
       .insert({
+        company_id: companyId,
         company_name: companyName,
         relation_type: 'Supplier',
         default_ledger_account_id: ledgerAccountId || null,
