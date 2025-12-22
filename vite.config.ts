@@ -5,11 +5,8 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   server: {
-    host: true,
-    strictPort: true,
     hmr: {
       timeout: 60000,
-      clientPort: 443,
     },
   },
   optimizeDeps: {
