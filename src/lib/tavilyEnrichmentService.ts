@@ -10,6 +10,13 @@
 import { supabase } from './supabase';
 import { cleanTransactionDescription, matchesWithWordBoundary } from './bankMatchingUtils';
 
+export interface EnrichmentContext {
+  name: string;
+  city?: string;
+  address?: string;
+  categoryClues?: string;
+}
+
 export interface EnrichmentResult {
   confidence: number; // 0-100
   reason: string;
@@ -21,17 +28,32 @@ export interface EnrichmentResult {
     clean_search_term: string;
     tavily_output: string;
     ai_reasoning: string;
+    search_query: string;
   };
 }
 
 /**
- * Enrich transaction with external search
+ * Enrich transaction with external search (context-aware)
  */
 export async function enrichTransactionWithTavily(
-  description: string,
+  context: string | EnrichmentContext,
   amount?: number
 ): Promise<EnrichmentResult | null> {
-  console.log(`🔍 [TAVILY SERVICE] Starting enrichment for: "${description}" (€${amount || 'unknown'})`);
+  // Support legacy string format
+  const enrichmentContext: EnrichmentContext = typeof context === 'string'
+    ? { name: context }
+    : context;
+
+  console.log(`🔍 [TAVILY SERVICE] Starting enrichment for: "${enrichmentContext.name}" (€${amount || 'unknown'})`);
+  if (enrichmentContext.city) {
+    console.log(`  📍 Location: ${enrichmentContext.city}`);
+  }
+  if (enrichmentContext.address) {
+    console.log(`  🏠 Address: ${enrichmentContext.address}`);
+  }
+  if (enrichmentContext.categoryClues) {
+    console.log(`  🏷️ Category clues: ${enrichmentContext.categoryClues}`);
+  }
 
   try {
     // Check for Tavily API key in environment
@@ -41,10 +63,10 @@ export async function enrichTransactionWithTavily(
 
     if (tavilyApiKey && tavilyApiKey !== '') {
       console.log(`  ✓ Tavily API key found, using real API`);
-      result = await enrichWithTavilyAPI(description, tavilyApiKey, amount);
+      result = await enrichWithTavilyAPI(enrichmentContext, tavilyApiKey, amount);
     } else {
       console.log(`  ⚠ No Tavily API key, using simulation`);
-      result = await enrichWithSimulation(description, amount);
+      result = await enrichWithSimulation(enrichmentContext.name, amount);
     }
 
     if (result) {
@@ -66,33 +88,53 @@ export async function enrichTransactionWithTavily(
 }
 
 /**
- * Use real Tavily API for enrichment
+ * Use real Tavily API for enrichment (CONTEXT-AWARE)
  *
  * DETECTIVE -> ACCOUNTANT Pattern:
  * 1. Detective: Use Tavily to find REAL facts about the business
  * 2. Accountant: Map the industry to appropriate ledger account
  *
- * This prevents hallucinations like "SHELL = Telephone costs"
+ * This prevents hallucinations like "SHELL = Telephone costs" or "Jozef Restaurant = Law Firm"
  */
 async function enrichWithTavilyAPI(
-  description: string,
+  context: EnrichmentContext,
   apiKey: string,
   amount?: number
 ): Promise<EnrichmentResult | null> {
   try {
     // Clean the description for better search results
-    const cleanedDescription = cleanTransactionDescription(description);
+    const cleanedDescription = cleanTransactionDescription(context.name);
 
     if (!cleanedDescription || cleanedDescription.length < 3) {
       console.log('⚠ Description too short after cleaning, skipping Tavily');
       return null;
     }
 
-    // STEP 1: DETECTIVE - Get REAL facts from Tavily
-    // Ask specifically about industry type in Netherlands
-    const query = `What kind of business is "${cleanedDescription}" in The Netherlands? Return ONLY the industry category (e.g., Gas Station, Supermarket, Restaurant, Software, Insurance, Bank, Telecom, Retail).`;
+    // STEP 1: DETECTIVE - Build context-aware search query
+    // Priority: Use city and address if available to disambiguate common names
+    let query: string;
 
-    console.log(`🔍 [DETECTIVE] Tavily search: "${cleanedDescription}"`);
+    if (context.city && context.address) {
+      // Best case: Full location data
+      query = `"${cleanedDescription}" ${context.address} ${context.city} Netherlands business type`;
+      console.log(`🔍 [DETECTIVE] Using FULL location context`);
+    } else if (context.city) {
+      // Good: City is available
+      query = `"${cleanedDescription}" ${context.city} Netherlands business type`;
+      console.log(`🔍 [DETECTIVE] Using CITY context`);
+    } else {
+      // Fallback: Generic query (may have ambiguity)
+      query = `What kind of business is "${cleanedDescription}" in The Netherlands? Return ONLY the industry category (e.g., Gas Station, Supermarket, Restaurant, Software, Insurance, Bank, Telecom, Retail).`;
+      console.log(`🔍 [DETECTIVE] Using GENERIC query (no location data)`);
+    }
+
+    // Add category clues to improve search if available
+    if (context.categoryClues) {
+      query += ` ${context.categoryClues}`;
+      console.log(`  🏷️ Adding category clues: "${context.categoryClues}"`);
+    }
+
+    console.log(`🔍 [DETECTIVE] Tavily search query: "${query}"`);
 
     const requestPayload = {
       api_key: apiKey ? `${apiKey.substring(0, 8)}...` : 'NOT_SET',
@@ -136,17 +178,75 @@ async function enrichWithTavilyAPI(
     const data = await response.json();
     console.log('📄 [TAVILY RESPONSE] Data:', JSON.stringify(data, null, 2).substring(0, 500));
 
-    // STEP 2: Extract industry from Tavily response
-    const industry = extractIndustryFromTavilyResults(data, cleanedDescription);
+    // STEP 2: Extract industry from Tavily response (with OCR clues for verification)
+    const industry = extractIndustryFromTavilyResults(data, cleanedDescription, context.categoryClues);
 
     if (!industry) {
       console.log('⚠ Tavily could not determine industry');
+
+      // FALLBACK: If Tavily fails but we have category clues from OCR, trust the clues
+      if (context.categoryClues) {
+        console.log(`  ✓ [FALLBACK] Using category clues from OCR: "${context.categoryClues}"`);
+        const fallbackIndustry = mapCategoryCluestoIndustry(context.categoryClues);
+        if (fallbackIndustry) {
+          console.log(`  ✓ [FALLBACK] Mapped clues to industry: "${fallbackIndustry}"`);
+          const detectiveEvidence = `OCR detected: ${context.categoryClues}`;
+          const enrichment = await mapIndustryToLedgerAccount(fallbackIndustry, cleanedDescription, amount, detectiveEvidence);
+
+          if (enrichment) {
+            enrichment.debug_info = {
+              clean_search_term: cleanedDescription,
+              tavily_output: `Tavily failed, used OCR clues: ${context.categoryClues}`,
+              ai_reasoning: enrichment.reason,
+              search_query: query,
+            };
+          }
+
+          return enrichment;
+        }
+      }
+
       return null;
     }
 
     console.log(`✓ [DETECTIVE] Found industry: "${industry}" for "${cleanedDescription}"`);
 
-    // STEP 3: ACCOUNTANT - Map industry to ledger account (with full detective evidence)
+    // STEP 3: Verify industry matches category clues (if available)
+    if (context.categoryClues) {
+      const cluesLower = context.categoryClues.toLowerCase();
+      const industryLower = industry.toLowerCase();
+
+      // Check if there's a major mismatch
+      const isMismatch =
+        (cluesLower.includes('restaurant') || cluesLower.includes('cafe') || cluesLower.includes('bar')) &&
+        !industryLower.includes('food') && !industryLower.includes('hospitality') && !industryLower.includes('restaurant');
+
+      if (isMismatch) {
+        console.log(`  ⚠️ [VERIFICATION] Industry mismatch detected!`);
+        console.log(`     OCR clues: "${context.categoryClues}"`);
+        console.log(`     Tavily result: "${industry}"`);
+        console.log(`  ✓ [VERIFICATION] Trusting OCR clues over Tavily`);
+
+        const correctedIndustry = mapCategoryCluestoIndustry(context.categoryClues);
+        if (correctedIndustry) {
+          const detectiveEvidence = `OCR detected: ${context.categoryClues} (Tavily mismatch corrected)`;
+          const enrichment = await mapIndustryToLedgerAccount(correctedIndustry, cleanedDescription, amount, detectiveEvidence);
+
+          if (enrichment) {
+            enrichment.debug_info = {
+              clean_search_term: cleanedDescription,
+              tavily_output: `Tavily said "${industry}", but OCR clues "${context.categoryClues}" were more accurate`,
+              ai_reasoning: enrichment.reason,
+              search_query: query,
+            };
+          }
+
+          return enrichment;
+        }
+      }
+    }
+
+    // STEP 4: ACCOUNTANT - Map industry to ledger account (with full detective evidence)
     const detectiveEvidence = data.answer || industry;
     console.log(`🔍 [TAVILY] Passing to accountant - Amount: €${amount || 'unknown'}, Industry: ${industry}`);
     const enrichment = await mapIndustryToLedgerAccount(industry, cleanedDescription, amount, detectiveEvidence);
@@ -159,6 +259,7 @@ async function enrichWithTavilyAPI(
         clean_search_term: cleanedDescription,
         tavily_output: detectiveEvidence,
         ai_reasoning: enrichment.reason,
+        search_query: query,
       };
     }
 
@@ -166,8 +267,53 @@ async function enrichWithTavilyAPI(
   } catch (error) {
     console.error('Tavily API error:', error);
     // Fall back to simulation
-    return await enrichWithSimulation(description, amount);
+    return await enrichWithSimulation(context.name, amount);
   }
+}
+
+/**
+ * Map category clues from OCR to industry type
+ * This is used when Tavily fails or returns incorrect results
+ */
+function mapCategoryCluestoIndustry(categoryClues: string): string | null {
+  const cluesLower = categoryClues.toLowerCase();
+
+  if (cluesLower.includes('restaurant') || cluesLower.includes('cafe') ||
+      cluesLower.includes('bar') || cluesLower.includes('bistro') ||
+      cluesLower.includes('lunchroom') || cluesLower.includes('brasserie')) {
+    return 'Food & Hospitality';
+  }
+
+  if (cluesLower.includes('bakery') || cluesLower.includes('bakkerij') ||
+      cluesLower.includes('patisserie')) {
+    return 'Food & Hospitality';
+  }
+
+  if (cluesLower.includes('supermarket') || cluesLower.includes('grocery')) {
+    return 'Supermarket';
+  }
+
+  if (cluesLower.includes('taxi') || cluesLower.includes('uber')) {
+    return 'Transport';
+  }
+
+  if (cluesLower.includes('garage') || cluesLower.includes('car service')) {
+    return 'Car Repair Shop';
+  }
+
+  if (cluesLower.includes('gas station') || cluesLower.includes('fuel')) {
+    return 'Gas Station';
+  }
+
+  if (cluesLower.includes('software') || cluesLower.includes('saas')) {
+    return 'Software';
+  }
+
+  if (cluesLower.includes('hotel') || cluesLower.includes('accommodation')) {
+    return 'Travel';
+  }
+
+  return null;
 }
 
 /**
@@ -175,8 +321,10 @@ async function enrichWithTavilyAPI(
  *
  * Analyzes Tavily's answer and content to determine the business type.
  * Returns a normalized industry string (e.g., "Gas Station", "Supermarket").
+ *
+ * @param categoryClues - Optional OCR clues to help verify the industry match
  */
-function extractIndustryFromTavilyResults(tavilyData: any, description: string): string | null {
+function extractIndustryFromTavilyResults(tavilyData: any, description: string, categoryClues?: string): string | null {
   // Try to get answer from Tavily's AI summary first
   let content = '';
 

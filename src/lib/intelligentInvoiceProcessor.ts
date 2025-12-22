@@ -157,8 +157,23 @@ export async function processInvoiceWithAI(
       let industry: string | undefined;
       let tags: string[] = [];
 
+      // Build enrichment context from extracted data
+      const enrichmentContext = {
+        name: extractedData.supplier_name,
+        city: (extractedData as any).supplier_city,
+        address: (extractedData as any).supplier_address,
+        categoryClues: (extractedData as any).category_clues,
+      };
+
+      console.log('  📍 Enrichment context:', {
+        name: enrichmentContext.name,
+        city: enrichmentContext.city || 'not provided',
+        address: enrichmentContext.address || 'not provided',
+        clues: enrichmentContext.categoryClues || 'not provided',
+      });
+
       const tavilyEnrichment = await enrichTransactionWithTavily(
-        extractedData.supplier_name,
+        enrichmentContext,
         extractedData.total_amount
       );
 
@@ -167,6 +182,11 @@ export async function processInvoiceWithAI(
         detectedIndustry = industry;
         tavilyUsed = true;
         console.log(`  ✓ Tavily enrichment: Industry = "${industry}"`);
+
+        // Log the search query that was used
+        if (tavilyEnrichment.debug_info?.search_query) {
+          console.log(`  🔍 Search query used: "${tavilyEnrichment.debug_info.search_query}"`);
+        }
 
         // Extract tags from reason if available
         if (tavilyEnrichment.debug_info?.tavily_output) {

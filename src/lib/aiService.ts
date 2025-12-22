@@ -94,16 +94,19 @@ Your task is to extract data from invoices and receipts, and suggest the correct
 
 Extract the following information:
 1. supplier_name - Name of the company/supplier
-2. invoice_date - Date in YYYY-MM-DD format
-3. invoice_number - Invoice or receipt number
-4. total_amount - Total amount including VAT (in euros)
-5. vat_amount - VAT amount (in euros)
-6. net_amount - Amount excluding VAT (in euros)
-7. vat_percentage - VAT percentage (21, 9, or 0)
-8. description - Brief description of what was purchased
-9. confidence - Your confidence level (0-1)
-10. contact_id - Match supplier name to existing contact ID from the list (if found)
-11. is_new_supplier - Set to true if supplier is NOT found in the contact list
+2. supplier_address - Street name and number (e.g., "Mariaplaats 50")
+3. supplier_city - City name (e.g., "Utrecht")
+4. category_clues - Keywords that indicate the business type (e.g., "Restaurant", "Bar", "Cafe", "Taxi", "Supermarket", "Garage", "Software"). Look for these words on the receipt/invoice.
+5. invoice_date - Date in YYYY-MM-DD format
+6. invoice_number - Invoice or receipt number
+7. total_amount - Total amount including VAT (in euros)
+8. vat_amount - VAT amount (in euros)
+9. net_amount - Amount excluding VAT (in euros)
+10. vat_percentage - VAT percentage (21, 9, or 0)
+11. description - Brief description of what was purchased
+12. confidence - Your confidence level (0-1)
+13. contact_id - Match supplier name to existing contact ID from the list (if found)
+14. is_new_supplier - Set to true if supplier is NOT found in the contact list
 
 IMPORTANT: Try to match the extracted supplier name to an existing contact from the contact list.
 If no match is found, set is_new_supplier to true and leave contact_id empty.
@@ -129,6 +132,9 @@ Examples:
 Return ONLY valid JSON in this exact format:
 {
   "supplier_name": "Shell Nederland B.V.",
+  "supplier_address": "Mariaplaats 50",
+  "supplier_city": "Utrecht",
+  "category_clues": "Restaurant Bar Cafe",
   "contact_id": "uuid-from-contact-list-or-empty",
   "is_new_supplier": false,
   "invoice_date": "2024-03-15",
