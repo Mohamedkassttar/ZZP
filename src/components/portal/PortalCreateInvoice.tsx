@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
 import { Plus, Send, X, CheckCircle, Search, Trash2 } from 'lucide-react';
+import { createAndBookInvoice, getCustomers, createCustomer } from '../../lib/salesService';
 
 interface Contact {
   id: string;
@@ -38,50 +38,26 @@ export function PortalCreateInvoice() {
   }, []);
 
   async function loadContacts() {
-    const { data } = await supabase
-      .from('contacts')
-      .select('id, company_name, email, address')
-      .or('relation_type.eq.Customer,relation_type.eq.Both')
-      .eq('is_active', true)
-      .order('company_name');
-
-    if (data) setContacts(data);
+    const data = await getCustomers();
+    setContacts(data);
   }
 
   async function createNewContact() {
     if (!newContact.company_name.trim()) return;
 
-    const { data: debtorAccount } = await supabase
-      .from('accounts')
-      .select('id')
-      .eq('type', 'Asset')
-      .ilike('name', '%debiteur%')
-      .limit(1)
-      .maybeSingle();
-
-    const { data, error } = await supabase
-      .from('contacts')
-      .insert({
+    try {
+      const data = await createCustomer({
         company_name: newContact.company_name,
-        email: newContact.email || null,
-        address: newContact.address || null,
-        relation_type: 'Customer',
-        default_ledger_account_id: debtorAccount?.id || null,
-        is_active: true,
-      })
-      .select()
-      .single();
+        email: newContact.email || undefined,
+        address: newContact.address || undefined,
+      });
 
-    if (error) {
-      alert('Fout bij aanmaken klant: ' + error.message);
-      return;
-    }
-
-    if (data) {
       setContacts([...contacts, data]);
       setSelectedContactId(data.id);
       setShowNewContactModal(false);
       setNewContact({ company_name: '', email: '', address: '' });
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Fout bij aanmaken klant');
     }
   }
 
@@ -113,102 +89,19 @@ export function PortalCreateInvoice() {
     setIsSubmitting(true);
 
     try {
-      const subtotal = validLines.reduce((sum, line) => sum + line.amount, 0);
-      const vatAmount = validLines.reduce((sum, line) => sum + line.amount * (line.vatRate / 100), 0);
-      const total = subtotal + vatAmount;
-
-      const invoiceNumber = `INV-${Date.now()}`;
-      const invoiceDate = new Date().toISOString().split('T')[0];
-      const dueDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-
-      const { data: revenueAccount } = await supabase
-        .from('accounts')
-        .select('id')
-        .eq('type', 'Revenue')
-        .eq('is_active', true)
-        .order('code')
-        .limit(1)
-        .maybeSingle();
-
-      const { data: debtorAccount } = await supabase
-        .from('accounts')
-        .select('id')
-        .eq('type', 'Asset')
-        .ilike('name', '%debiteur%')
-        .limit(1)
-        .maybeSingle();
-
-      const { data: vatPayableAccount } = await supabase
-        .from('accounts')
-        .select('id')
-        .eq('code', '1700')
-        .maybeSingle();
-
-      if (!revenueAccount || !debtorAccount || !vatPayableAccount) {
-        throw new Error('Required accounts not found');
-      }
-
-      const { data: journalEntry, error: journalError } = await supabase
-        .from('journal_entries')
-        .insert({
-          entry_date: invoiceDate,
-          description: `Verkoopfactuur ${invoiceNumber}`,
-          reference: invoiceNumber,
-          status: 'Final',
-          contact_id: selectedContactId,
-          memoriaal_type: 'Verkoopfactuur',
-        })
-        .select()
-        .single();
-
-      if (journalError || !journalEntry) throw new Error('Failed to create journal entry');
-
-      const journalLines = [
-        {
-          journal_entry_id: journalEntry.id,
-          account_id: debtorAccount.id,
-          debit: total,
-          credit: 0,
-          description: `Debiteur ${invoiceNumber}`,
-        },
-        {
-          journal_entry_id: journalEntry.id,
-          account_id: revenueAccount.id,
-          debit: 0,
-          credit: subtotal,
-          description: `Omzet ${invoiceNumber}`,
-        },
-      ];
-
-      if (vatAmount > 0.01) {
-        journalLines.push({
-          journal_entry_id: journalEntry.id,
-          account_id: vatPayableAccount.id,
-          debit: 0,
-          credit: vatAmount,
-          description: `BTW ${invoiceNumber}`,
-        });
-      }
-
-      const { error: linesError } = await supabase.from('journal_lines').insert(journalLines);
-
-      if (linesError) throw linesError;
-
-      const { error: invoiceError } = await supabase.from('sales_invoices').insert({
-        contact_id: selectedContactId,
-        invoice_number: invoiceNumber,
-        date: invoiceDate,
-        vat_amount: vatAmount,
-        total_amount: total,
-        status: 'open',
+      const result = await createAndBookInvoice({
+        contactId: selectedContactId,
+        lines: validLines,
       });
 
-      if (invoiceError) throw invoiceError;
+      if (!result.success) {
+        throw new Error(result.error || 'Fout bij aanmaken factuur');
+      }
 
       setSuccess(true);
     } catch (error) {
       console.error('Error creating invoice:', error);
-      alert('Er ging iets fout bij het aanmaken van de factuur');
+      alert(error instanceof Error ? error.message : 'Er ging iets fout bij het aanmaken van de factuur');
     } finally {
       setIsSubmitting(false);
     }
