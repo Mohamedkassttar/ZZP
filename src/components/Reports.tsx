@@ -471,7 +471,14 @@ export function Reports({ onNavigate, fiscalYear }: ReportsProps) {
                 .map((item) => (
                   <>
                     <tr key={item.category} className="border-b border-gray-100">
-                      <td className="py-2 px-3 text-sm text-gray-900">{item.label}</td>
+                      <td className="py-2 px-3 text-sm text-gray-900">
+                        {item.label}
+                        {item.accounts.length > 0 && (
+                          <span className="ml-2 text-xs text-gray-500">
+                            ({item.accounts.length} {item.accounts.length === 1 ? 'rekening' : 'rekeningen'})
+                          </span>
+                        )}
+                      </td>
                       <td className="py-2 px-3 text-sm text-right text-gray-900 whitespace-nowrap">
                         €{item.begin.toLocaleString('nl-NL', { minimumFractionDigits: 2 })}
                       </td>
@@ -492,7 +499,7 @@ export function Reports({ onNavigate, fiscalYear }: ReportsProps) {
                         </button>
                       </td>
                     </tr>
-                    {item.accounts.map((account) => (
+                    {item.accounts.length > 0 && item.accounts.map((account) => (
                       <tr
                         key={`${item.category}-${account.accountNumber}`}
                         className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
@@ -549,7 +556,14 @@ export function Reports({ onNavigate, fiscalYear }: ReportsProps) {
                 .map((item) => (
                   <>
                     <tr key={item.category} className="border-b border-gray-100">
-                      <td className="py-2 px-3 text-sm text-gray-900">{item.label}</td>
+                      <td className="py-2 px-3 text-sm text-gray-900">
+                        {item.label}
+                        {item.accounts.length > 0 && (
+                          <span className="ml-2 text-xs text-gray-500">
+                            ({item.accounts.length} {item.accounts.length === 1 ? 'rekening' : 'rekeningen'})
+                          </span>
+                        )}
+                      </td>
                       <td className="py-2 px-3 text-sm text-right text-gray-900 whitespace-nowrap">
                         €{item.begin.toLocaleString('nl-NL', { minimumFractionDigits: 2 })}
                       </td>
@@ -570,7 +584,7 @@ export function Reports({ onNavigate, fiscalYear }: ReportsProps) {
                         </button>
                       </td>
                     </tr>
-                    {item.accounts.map((account) => (
+                    {item.accounts.length > 0 && item.accounts.map((account) => (
                       <tr
                         key={`${item.category}-${account.accountNumber}`}
                         className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
@@ -622,7 +636,14 @@ export function Reports({ onNavigate, fiscalYear }: ReportsProps) {
                 .map((item) => (
                   <>
                     <tr key={item.category} className="border-b border-gray-100">
-                      <td className="py-2 px-3 text-sm text-gray-900">{item.label}</td>
+                      <td className="py-2 px-3 text-sm text-gray-900">
+                        {item.label}
+                        {item.accounts.length > 0 && (
+                          <span className="ml-2 text-xs text-gray-500">
+                            ({item.accounts.length} {item.accounts.length === 1 ? 'rekening' : 'rekeningen'})
+                          </span>
+                        )}
+                      </td>
                       <td className="py-2 px-3 text-sm text-right text-gray-900 whitespace-nowrap">
                         €{item.amount.toLocaleString('nl-NL', { minimumFractionDigits: 2 })}
                       </td>
@@ -640,7 +661,7 @@ export function Reports({ onNavigate, fiscalYear }: ReportsProps) {
                         </button>
                       </td>
                     </tr>
-                    {item.accounts.map((account) => (
+                    {item.accounts.length > 0 && item.accounts.map((account) => (
                       <tr
                         key={`${item.category}-${account.accountNumber}`}
                         className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
@@ -690,6 +711,8 @@ export function Reports({ onNavigate, fiscalYear }: ReportsProps) {
                     </td>
                   </tr>
                   {plData
+                    .find((item) => item.category === 'Inkoopwaarde omzet')!
+                    .accounts.length > 0 && plData
                     .find((item) => item.category === 'Inkoopwaarde omzet')!
                     .accounts.map((account) => (
                       <tr
@@ -745,7 +768,14 @@ export function Reports({ onNavigate, fiscalYear }: ReportsProps) {
                 .map((item) => (
                   <>
                     <tr key={item.category} className="border-b border-gray-100">
-                      <td className="py-2 px-3 text-sm text-gray-900">{item.label}</td>
+                      <td className="py-2 px-3 text-sm text-gray-900">
+                        {item.label}
+                        {item.accounts.length > 0 && (
+                          <span className="ml-2 text-xs text-gray-500">
+                            ({item.accounts.length} {item.accounts.length === 1 ? 'rekening' : 'rekeningen'})
+                          </span>
+                        )}
+                      </td>
                       <td className="py-2 px-3 text-sm text-right text-gray-900 whitespace-nowrap">
                         €{item.amount.toLocaleString('nl-NL', { minimumFractionDigits: 2 })}
                       </td>
@@ -763,7 +793,7 @@ export function Reports({ onNavigate, fiscalYear }: ReportsProps) {
                         </button>
                       </td>
                     </tr>
-                    {item.accounts.map((account) => (
+                    {item.accounts.length > 0 && item.accounts.map((account) => (
                       <tr
                         key={`${item.category}-${account.accountNumber}`}
                         className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
