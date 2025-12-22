@@ -13,25 +13,37 @@ import {
   ArrowRight,
   Wallet,
   Brain,
+  Edit2,
 } from 'lucide-react';
 import {
-  uploadAndProcessInvoice,
-  bookInvoiceFromPortal,
+  uploadInvoiceFile,
+  processAndExtractInvoice,
   getExpenseAccounts,
 } from '../../lib/invoiceService';
+import { bookInvoice, type PaymentMethod } from '../../lib/invoiceBookingService';
 import type { EnhancedInvoiceData } from '../../lib/intelligentInvoiceProcessor';
-import type { PaymentMethod } from '../../lib/invoiceBookingService';
 
 type ProcessingState = 'idle' | 'uploading' | 'processing' | 'review' | 'booking' | 'success' | 'error';
 
 export function PortalExpense() {
   const [state, setState] = useState<ProcessingState>('idle');
   const [dragActive, setDragActive] = useState(false);
-  const [extractedData, setExtractedData] = useState<EnhancedInvoiceData | null>(null);
+  const [formData, setFormData] = useState<EnhancedInvoiceData & {
+    contact_id?: string;
+  }>({
+    supplier_name: '',
+    invoice_date: new Date().toISOString().split('T')[0],
+    invoice_number: '',
+    total_amount: 0,
+    vat_amount: 0,
+    net_amount: 0,
+    vat_percentage: 21,
+    suggested_account_id: '',
+    description: '',
+  });
   const [documentId, setDocumentId] = useState<string>('');
   const [error, setError] = useState<string>('');
   const [expenseAccounts, setExpenseAccounts] = useState<any[]>([]);
-  const [selectedAccountId, setSelectedAccountId] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('none');
   const [successMessage, setSuccessMessage] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -68,35 +80,35 @@ export function PortalExpense() {
     setError('');
 
     try {
+      const uploadResult = await uploadInvoiceFile(file);
+
+      if (!uploadResult.success || !uploadResult.documentId) {
+        throw new Error(uploadResult.error || 'Fout bij uploaden factuur');
+      }
+
       setState('processing');
+      setDocumentId(uploadResult.documentId);
 
-      const result = await uploadAndProcessInvoice(file);
+      const processResult = await processAndExtractInvoice(uploadResult.documentId);
 
-      if (!result.success || !result.extractedData) {
-        throw new Error(result.error || 'Fout bij verwerken factuur');
+      if (!processResult.success || !processResult.extractedData) {
+        throw new Error(processResult.error || 'Fout bij verwerken factuur');
       }
 
       const accounts = await getExpenseAccounts();
       setExpenseAccounts(accounts);
 
       console.log('📊 [PORTAL] Extracted data received:', {
-        suggested_account_id: result.extractedData.suggested_account_id,
-        suggested_account_code: result.extractedData.suggested_account_code,
-        suggested_account_name: result.extractedData.suggested_account_name,
-        has_enrichment: !!result.extractedData.enrichment,
-        enrichment_reason: result.extractedData.enrichment?.reason,
+        suggested_account_id: processResult.extractedData.suggested_account_id,
+        suggested_account_code: processResult.extractedData.suggested_account_code,
+        suggested_account_name: processResult.extractedData.suggested_account_name,
+        has_enrichment: !!processResult.extractedData.enrichment,
+        enrichment_reason: processResult.extractedData.enrichment?.reason,
       });
 
-      setExtractedData(result.extractedData);
-      setDocumentId(result.documentId);
-
-      if (result.extractedData.suggested_account_id) {
-        console.log('✓ [PORTAL] Pre-selecting AI suggested account:', result.extractedData.suggested_account_id);
-        setSelectedAccountId(result.extractedData.suggested_account_id);
-      } else if (accounts.length > 0) {
-        console.log('⚠ [PORTAL] No AI suggestion, defaulting to first account');
-        setSelectedAccountId(accounts[0].id);
-      }
+      setFormData({
+        ...processResult.extractedData,
+      });
 
       setState('review');
     } catch (err) {
@@ -106,22 +118,65 @@ export function PortalExpense() {
     }
   }
 
-  async function handleBook() {
-    if (!extractedData || !documentId || !selectedAccountId) {
-      setError('Selecteer een categorie');
-      return;
-    }
+  function updateField<K extends keyof EnhancedInvoiceData>(
+    field: K,
+    value: EnhancedInvoiceData[K]
+  ) {
+    setFormData((prev) => {
+      const updated = { ...prev, [field]: value };
 
-    setState('booking');
+      if (field === 'total_amount' || field === 'vat_amount') {
+        const total = field === 'total_amount' ? Number(value) : prev.total_amount || 0;
+        const vat = field === 'vat_amount' ? Number(value) : prev.vat_amount || 0;
+        updated.net_amount = total - vat;
+      }
+
+      if (field === 'net_amount' || field === 'vat_amount') {
+        const net = field === 'net_amount' ? Number(value) : prev.net_amount || 0;
+        const vat = field === 'vat_amount' ? Number(value) : prev.vat_amount || 0;
+        updated.total_amount = net + vat;
+      }
+
+      return updated;
+    });
+  }
+
+  async function handleBook() {
     setError('');
+    setState('booking');
 
     try {
-      const result = await bookInvoiceFromPortal({
+      if (!formData.supplier_name?.trim()) {
+        throw new Error('Leveranciersnaam is verplicht');
+      }
+      if (!formData.invoice_date) {
+        throw new Error('Factuurdatum is verplicht');
+      }
+      if (!formData.total_amount || formData.total_amount <= 0) {
+        throw new Error('Geldig totaalbedrag is verplicht');
+      }
+      if (!formData.suggested_account_id) {
+        throw new Error('Selecteer een kostenrekening');
+      }
+
+      const result = await bookInvoice({
         documentId,
-        invoiceData: extractedData,
-        expenseAccountId: selectedAccountId,
-        supplierContactId: extractedData.contact_id,
-        paymentMethod,
+        invoiceData: {
+          supplier_name: formData.supplier_name,
+          invoice_date: formData.invoice_date,
+          invoice_number: formData.invoice_number,
+          total_amount: formData.total_amount,
+          vat_amount: formData.vat_amount,
+          net_amount: formData.net_amount,
+          vat_percentage: formData.vat_percentage,
+          suggested_account_id: formData.suggested_account_id,
+          description: formData.description,
+          contact_id: formData.contact_id,
+        },
+        expenseAccountId: formData.suggested_account_id,
+        supplierContactId: formData.contact_id,
+        notes: formData.description,
+        paymentMethod: paymentMethod,
       });
 
       if (!result.success) {
@@ -138,16 +193,25 @@ export function PortalExpense() {
     } catch (err) {
       console.error('Error booking invoice:', err);
       setError(err instanceof Error ? err.message : 'Fout bij boeken');
-      setState('error');
+      setState('review');
     }
   }
 
   function reset() {
     setState('idle');
-    setExtractedData(null);
+    setFormData({
+      supplier_name: '',
+      invoice_date: new Date().toISOString().split('T')[0],
+      invoice_number: '',
+      total_amount: 0,
+      vat_amount: 0,
+      net_amount: 0,
+      vat_percentage: 21,
+      suggested_account_id: '',
+      description: '',
+    });
     setDocumentId('');
     setError('');
-    setSelectedAccountId('');
     setExpenseAccounts([]);
     setPaymentMethod('none');
     setSuccessMessage('');
@@ -175,102 +239,133 @@ export function PortalExpense() {
     );
   }
 
-  if (state === 'review' && extractedData) {
-    const selectedAccount = expenseAccounts.find(acc => acc.id === selectedAccountId);
+  if (state === 'review') {
+    const selectedAccount = expenseAccounts.find(acc => acc.id === formData.suggested_account_id);
 
     return (
       <div className="max-w-2xl mx-auto space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Factuur Controleren</h1>
-          <p className="text-gray-600">Controleer de gegevens en bevestig de boeking</p>
+          <p className="text-gray-600">Controleer en bewerk de gegevens indien nodig</p>
         </div>
 
         <div className="bg-white rounded-2xl shadow-md p-6 border border-gray-100">
-          <h3 className="text-lg font-bold text-gray-900 mb-4">Geëxtraheerde Gegevens</h3>
+          <h3 className="text-lg font-bold text-gray-900 mb-4">Factuurgegevens</h3>
 
           <div className="space-y-4">
-            <div className="flex items-start gap-3">
-              <Building2 className="w-5 h-5 text-gray-500 mt-1" />
-              <div className="flex-1">
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  Leverancier
-                </label>
-                <p className="text-gray-900">{extractedData.supplier_name || 'Onbekend'}</p>
-                {extractedData.is_new_supplier && (
-                  <span className="inline-block mt-1 text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
-                    Nieuwe leverancier
-                  </span>
-                )}
-              </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <Building2 className="w-4 h-4 inline mr-1" />
+                Leverancier *
+              </label>
+              <input
+                type="text"
+                value={formData.supplier_name || ''}
+                onChange={(e) => updateField('supplier_name', e.target.value)}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none"
+                placeholder="Naam leverancier"
+              />
+              {formData.is_new_supplier && (
+                <span className="inline-block mt-2 text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
+                  Nieuwe leverancier - wordt automatisch aangemaakt
+                </span>
+              )}
             </div>
 
-            <div className="flex items-start gap-3">
-              <FileText className="w-5 h-5 text-gray-500 mt-1" />
-              <div className="flex-1">
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <FileText className="w-4 h-4 inline mr-1" />
                   Factuurnummer
                 </label>
-                <p className="text-gray-900">{extractedData.invoice_number || '-'}</p>
+                <input
+                  type="text"
+                  value={formData.invoice_number || ''}
+                  onChange={(e) => updateField('invoice_number', e.target.value)}
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none"
+                  placeholder="Factuurnummer"
+                />
               </div>
-            </div>
 
-            <div className="flex items-start gap-3">
-              <Calendar className="w-5 h-5 text-gray-500 mt-1" />
-              <div className="flex-1">
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  Factuurdatum
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <Calendar className="w-4 h-4 inline mr-1" />
+                  Factuurdatum *
                 </label>
-                <p className="text-gray-900">
-                  {extractedData.invoice_date
-                    ? new Date(extractedData.invoice_date).toLocaleDateString('nl-NL')
-                    : '-'}
-                </p>
+                <input
+                  type="date"
+                  value={formData.invoice_date || ''}
+                  onChange={(e) => updateField('invoice_date', e.target.value)}
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none"
+                />
               </div>
             </div>
 
-            <div className="flex items-start gap-3">
-              <DollarSign className="w-5 h-5 text-gray-500 mt-1" />
-              <div className="flex-1">
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  Bedrag
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <DollarSign className="w-4 h-4 inline mr-1" />
+                  Excl. BTW *
                 </label>
-                <p className="text-2xl font-bold text-gray-900">
-                  {new Intl.NumberFormat('nl-NL', {
-                    style: 'currency',
-                    currency: 'EUR',
-                  }).format(extractedData.total_amount || 0)}
-                </p>
-                {extractedData.vat_amount !== undefined && extractedData.vat_amount > 0.01 && (
-                  <p className="text-sm text-gray-600 mt-1">
-                    Waarvan BTW:{' '}
-                    {new Intl.NumberFormat('nl-NL', {
-                      style: 'currency',
-                      currency: 'EUR',
-                    }).format(extractedData.vat_amount)}
-                  </p>
-                )}
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.net_amount || ''}
+                  onChange={(e) => updateField('net_amount', parseFloat(e.target.value) || 0)}
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none"
+                  placeholder="0.00"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  BTW Bedrag
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.vat_amount || ''}
+                  onChange={(e) => updateField('vat_amount', parseFloat(e.target.value) || 0)}
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none"
+                  placeholder="0.00"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Totaal Incl. *
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.total_amount || ''}
+                  onChange={(e) => updateField('total_amount', parseFloat(e.target.value) || 0)}
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none font-bold"
+                  placeholder="0.00"
+                />
               </div>
             </div>
 
-            {extractedData.description && (
-              <div className="flex items-start gap-3">
-                <FileText className="w-5 h-5 text-gray-500 mt-1" />
-                <div className="flex-1">
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">
-                    Omschrijving
-                  </label>
-                  <p className="text-gray-900 text-sm">{extractedData.description}</p>
-                </div>
-              </div>
-            )}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Omschrijving
+              </label>
+              <textarea
+                value={formData.description || ''}
+                onChange={(e) => updateField('description', e.target.value)}
+                rows={3}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none resize-none"
+                placeholder="Optionele omschrijving"
+              />
+            </div>
           </div>
         </div>
 
         <div className="bg-white rounded-2xl shadow-md p-6 border border-gray-100">
           <div className="flex items-center gap-2 mb-4">
             <BookOpen className="w-5 h-5 text-gray-700" />
-            <h3 className="text-lg font-bold text-gray-900">Categorie</h3>
-            {extractedData.suggested_account_id && extractedData.suggested_account_id === selectedAccountId && (
+            <h3 className="text-lg font-bold text-gray-900">Kostenrekening *</h3>
+            {formData.suggested_account_id && formData.enrichment && (
               <span className="ml-auto inline-flex items-center gap-1 text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full font-medium">
                 <Brain className="w-3 h-3" />
                 AI Voorstel
@@ -279,11 +374,11 @@ export function PortalExpense() {
           </div>
 
           <select
-            value={selectedAccountId}
-            onChange={e => setSelectedAccountId(e.target.value)}
+            value={formData.suggested_account_id || ''}
+            onChange={(e) => updateField('suggested_account_id', e.target.value)}
             className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none"
           >
-            <option value="">-- Selecteer categorie --</option>
+            <option value="">-- Selecteer kostenrekening --</option>
             {expenseAccounts.map(account => (
               <option key={account.id} value={account.id}>
                 {account.code} - {account.name}
@@ -297,9 +392,9 @@ export function PortalExpense() {
                 <span className="font-semibold">Geboekt naar:</span> {selectedAccount.code} -{' '}
                 {selectedAccount.name}
               </p>
-              {extractedData.suggested_account_id && extractedData.suggested_account_id === selectedAccountId && extractedData.enrichment && (
+              {formData.suggested_account_id && formData.enrichment && (
                 <p className="text-xs text-blue-700 mt-2">
-                  <span className="font-semibold">AI Redenering:</span> {extractedData.enrichment.reason}
+                  <span className="font-semibold">AI Redenering:</span> {formData.enrichment.reason}
                 </p>
               )}
             </div>
@@ -368,13 +463,14 @@ export function PortalExpense() {
         <div className="flex gap-3">
           <button
             onClick={reset}
-            className="flex-1 bg-gray-100 text-gray-700 py-4 rounded-2xl font-semibold hover:bg-gray-200 transition-colors"
+            disabled={state === 'booking'}
+            className="flex-1 bg-gray-100 text-gray-700 py-4 rounded-2xl font-semibold hover:bg-gray-200 transition-colors disabled:opacity-50"
           >
             Annuleren
           </button>
           <button
             onClick={handleBook}
-            disabled={state === 'booking' || !selectedAccountId}
+            disabled={state === 'booking' || !formData.suggested_account_id}
             className="flex-1 bg-blue-600 text-white py-4 rounded-2xl font-semibold hover:bg-blue-700 transition-colors shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {state === 'booking' ? (
