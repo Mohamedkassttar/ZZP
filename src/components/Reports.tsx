@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Copy, CheckCircle, Loader, Calendar, X, Download } from 'lucide-react';
+import { Copy, CheckCircle, Loader, Calendar, X, Download, Edit2, Save, XCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { downloadXAFFile } from '../lib/xafExportService';
 import type { Database } from '../lib/database.types';
@@ -74,6 +74,9 @@ export function Reports({ onNavigate, fiscalYear }: ReportsProps) {
   const [accountEntries, setAccountEntries] = useState<JournalLineWithDetails[]>([]);
   const [loadingEntries, setLoadingEntries] = useState(false);
   const [exportingXAF, setExportingXAF] = useState(false);
+  const [allAccounts, setAllAccounts] = useState<Account[]>([]);
+  const [editingLineId, setEditingLineId] = useState<string | null>(null);
+  const [selectedNewAccountId, setSelectedNewAccountId] = useState<string>('');
 
   useEffect(() => {
     setStartDate(defaultStart);
@@ -97,6 +100,8 @@ export function Reports({ onNavigate, fiscalYear }: ReportsProps) {
         setLoading(false);
         return;
       }
+
+      setAllAccounts(accounts);
 
       const { data: beginLines } = await supabase
         .from('journal_lines')
@@ -246,11 +251,13 @@ export function Reports({ onNavigate, fiscalYear }: ReportsProps) {
   async function loadAccountEntries(accountId: string, accountNumber: string, accountName: string) {
     setSelectedAccount({ id: accountId, number: accountNumber, name: accountName });
     setLoadingEntries(true);
+    setEditingLineId(null);
+    setSelectedNewAccountId('');
 
     try {
       const { data, error } = await supabase
         .from('journal_lines')
-        .select('*, journal_entries!inner(*)')
+        .select('*, journal_entries!inner(*), accounts!inner(*)')
         .eq('account_id', accountId)
         .gte('journal_entries.entry_date', startDate)
         .lte('journal_entries.entry_date', endDate)
@@ -273,6 +280,42 @@ export function Reports({ onNavigate, fiscalYear }: ReportsProps) {
     } finally {
       setLoadingEntries(false);
     }
+  }
+
+  async function updateJournalLineAccount(lineId: string, newAccountId: string) {
+    try {
+      const { error } = await supabase
+        .from('journal_lines')
+        .update({ account_id: newAccountId })
+        .eq('id', lineId);
+
+      if (error) {
+        console.error('Error updating journal line:', error);
+        alert('Fout bij het wijzigen van de grootboekrekening');
+        return;
+      }
+
+      setEditingLineId(null);
+      setSelectedNewAccountId('');
+
+      if (selectedAccount) {
+        await loadAccountEntries(selectedAccount.id, selectedAccount.number, selectedAccount.name);
+      }
+      await loadData();
+    } catch (err) {
+      console.error('Failed to update journal line:', err);
+      alert('Fout bij het wijzigen van de grootboekrekening');
+    }
+  }
+
+  function startEditingLine(lineId: string, currentAccountId: string) {
+    setEditingLineId(lineId);
+    setSelectedNewAccountId(currentAccountId);
+  }
+
+  function cancelEditing() {
+    setEditingLineId(null);
+    setSelectedNewAccountId('');
   }
 
   async function copyToClipboard(value: number, fieldName: string) {
@@ -807,9 +850,11 @@ export function Reports({ onNavigate, fiscalYear }: ReportsProps) {
                       <tr className="border-b-2 border-gray-300">
                         <th className="text-left py-2 px-3 text-sm font-semibold text-gray-900">Datum</th>
                         <th className="text-left py-2 px-3 text-sm font-semibold text-gray-900">Omschrijving</th>
+                        <th className="text-left py-2 px-3 text-sm font-semibold text-gray-900">Grootboek</th>
                         <th className="text-right py-2 px-3 text-sm font-semibold text-gray-900">Debet</th>
                         <th className="text-right py-2 px-3 text-sm font-semibold text-gray-900">Credit</th>
                         <th className="text-right py-2 px-3 text-sm font-semibold text-gray-900">Saldo</th>
+                        <th className="w-12"></th>
                       </tr>
                     </thead>
                     <tbody>
@@ -817,6 +862,9 @@ export function Reports({ onNavigate, fiscalYear }: ReportsProps) {
                         const runningBalance = accountEntries
                           .slice(0, index + 1)
                           .reduce((sum, l) => sum + Number(l.debit) - Number(l.credit), 0);
+
+                        const isEditing = editingLineId === line.id;
+                        const currentAccount = line.accounts as Account;
 
                         return (
                           <tr key={line.id} className="border-b border-gray-100 hover:bg-gray-50">
@@ -826,6 +874,27 @@ export function Reports({ onNavigate, fiscalYear }: ReportsProps) {
                             <td className="py-2 px-3 text-sm text-gray-900">
                               {(line.journal_entries as any)?.description || line.description}
                             </td>
+                            <td className="py-2 px-3 text-sm text-gray-900">
+                              {isEditing ? (
+                                <select
+                                  value={selectedNewAccountId}
+                                  onChange={(e) => setSelectedNewAccountId(e.target.value)}
+                                  className="w-full px-2 py-1 text-xs border border-blue-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <option value="">Kies grootboekrekening...</option>
+                                  {allAccounts.map((acc) => (
+                                    <option key={acc.id} value={acc.id}>
+                                      {acc.code} - {acc.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <span className="text-xs">
+                                  {currentAccount?.code} - {currentAccount?.name}
+                                </span>
+                              )}
+                            </td>
                             <td className="py-2 px-3 text-sm text-right text-gray-900 whitespace-nowrap">
                               {Number(line.debit) > 0 ? `€${Number(line.debit).toLocaleString('nl-NL', { minimumFractionDigits: 2 })}` : ''}
                             </td>
@@ -834,6 +903,46 @@ export function Reports({ onNavigate, fiscalYear }: ReportsProps) {
                             </td>
                             <td className="py-2 px-3 text-sm text-right font-medium text-gray-900 whitespace-nowrap">
                               €{runningBalance.toLocaleString('nl-NL', { minimumFractionDigits: 2 })}
+                            </td>
+                            <td className="py-2 px-3 text-center">
+                              {isEditing ? (
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (selectedNewAccountId && selectedNewAccountId !== line.account_id) {
+                                        updateJournalLineAccount(line.id, selectedNewAccountId);
+                                      }
+                                    }}
+                                    disabled={!selectedNewAccountId || selectedNewAccountId === line.account_id}
+                                    className="p-1 text-green-600 hover:text-green-700 hover:bg-green-50 rounded transition-colors disabled:text-gray-300 disabled:cursor-not-allowed"
+                                    title="Opslaan"
+                                  >
+                                    <Save className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      cancelEditing();
+                                    }}
+                                    className="p-1 text-red-600 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                                    title="Annuleren"
+                                  >
+                                    <XCircle className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    startEditingLine(line.id, line.account_id);
+                                  }}
+                                  className="p-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded transition-colors"
+                                  title="Wijzig grootboekrekening"
+                                >
+                                  <Edit2 className="w-4 h-4" />
+                                </button>
+                              )}
                             </td>
                           </tr>
                         );
