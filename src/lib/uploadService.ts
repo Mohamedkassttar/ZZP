@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { analyzeInvoice } from './aiService';
+import { getCurrentCompanyId } from './companyHelper';
 import type { Database } from './database.types';
 
 type Account = Database['public']['Tables']['accounts']['Row'];

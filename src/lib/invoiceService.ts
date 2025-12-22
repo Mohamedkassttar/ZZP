@@ -2,6 +2,7 @@ import { supabase } from './supabase';
 import { processInvoiceWithAI } from './intelligentInvoiceProcessor';
 import { bookInvoice, type PaymentMethod } from './invoiceBookingService';
 import type { EnhancedInvoiceData } from './intelligentInvoiceProcessor';
+import { getCurrentCompanyId } from './companyHelper';
 
 export interface UploadInvoiceResult {
   success: boolean;
@@ -33,6 +34,9 @@ export interface BookInvoiceResult {
 
 export async function uploadInvoiceFile(file: File): Promise<UploadInvoiceResult> {
   try {
+    const companyId = await getCurrentCompanyId();
+    if (!companyId) throw new Error('Geen bedrijf geselecteerd');
+
     if (!file.type.match(/^(image\/(jpeg|jpg|png|webp)|application\/pdf)$/)) {
       return {
         success: false,
@@ -83,6 +87,7 @@ export async function uploadInvoiceFile(file: File): Promise<UploadInvoiceResult
         file_type: file.type,
         status: 'Processing',
         source: 'portal',
+        company_id: companyId,
       })
       .select()
       .single();
@@ -111,10 +116,14 @@ export async function processAndExtractInvoice(
   documentId: string
 ): Promise<ProcessInvoiceResult> {
   try {
+    const companyId = await getCurrentCompanyId();
+    if (!companyId) throw new Error('Geen bedrijf geselecteerd');
+
     const { data: document, error: docError } = await supabase
       .from('documents_inbox')
       .select('file_url')
       .eq('id', documentId)
+      .eq('company_id', companyId)
       .single();
 
     if (docError || !document) {
@@ -147,7 +156,8 @@ export async function processAndExtractInvoice(
         status: 'Review_Needed',
         extracted_data: extractedData as any,
       })
-      .eq('id', documentId);
+      .eq('id', documentId)
+      .eq('company_id', companyId);
 
     if (updateError) {
       console.error('Failed to update document status:', updateError);
@@ -161,13 +171,17 @@ export async function processAndExtractInvoice(
   } catch (err) {
     console.error('Error in processAndExtractInvoice:', err);
 
-    await supabase
-      .from('documents_inbox')
-      .update({
-        status: 'Error',
-        processing_notes: err instanceof Error ? err.message : 'Onbekende fout',
-      })
-      .eq('id', documentId);
+    const companyId = await getCurrentCompanyId();
+    if (companyId) {
+      await supabase
+        .from('documents_inbox')
+        .update({
+          status: 'Error',
+          processing_notes: err instanceof Error ? err.message : 'Onbekende fout',
+        })
+        .eq('id', documentId)
+        .eq('company_id', companyId);
+    }
 
     return {
       success: false,
@@ -227,7 +241,10 @@ export async function bookInvoiceFromPortal(
 
 export async function deleteInvoiceDocument(documentId: string, fileUrl: string) {
   try {
-    await supabase.from('documents_inbox').delete().eq('id', documentId);
+    const companyId = await getCurrentCompanyId();
+    if (!companyId) throw new Error('Geen bedrijf geselecteerd');
+
+    await supabase.from('documents_inbox').delete().eq('id', documentId).eq('company_id', companyId);
     await supabase.storage.from('invoices').remove([fileUrl]);
     return { success: true };
   } catch (err) {
@@ -240,9 +257,13 @@ export async function deleteInvoiceDocument(documentId: string, fileUrl: string)
 }
 
 export async function getExpenseAccounts() {
+  const companyId = await getCurrentCompanyId();
+  if (!companyId) throw new Error('Geen bedrijf geselecteerd');
+
   const { data, error } = await supabase
     .from('accounts')
     .select('*')
+    .eq('company_id', companyId)
     .eq('type', 'Expense')
     .eq('is_active', true)
     .order('code');
@@ -256,9 +277,13 @@ export async function getExpenseAccounts() {
 }
 
 export async function getSuppliers() {
+  const companyId = await getCurrentCompanyId();
+  if (!companyId) throw new Error('Geen bedrijf geselecteerd');
+
   const { data, error } = await supabase
     .from('contacts')
     .select('id, company_name, email, vat_number')
+    .eq('company_id', companyId)
     .or('relation_type.eq.Supplier,relation_type.eq.Both')
     .eq('is_active', true)
     .order('company_name');
@@ -272,9 +297,13 @@ export async function getSuppliers() {
 }
 
 export async function getInboxDocuments() {
+  const companyId = await getCurrentCompanyId();
+  if (!companyId) throw new Error('Geen bedrijf geselecteerd');
+
   const { data, error } = await supabase
     .from('documents_inbox')
     .select('*')
+    .eq('company_id', companyId)
     .in('status', ['Review_Needed', 'Processing'])
     .order('created_at', { ascending: false });
 
@@ -287,6 +316,9 @@ export async function getInboxDocuments() {
 }
 
 export async function getBookedInvoices() {
+  const companyId = await getCurrentCompanyId();
+  if (!companyId) throw new Error('Geen bedrijf geselecteerd');
+
   const { data, error } = await supabase
     .from('purchase_invoices')
     .select(`
@@ -295,9 +327,12 @@ export async function getBookedInvoices() {
       invoice_date,
       total_amount,
       status,
-      contact:contacts(company_name),
-      document:documents_inbox(file_url, file_name)
+      contact:contacts!inner(company_name),
+      document:documents_inbox!inner(file_url, file_name)
     `)
+    .eq('company_id', companyId)
+    .eq('contacts.company_id', companyId)
+    .eq('documents_inbox.company_id', companyId)
     .order('invoice_date', { ascending: false });
 
   if (error) {
@@ -309,9 +344,13 @@ export async function getBookedInvoices() {
 }
 
 export async function getAllAccounts() {
+  const companyId = await getCurrentCompanyId();
+  if (!companyId) throw new Error('Geen bedrijf geselecteerd');
+
   const { data, error } = await supabase
     .from('accounts')
     .select('*')
+    .eq('company_id', companyId)
     .eq('is_active', true);
 
   if (error) {
@@ -325,9 +364,13 @@ export async function getAllAccounts() {
 }
 
 export async function getAllContacts() {
+  const companyId = await getCurrentCompanyId();
+  if (!companyId) throw new Error('Geen bedrijf geselecteerd');
+
   const { data, error } = await supabase
     .from('contacts')
     .select('*')
+    .eq('company_id', companyId)
     .eq('is_active', true);
 
   if (error) {

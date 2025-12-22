@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { getCurrentCompanyId } from './companyHelper';
 
 export interface VATReport {
   period: string;
@@ -59,15 +60,20 @@ export async function generateVATReport(
   startDate: string,
   endDate: string
 ): Promise<VATReport> {
+  const companyId = await getCurrentCompanyId();
+  if (!companyId) throw new Error('Geen bedrijf geselecteerd');
+
   const { data: accounts } = await supabase
     .from('accounts')
-    .select('id, code, name, type');
+    .select('id, code, name, type')
+    .eq('company_id', companyId);
 
   if (!accounts) throw new Error('Failed to load accounts');
 
   const { data: journalEntries } = await supabase
     .from('journal_entries')
     .select('id, entry_date, status')
+    .eq('company_id', companyId)
     .gte('entry_date', startDate)
     .lte('entry_date', endDate)
     .eq('status', 'Final');
@@ -87,6 +93,7 @@ export async function generateVATReport(
   const { data: lines } = await supabase
     .from('journal_lines')
     .select('account_id, debit, credit')
+    .eq('company_id', companyId)
     .in('journal_entry_id', entryIds);
 
   if (!lines) throw new Error('Failed to load journal lines');
@@ -131,9 +138,13 @@ export async function generateProfitLossReport(
   startDate: string,
   endDate: string
 ): Promise<ProfitLossReport> {
+  const companyId = await getCurrentCompanyId();
+  if (!companyId) throw new Error('Geen bedrijf geselecteerd');
+
   const { data: accounts } = await supabase
     .from('accounts')
     .select('*')
+    .eq('company_id', companyId)
     .in('type', ['Revenue', 'Expense'])
     .eq('is_active', true);
 
@@ -142,6 +153,8 @@ export async function generateProfitLossReport(
   const { data: periodLines } = await supabase
     .from('journal_lines')
     .select('*, journal_entries!inner(*)')
+    .eq('company_id', companyId)
+    .eq('journal_entries.company_id', companyId)
     .gte('journal_entries.entry_date', startDate)
     .lte('journal_entries.entry_date', endDate)
     .eq('journal_entries.status', 'Final');
@@ -230,9 +243,13 @@ export async function generateBalanceSheet(
   startDate: string,
   endDate: string
 ): Promise<BalanceSheetReport> {
+  const companyId = await getCurrentCompanyId();
+  if (!companyId) throw new Error('Geen bedrijf geselecteerd');
+
   const { data: accounts } = await supabase
     .from('accounts')
     .select('*')
+    .eq('company_id', companyId)
     .in('type', ['Asset', 'Liability', 'Equity'])
     .eq('is_active', true);
 
@@ -241,6 +258,8 @@ export async function generateBalanceSheet(
   const { data: allLines } = await supabase
     .from('journal_lines')
     .select('*, journal_entries!inner(*)')
+    .eq('company_id', companyId)
+    .eq('journal_entries.company_id', companyId)
     .lte('journal_entries.entry_date', endDate)
     .eq('journal_entries.status', 'Final');
 

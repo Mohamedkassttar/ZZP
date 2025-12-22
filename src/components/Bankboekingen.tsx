@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { ChevronDown, ChevronRight, Calendar, Loader, CreditCard as Edit2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Database } from '../lib/database.types';
+import { getCurrentCompanyId } from '../lib/companyHelper';
 import { BankEntryEditModal } from './BankEntryEditModal';
 
 type JournalEntry = Database['public']['Tables']['journal_entries']['Row'];
@@ -60,9 +61,13 @@ export function Bankboekingen() {
   async function loadData() {
     setLoading(true);
     try {
+      const companyId = await getCurrentCompanyId();
+      if (!companyId) throw new Error('Geen bedrijf geselecteerd');
+
       const { data: accountsData } = await supabase
         .from('accounts')
         .select('*')
+        .eq('company_id', companyId)
         .eq('is_active', true);
 
       const sortedAccounts = (accountsData || []).sort((a, b) => {
@@ -77,6 +82,7 @@ export function Bankboekingen() {
       const { data: bankTransactions } = await supabase
         .from('bank_transactions')
         .select('journal_entry_id')
+        .eq('company_id', companyId)
         .not('journal_entry_id', 'is', null);
 
       const journalEntryIds = (bankTransactions || [])
@@ -93,6 +99,7 @@ export function Bankboekingen() {
       const { data: entriesData } = await supabase
         .from('journal_entries')
         .select('*')
+        .eq('company_id', companyId)
         .in('id', journalEntryIds)
         .gte('entry_date', startDate)
         .lte('entry_date', endDate)
@@ -138,6 +145,7 @@ export function Bankboekingen() {
           const { data: bankTransaction } = await supabase
             .from('bank_transactions')
             .select('contra_name')
+            .eq('company_id', companyId)
             .eq('journal_entry_id', entry.id)
             .maybeSingle();
 

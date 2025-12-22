@@ -11,10 +11,14 @@ type BankTransaction = Database['public']['Tables']['bank_transactions']['Insert
  * Throws an error if account is not found
  */
 async function getAccountByCode(code: string): Promise<{ id: string; name: string; code: string }> {
+  const companyId = await getCurrentCompanyId();
+  if (!companyId) throw new Error('Geen bedrijf geselecteerd');
+
   const { data, error } = await supabase
     .from('accounts')
     .select('id, name, code')
     .eq('code', code)
+    .eq('company_id', companyId)
     .maybeSingle();
 
   if (error || !data) {
@@ -242,6 +246,9 @@ export async function importBankTransactions(transactions: ParsedTransaction[]):
   imported: number;
   errors: string[];
 }> {
+  const companyId = await getCurrentCompanyId();
+  if (!companyId) throw new Error('Geen bedrijf geselecteerd');
+
   const errors: string[] = [];
   let imported = 0;
 
@@ -251,6 +258,7 @@ export async function importBankTransactions(transactions: ParsedTransaction[]):
         .from('bank_transactions')
         .insert({
           ...txn,
+          company_id: companyId,
           status: 'Unmatched',
         });
 
@@ -298,6 +306,7 @@ export async function bookBankTransaction(
       .from('bank_transactions')
       .select('*')
       .eq('id', transactionId)
+      .eq('company_id', companyId)
       .single();
 
     if (txnError || !transaction) {
@@ -369,7 +378,8 @@ export async function bookBankTransaction(
         status: 'Booked',
         journal_entry_id: journalEntry.id,
       })
-      .eq('id', transactionId);
+      .eq('id', transactionId)
+      .eq('company_id', companyId);
 
     if (updateError) throw updateError;
 
@@ -417,6 +427,7 @@ export async function bookBankTransactionViaRelatie(
       .from('bank_transactions')
       .select('*')
       .eq('id', transactionId)
+      .eq('company_id', companyId)
       .maybeSingle();
 
     if (txnError || !transaction) {
@@ -518,7 +529,8 @@ export async function bookBankTransactionViaRelatie(
           status: 'pending',
           journal_entry_id: paymentEntry.id,
         })
-        .eq('id', transactionId);
+        .eq('id', transactionId)
+        .eq('company_id', companyId);
 
       if (updateError) throw updateError;
 
@@ -611,7 +623,8 @@ export async function bookBankTransactionViaRelatie(
           status: 'pending',
           journal_entry_id: paymentEntry.id,
         })
-        .eq('id', transactionId);
+        .eq('id', transactionId)
+        .eq('company_id', companyId);
 
       if (updateError) throw updateError;
     }

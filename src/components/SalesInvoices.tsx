@@ -114,21 +114,27 @@ export function SalesInvoices() {
   async function loadData() {
     setLoading(true);
     try {
+      const companyId = await getCurrentCompanyId();
+      if (!companyId) throw new Error('Geen bedrijf geselecteerd');
+
       const [invoicesRes, contactsRes, accountsRes] = await Promise.all([
         supabase
           .from('invoices')
           .select('*, contacts(*)')
+          .eq('company_id', companyId)
           .order('invoice_date', { ascending: false })
           .limit(100),
         supabase
           .from('contacts')
           .select('*')
+          .eq('company_id', companyId)
           .eq('is_active', true)
           .or('relation_type.eq.Customer,relation_type.eq.Both')
           .order('company_name'),
         supabase
           .from('accounts')
           .select('*')
+          .eq('company_id', companyId)
           .eq('type', 'Revenue')
           .eq('is_active', true)
           .order('code'),
@@ -155,11 +161,15 @@ export function SalesInvoices() {
 
   async function loadRevenueTransactions(revenueAccs: Account[]) {
     try {
+      const companyId = await getCurrentCompanyId();
+      if (!companyId) throw new Error('Geen bedrijf geselecteerd');
+
       const transactions: RevenueTransaction[] = [];
 
       const { data: invoicesData } = await supabase
         .from('invoices')
         .select('*, contacts(*)')
+        .eq('company_id', companyId)
         .order('invoice_date', { ascending: false });
 
       if (invoicesData) {
@@ -225,9 +235,13 @@ export function SalesInvoices() {
 
   async function generateInvoiceNumber() {
     try {
+      const companyId = await getCurrentCompanyId();
+      if (!companyId) throw new Error('Geen bedrijf geselecteerd');
+
       const { data: lastInvoice } = await supabase
         .from('invoices')
         .select('invoice_number')
+        .eq('company_id', companyId)
         .order('invoice_number', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -372,9 +386,13 @@ export function SalesInvoices() {
     }
 
     try {
+      const companyId = await getCurrentCompanyId();
+      if (!companyId) throw new Error('Geen bedrijf geselecteerd');
+
       const { data: newContact, error: contactError } = await supabase
         .from('contacts')
         .insert({
+          company_id: companyId,
           company_name: quickCreateData.company_name,
           address: quickCreateData.address || null,
           postal_code: quickCreateData.postal_code || null,
@@ -433,7 +451,11 @@ export function SalesInvoices() {
     const { subtotal, vatAmount, total } = calculateTotals();
 
     try {
+      const companyId = await getCurrentCompanyId();
+      if (!companyId) throw new Error('Geen bedrijf geselecteerd');
+
       const invoiceData = {
+        company_id: companyId,
         contact_id: selectedContactId,
         invoice_number: invoiceNumber,
         invoice_date: invoiceDate,

@@ -8,6 +8,7 @@
  */
 
 import { supabase } from './supabase';
+import { getCurrentCompanyId } from './companyHelper';
 
 /**
  * Find the active Crediteuren (Accounts Payable) account
@@ -26,10 +27,14 @@ import { supabase } from './supabase';
 export async function findActiveAccountsPayable() {
   console.log('[SYSTEM_ACCOUNTS] Searching for Crediteuren (Accounts Payable) account...');
 
+  const companyId = await getCurrentCompanyId();
+  if (!companyId) throw new Error('Geen bedrijf geselecteerd');
+
   // STRATEGY 1: Search by name (flexible keywords)
   const { data: accountsByName, error: nameError } = await supabase
     .from('accounts')
     .select('*')
+    .eq('company_id', companyId)
     .eq('type', 'Liability')
     .eq('is_active', true)
     .or('name.ilike.%crediteur%,name.ilike.%accounts payable%,name.ilike.%te betalen%,name.ilike.%leveranciers%')
@@ -49,6 +54,7 @@ export async function findActiveAccountsPayable() {
   const { data: accountsByCode, error: codeError } = await supabase
     .from('accounts')
     .select('*')
+    .eq('company_id', companyId)
     .eq('type', 'Liability')
     .eq('is_active', true)
     .in('code', ['1500', '1600'])
@@ -68,6 +74,7 @@ export async function findActiveAccountsPayable() {
   const { data: genericLiabilities, error: fallbackError } = await supabase
     .from('accounts')
     .select('*')
+    .eq('company_id', companyId)
     .eq('type', 'Liability')
     .eq('is_active', true)
     .is('tax_category', null)
@@ -99,9 +106,13 @@ export async function findActiveAccountsPayable() {
  * @returns Active accounts receivable account or null if not found
  */
 export async function findActiveAccountsReceivable() {
+  const companyId = await getCurrentCompanyId();
+  if (!companyId) throw new Error('Geen bedrijf geselecteerd');
+
   const { data: accounts, error } = await supabase
     .from('accounts')
     .select('*')
+    .eq('company_id', companyId)
     .eq('type', 'Asset')
     .eq('is_active', true)
     .ilike('name', '%debiteur%')
@@ -135,9 +146,13 @@ export async function findActiveAccountsReceivable() {
  * @returns Active VAT receivable account or null if not found
  */
 export async function findActiveVATReceivable() {
+  const companyId = await getCurrentCompanyId();
+  if (!companyId) throw new Error('Geen bedrijf geselecteerd');
+
   const { data: accounts, error } = await supabase
     .from('accounts')
     .select('*')
+    .eq('company_id', companyId)
     .eq('type', 'Asset')
     .eq('is_active', true)
     .or('name.ilike.%btw%vorderen%,name.ilike.%voorbelasting%')
@@ -171,9 +186,13 @@ export async function findActiveVATReceivable() {
  * @returns Active VAT payable account or null if not found
  */
 export async function findActiveVATPayable() {
+  const companyId = await getCurrentCompanyId();
+  if (!companyId) throw new Error('Geen bedrijf geselecteerd');
+
   const { data: accounts, error } = await supabase
     .from('accounts')
     .select('*')
+    .eq('company_id', companyId)
     .eq('type', 'Liability')
     .eq('is_active', true)
     .or('name.ilike.%btw%betalen%,name.ilike.%omzetbelasting%')

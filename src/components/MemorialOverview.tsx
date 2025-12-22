@@ -3,6 +3,7 @@ import { Edit, Trash2, CheckCircle, FileText, Calendar, Euro, AlertCircle } from
 import { supabase } from '../lib/supabase';
 import { JournalEntryModal } from './JournalEntryModal';
 import type { Database } from '../lib/database.types';
+import { getCurrentCompanyId } from '../lib/companyHelper';
 
 type JournalEntry = Database['public']['Tables']['journal_entries']['Row'];
 type Account = Database['public']['Tables']['accounts']['Row'];
@@ -39,10 +40,16 @@ export function MemorialOverview() {
     setError(null);
 
     try {
+      const companyId = await getCurrentCompanyId();
+      if (!companyId) {
+        throw new Error('Geen bedrijf geselecteerd');
+      }
+
       const { data: accountsData } = await supabase
         .from('accounts')
         .select('*')
-        .eq('is_active', true);
+        .eq('is_active', true)
+        .eq('company_id', companyId);
 
       const sortedAccounts = (accountsData || []).sort((a, b) => {
         const numA = parseInt(a.code);
@@ -55,6 +62,7 @@ export function MemorialOverview() {
       const { data: journalEntries, error: entriesError } = await supabase
         .from('journal_entries')
         .select('*')
+        .eq('company_id', companyId)
         .in('type', ['Memoriaal', 'memoriaal', 'manual', 'opening_balance'])
         .order('entry_date', { ascending: false });
 

@@ -35,10 +35,16 @@ export function Memoriaal() {
 
   async function loadAccounts() {
     try {
+      const companyId = await getCurrentCompanyId();
+      if (!companyId) {
+        throw new Error('Geen bedrijf geselecteerd');
+      }
+
       const { data, error } = await supabase
         .from('accounts')
         .select('*')
         .eq('is_active', true)
+        .eq('company_id', companyId)
         .order('code');
 
       if (error) throw error;

@@ -2,6 +2,7 @@ import { useState, useEffect, DragEvent } from 'react';
 import { Upload, FileText, Building2, Landmark, MapPin, Package, Edit3, TrendingUp, TrendingDown, Wallet } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { CashflowChart } from './CashflowChart';
+import { getCurrentCompanyId } from '../lib/companyHelper';
 
 interface FinancialMetrics {
   openSales: number;
@@ -42,9 +43,13 @@ export function Dashboard({ onNavigate }: DashboardProps) {
   }
 
   async function calculateBankBalance(): Promise<number> {
+    const companyId = await getCurrentCompanyId();
+    if (!companyId) throw new Error('Geen bedrijf geselecteerd');
+
     const { data: bankAccounts } = await supabase
       .from('accounts')
       .select('id')
+      .eq('company_id', companyId)
       .eq('type', 'Asset')
       .ilike('name', '%bank%');
 

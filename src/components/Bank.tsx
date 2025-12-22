@@ -6,6 +6,7 @@ import { AIReconciliationCard } from './AIReconciliationCard';
 import { analyzeTransaction } from '../lib/bankAutomationService';
 import { matchTransactionWithRules, matchTransactionWithContact, createBankRule } from '../lib/bankRulesService';
 import { reclassifyBankTransaction } from '../lib/reclassificationService';
+import { getCurrentCompanyId } from '../lib/companyHelper';
 import type { Database } from '../lib/database.types';
 
 type Account = Database['public']['Tables']['accounts']['Row'];
@@ -82,16 +83,21 @@ export function Bank() {
 
   async function loadData() {
     try {
+      const companyId = await getCurrentCompanyId();
+      if (!companyId) throw new Error('Geen bedrijf geselecteerd');
+
       const [accountsRes, transactionsRes, contactsRes] = await Promise.all([
-        supabase.from('accounts').select('*').eq('is_active', true),
+        supabase.from('accounts').select('*').eq('is_active', true).eq('company_id', companyId),
         supabase
           .from('bank_transactions')
           .select('*')
+          .eq('company_id', companyId)
           .order('transaction_date', { ascending: false }),
         supabase
           .from('contacts')
           .select('*')
           .eq('is_active', true)
+          .eq('company_id', companyId)
           .order('company_name'),
       ]);
 
@@ -187,6 +193,9 @@ export function Bank() {
     }
 
     try {
+      const companyId = await getCurrentCompanyId();
+      if (!companyId) throw new Error('Geen bedrijf geselecteerd');
+
       const { data: newContact, error: insertError } = await supabase
         .from('contacts')
         .insert({
@@ -194,6 +203,7 @@ export function Bank() {
           relation_type: 'Supplier',
           default_ledger_account_id: selectedAccount,
           is_active: true,
+          company_id: companyId,
         })
         .select()
         .single();
@@ -224,6 +234,9 @@ export function Bank() {
     }
 
     try {
+      const companyId = await getCurrentCompanyId();
+      if (!companyId) throw new Error('Geen bedrijf geselecteerd');
+
       const relationType = selectedTransaction && selectedTransaction.amount > 0 ? 'Customer' : 'Supplier';
 
       const { data: newContact, error: insertError } = await supabase
@@ -233,6 +246,7 @@ export function Bank() {
           relation_type: relationType,
           default_ledger_account_id: newRelationDefaultAccount,
           is_active: true,
+          company_id: companyId,
         })
         .select()
         .single();
@@ -261,10 +275,14 @@ export function Bank() {
     if (!matchedContact || !selectedAccount) return;
 
     try {
+      const companyId = await getCurrentCompanyId();
+      if (!companyId) throw new Error('Geen bedrijf geselecteerd');
+
       const { error: updateError } = await supabase
         .from('contacts')
         .update({ default_ledger_account_id: selectedAccount })
-        .eq('id', matchedContact.id);
+        .eq('id', matchedContact.id)
+        .eq('company_id', companyId);
 
       if (updateError) throw updateError;
 
@@ -320,10 +338,14 @@ export function Bank() {
     setError(null);
 
     if (setAsDefault && selectedContact && selectedAccount) {
+      const companyId = await getCurrentCompanyId();
+      if (!companyId) throw new Error('Geen bedrijf geselecteerd');
+
       const { error: updateContactError } = await supabase
         .from('contacts')
         .update({ default_ledger_account_id: selectedAccount })
-        .eq('id', selectedContact);
+        .eq('id', selectedContact)
+        .eq('company_id', companyId);
 
       if (updateContactError) {
         console.warn('Failed to set default ledger account:', updateContactError);

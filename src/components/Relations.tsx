@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, Search, Edit2, FileSpreadsheet, AlertCircle, CheckCircle, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { getCurrentCompanyId } from '../lib/companyHelper';
 import { UniversalImporter } from './UniversalImporter';
 import { contactsConfig } from '../lib/importConfigs';
 import type { Database } from '../lib/database.types';
@@ -50,9 +51,16 @@ export function Relations() {
 
   async function loadAccounts() {
     try {
+      const companyId = await getCurrentCompanyId();
+      if (!companyId) {
+        setError('Geen bedrijf geselecteerd');
+        return;
+      }
+
       const { data, error } = await supabase
         .from('accounts')
         .select('*')
+        .eq('company_id', companyId)
         .eq('is_active', true)
         .order('code');
 
@@ -70,9 +78,17 @@ export function Relations() {
   async function loadContacts() {
     try {
       setLoading(true);
+      const companyId = await getCurrentCompanyId();
+      if (!companyId) {
+        setError('Geen bedrijf geselecteerd');
+        setLoading(false);
+        return;
+      }
+
       const { data: contactsData, error: contactsError } = await supabase
         .from('contacts')
         .select('*')
+        .eq('company_id', companyId)
         .order('company_name');
 
       if (contactsError) throw contactsError;
@@ -208,7 +224,14 @@ export function Relations() {
     }
 
     try {
+      const companyId = await getCurrentCompanyId();
+      if (!companyId) {
+        setError('Geen bedrijf geselecteerd');
+        return;
+      }
+
       const dataToSave = {
+        company_id: companyId,
         company_name: formData.company_name.trim(),
         contact_person: formData.contact_person.trim() || null,
         email: formData.email.trim() || null,
@@ -230,7 +253,8 @@ export function Relations() {
         const { error: updateError } = await supabase
           .from('contacts')
           .update(dataToSave)
-          .eq('id', editingContact.id);
+          .eq('id', editingContact.id)
+          .eq('company_id', companyId);
 
         if (updateError) throw updateError;
         setSuccess('Contact updated successfully');
