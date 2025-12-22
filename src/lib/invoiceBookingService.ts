@@ -22,9 +22,35 @@ import { supabase } from './supabase';
 import type { Database } from './database.types';
 import type { EnhancedInvoiceData } from './intelligentInvoiceProcessor';
 import { findActiveAccountsPayable } from './systemAccountsService';
+import { getAccountIdByCode } from './bankService';
 
 type Contact = Database['public']['Tables']['contacts']['Row'];
 type Account = Database['public']['Tables']['accounts']['Row'];
+
+/**
+ * Helper: Search for account by name pattern (fuzzy match)
+ * Used to find Cash or Private accounts without hardcoding codes
+ *
+ * @param pattern - Name pattern to search for (e.g., 'Kas', 'Privé', 'Prive opname')
+ * @returns Account ID and details
+ */
+async function getAccountByNamePattern(pattern: string): Promise<{ id: string; code: string; name: string }> {
+  const { data, error } = await supabase
+    .from('accounts')
+    .select('id, name, code')
+    .ilike('name', `%${pattern}%`)
+    .eq('is_active', true)
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data) {
+    throw new Error(`Geen rekening gevonden met '${pattern}' in de naam. Controleer je grootboekschema en zorg dat een rekening bestaat met deze naam.`);
+  }
+
+  return data;
+}
+
+export type PaymentMethod = 'none' | 'cash' | 'private';
 
 export interface BookInvoiceParams {
   documentId: string;
@@ -32,6 +58,7 @@ export interface BookInvoiceParams {
   expenseAccountId: string;
   supplierContactId?: string;
   notes?: string;
+  paymentMethod?: PaymentMethod;
 }
 
 export interface BookInvoiceResult {
@@ -39,6 +66,7 @@ export interface BookInvoiceResult {
   purchaseInvoiceId?: string;
   journalEntryId?: string;
   contactId?: string;
+  paymentAccountUsed?: { code: string; name: string };
   error?: string;
 }
 
@@ -52,7 +80,7 @@ export interface BookInvoiceResult {
  * - Document status update
  */
 export async function bookInvoice(params: BookInvoiceParams): Promise<BookInvoiceResult> {
-  const { documentId, invoiceData, expenseAccountId, supplierContactId, notes } = params;
+  const { documentId, invoiceData, expenseAccountId, supplierContactId, notes, paymentMethod = 'none' } = params;
 
   console.log('\n' + '═'.repeat(70));
   console.log('📗 [BOOKING SERVICE] Starting invoice booking process');
@@ -340,12 +368,102 @@ export async function bookInvoice(params: BookInvoiceParams): Promise<BookInvoic
       }
     }
 
+    // STEP 10: Process Direct Payment (if applicable)
+    let paymentAccountUsed: { code: string; name: string } | undefined;
+
+    if (paymentMethod && paymentMethod !== 'none') {
+      console.log('\n📋 STEP 10: Direct Payment Processing');
+      console.log('─'.repeat(70));
+      console.log(`  Payment Method: ${paymentMethod === 'cash' ? 'Kas (Cash)' : 'Privé opname'}`);
+
+      try {
+        // Determine search pattern based on payment method
+        const searchPattern = paymentMethod === 'cash' ? 'Kas' : 'Prive';
+        const paymentAccount = await getAccountByNamePattern(searchPattern);
+
+        console.log(`  ✓ Found payment account: ${paymentAccount.code} - ${paymentAccount.name}`);
+        paymentAccountUsed = { code: paymentAccount.code, name: paymentAccount.name };
+
+        // Create payment journal entry
+        // DEBIT: Creditor (clear liability) / CREDIT: Cash or Private account
+        const paymentDescription = `Betaling ${invoiceData.invoice_number || ''} via ${paymentAccount.name}`.trim();
+
+        const { data: paymentEntry, error: paymentEntryError } = await supabase
+          .from('journal_entries')
+          .insert({
+            entry_date: invoiceDate,
+            description: paymentDescription,
+            reference: invoiceData.invoice_number || null,
+            status: 'Final',
+            contact_id: contactId,
+            memoriaal_type: 'Betaling',
+          })
+          .select()
+          .single();
+
+        if (paymentEntryError || !paymentEntry) {
+          throw new Error(`Failed to create payment entry: ${paymentEntryError?.message}`);
+        }
+
+        const paymentLines = [
+          {
+            journal_entry_id: paymentEntry.id,
+            account_id: creditorAccountId,
+            debit: totalAmount,
+            credit: 0,
+            description: `Crediteur vereffening`,
+          },
+          {
+            journal_entry_id: paymentEntry.id,
+            account_id: paymentAccount.id,
+            debit: 0,
+            credit: totalAmount,
+            description: `Betaling via ${paymentAccount.name}`,
+          },
+        ];
+
+        const { error: paymentLinesError } = await supabase
+          .from('journal_lines')
+          .insert(paymentLines);
+
+        if (paymentLinesError) {
+          console.error('  ❌ Payment lines creation failed:', paymentLinesError);
+          throw new Error(`Failed to create payment lines: ${paymentLinesError.message}`);
+        }
+
+        // Update purchase invoice status to Paid
+        const { error: updateInvoiceError } = await supabase
+          .from('purchase_invoices')
+          .update({
+            status: 'Paid',
+            paid_at: invoiceDate,
+          })
+          .eq('id', purchaseInvoice.id);
+
+        if (updateInvoiceError) {
+          console.error('  ⚠ Warning: Failed to update invoice to Paid:', updateInvoiceError);
+        }
+
+        console.log(`  ✓ Payment journal entry created (ID: ${paymentEntry.id})`);
+        console.log(`  ✓ Invoice marked as Paid`);
+        console.log(`  ✓ Payment processed via: ${paymentAccount.code} - ${paymentAccount.name}`);
+
+      } catch (paymentError) {
+        console.error('  ⚠ Warning: Direct payment processing failed:', paymentError);
+        // Don't fail the entire booking if payment fails - invoice is still booked
+        // User can manually process payment later
+      }
+    }
+
     console.log('\n' + '═'.repeat(70));
     console.log('✅ [BOOKING SERVICE] Invoice booking completed successfully');
     console.log('═'.repeat(70));
     console.log(`Purchase Invoice ID: ${purchaseInvoice.id}`);
     console.log(`Journal Entry ID: ${journalEntry.id}`);
     console.log(`Contact ID: ${contactId}`);
+    if (paymentAccountUsed) {
+      console.log(`Payment Account Used: ${paymentAccountUsed.code} - ${paymentAccountUsed.name}`);
+    }
     console.log('═'.repeat(70) + '\n');
 
     return {
@@ -353,6 +471,7 @@ export async function bookInvoice(params: BookInvoiceParams): Promise<BookInvoic
       purchaseInvoiceId: purchaseInvoice.id,
       journalEntryId: journalEntry.id,
       contactId: contactId,
+      paymentAccountUsed,
     };
   } catch (error) {
     console.error('\n❌ [BOOKING SERVICE] Error:', error);

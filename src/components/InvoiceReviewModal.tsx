@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { X, Save, Sparkles, AlertCircle, Plus } from 'lucide-react';
+import { X, Save, Sparkles, AlertCircle, Plus, CheckCircle, Wallet, DollarSign } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { getSignedUrl } from '../lib/uploadService';
-import { bookInvoice } from '../lib/invoiceBookingService';
+import { bookInvoice, type PaymentMethod } from '../lib/invoiceBookingService';
 import type { Database, ExtractedInvoiceData } from '../lib/database.types';
 
 type Account = Database['public']['Tables']['accounts']['Row'];
@@ -32,8 +32,10 @@ export function InvoiceReviewModal({ document, accounts, onClose, onBooked }: Pr
   });
   const [booking, setBooking] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [creatingSupplier, setCreatingSupplier] = useState(false);
   const [fileUrl, setFileUrl] = useState<string>('');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('none');
   const isPdf = document.file_type === 'application/pdf';
 
   useEffect(() => {
@@ -146,13 +148,22 @@ export function InvoiceReviewModal({ document, accounts, onClose, onBooked }: Pr
         expenseAccountId: formData.suggested_account_id,
         supplierContactId: formData.contact_id,
         notes: formData.description,
+        paymentMethod: paymentMethod,
       });
 
       if (!result.success) {
         throw new Error(result.error || 'Failed to book invoice');
       }
 
-      onBooked();
+      if (result.paymentAccountUsed) {
+        setSuccess(`Factuur geboekt en betaald via ${result.paymentAccountUsed.code} - ${result.paymentAccountUsed.name}`);
+      } else {
+        setSuccess('Factuur succesvol geboekt!');
+      }
+
+      setTimeout(() => {
+        onBooked();
+      }, 1500);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to book invoice');
       setBooking(false);
@@ -182,6 +193,13 @@ export function InvoiceReviewModal({ document, accounts, onClose, onBooked }: Pr
           <div className="mx-6 mt-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
             <div className="text-red-800">{error}</div>
+          </div>
+        )}
+
+        {success && (
+          <div className="mx-6 mt-4 p-4 bg-green-50 border border-green-200 rounded-lg flex items-start gap-3">
+            <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+            <div className="text-green-800">{success}</div>
           </div>
         )}
 
@@ -350,6 +368,60 @@ export function InvoiceReviewModal({ document, accounts, onClose, onBooked }: Pr
                       </option>
                     ))}
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Betaling
+                </label>
+                <div className="space-y-2">
+                  <label className="flex items-center gap-3 p-3 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                    <input
+                      type="radio"
+                      name="payment"
+                      value="none"
+                      checked={paymentMethod === 'none'}
+                      onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
+                      className="w-4 h-4"
+                    />
+                    <div className="flex-1">
+                      <div className="font-medium text-gray-900">Geen directe betaling</div>
+                      <div className="text-xs text-gray-500">Factuur wordt open geboekt (te betalen)</div>
+                    </div>
+                  </label>
+
+                  <label className="flex items-center gap-3 p-3 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                    <input
+                      type="radio"
+                      name="payment"
+                      value="cash"
+                      checked={paymentMethod === 'cash'}
+                      onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
+                      className="w-4 h-4"
+                    />
+                    <DollarSign className="w-5 h-5 text-green-600" />
+                    <div className="flex-1">
+                      <div className="font-medium text-gray-900">Direct betaald met Kas</div>
+                      <div className="text-xs text-gray-500">Zoekt rekening met "Kas" in naam</div>
+                    </div>
+                  </label>
+
+                  <label className="flex items-center gap-3 p-3 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                    <input
+                      type="radio"
+                      name="payment"
+                      value="private"
+                      checked={paymentMethod === 'private'}
+                      onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
+                      className="w-4 h-4"
+                    />
+                    <Wallet className="w-5 h-5 text-blue-600" />
+                    <div className="flex-1">
+                      <div className="font-medium text-gray-900">Direct betaald uit Privé</div>
+                      <div className="text-xs text-gray-500">Zoekt rekening met "Prive" in naam</div>
+                    </div>
+                  </label>
+                </div>
               </div>
 
               <div className="pt-4 border-t border-gray-200">

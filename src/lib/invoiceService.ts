@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 import { processInvoiceWithAI } from './intelligentInvoiceProcessor';
-import { bookInvoice } from './invoiceBookingService';
+import { bookInvoice, type PaymentMethod } from './invoiceBookingService';
 import type { EnhancedInvoiceData } from './intelligentInvoiceProcessor';
 
 export interface UploadInvoiceResult {
@@ -21,6 +21,7 @@ export interface BookInvoiceInput {
   invoiceData: EnhancedInvoiceData;
   expenseAccountId: string;
   supplierContactId?: string;
+  paymentMethod?: PaymentMethod;
 }
 
 export interface BookInvoiceResult {
@@ -172,13 +173,14 @@ export async function uploadAndProcessInvoice(file: File): Promise<ProcessInvoic
 
 export async function bookInvoiceFromPortal(
   input: BookInvoiceInput
-): Promise<BookInvoiceResult> {
+): Promise<BookInvoiceResult & { paymentAccountUsed?: { code: string; name: string } }> {
   try {
     const result = await bookInvoice({
       documentId: input.documentId,
       invoiceData: input.invoiceData,
       expenseAccountId: input.expenseAccountId,
       supplierContactId: input.supplierContactId,
+      paymentMethod: input.paymentMethod,
     });
 
     if (!result.success) {
@@ -192,6 +194,7 @@ export async function bookInvoiceFromPortal(
       success: true,
       purchaseInvoiceId: result.purchaseInvoiceId,
       journalEntryId: result.journalEntryId,
+      paymentAccountUsed: result.paymentAccountUsed,
     };
   } catch (err) {
     console.error('Error in bookInvoiceFromPortal:', err);

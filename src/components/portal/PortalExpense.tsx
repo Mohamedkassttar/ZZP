@@ -11,6 +11,7 @@ import {
   Calendar,
   BookOpen,
   ArrowRight,
+  Wallet,
 } from 'lucide-react';
 import {
   uploadAndProcessInvoice,
@@ -18,6 +19,7 @@ import {
   getExpenseAccounts,
 } from '../../lib/invoiceService';
 import type { EnhancedInvoiceData } from '../../lib/intelligentInvoiceProcessor';
+import type { PaymentMethod } from '../../lib/invoiceBookingService';
 
 type ProcessingState = 'idle' | 'uploading' | 'processing' | 'review' | 'booking' | 'success' | 'error';
 
@@ -29,6 +31,8 @@ export function PortalExpense() {
   const [error, setError] = useState<string>('');
   const [expenseAccounts, setExpenseAccounts] = useState<any[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('none');
+  const [successMessage, setSuccessMessage] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
@@ -106,10 +110,17 @@ export function PortalExpense() {
         invoiceData: extractedData,
         expenseAccountId: selectedAccountId,
         supplierContactId: extractedData.contact_id,
+        paymentMethod,
       });
 
       if (!result.success) {
         throw new Error(result.error || 'Fout bij boeken');
+      }
+
+      if (result.paymentAccountUsed) {
+        setSuccessMessage(`Factuur geboekt en betaald via ${result.paymentAccountUsed.code} - ${result.paymentAccountUsed.name}`);
+      } else {
+        setSuccessMessage('De inkoopfactuur is succesvol verwerkt en geboekt in de administratie.');
       }
 
       setState('success');
@@ -127,6 +138,8 @@ export function PortalExpense() {
     setError('');
     setSelectedAccountId('');
     setExpenseAccounts([]);
+    setPaymentMethod('none');
+    setSuccessMessage('');
   }
 
   if (state === 'success') {
@@ -138,7 +151,7 @@ export function PortalExpense() {
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-3">Factuur Geboekt!</h2>
           <p className="text-gray-600 mb-8">
-            De inkoopfactuur is succesvol verwerkt en geboekt in de administratie.
+            {successMessage}
           </p>
           <button
             onClick={reset}
@@ -269,6 +282,58 @@ export function PortalExpense() {
               </p>
             </div>
           )}
+        </div>
+
+        <div className="bg-white rounded-2xl shadow-md p-6 border border-gray-100">
+          <h3 className="text-lg font-bold text-gray-900 mb-4">Betaling</h3>
+          <div className="space-y-3">
+            <label className="flex items-center gap-3 p-4 border-2 border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors">
+              <input
+                type="radio"
+                name="payment"
+                value="none"
+                checked={paymentMethod === 'none'}
+                onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
+                className="w-5 h-5"
+              />
+              <div className="flex-1">
+                <div className="font-semibold text-gray-900">Geen directe betaling</div>
+                <div className="text-sm text-gray-600">Factuur wordt open geboekt (te betalen)</div>
+              </div>
+            </label>
+
+            <label className="flex items-center gap-3 p-4 border-2 border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors">
+              <input
+                type="radio"
+                name="payment"
+                value="cash"
+                checked={paymentMethod === 'cash'}
+                onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
+                className="w-5 h-5"
+              />
+              <DollarSign className="w-6 h-6 text-green-600" />
+              <div className="flex-1">
+                <div className="font-semibold text-gray-900">Direct betaald met Kas</div>
+                <div className="text-sm text-gray-600">Zoekt rekening met "Kas" in naam</div>
+              </div>
+            </label>
+
+            <label className="flex items-center gap-3 p-4 border-2 border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors">
+              <input
+                type="radio"
+                name="payment"
+                value="private"
+                checked={paymentMethod === 'private'}
+                onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
+                className="w-5 h-5"
+              />
+              <Wallet className="w-6 h-6 text-blue-600" />
+              <div className="flex-1">
+                <div className="font-semibold text-gray-900">Direct betaald uit Privé</div>
+                <div className="text-sm text-gray-600">Zoekt rekening met "Prive" in naam</div>
+              </div>
+            </label>
+          </div>
         </div>
 
         {error && (
