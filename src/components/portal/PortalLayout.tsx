@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { Home, ScanLine, FileText, MessageCircle, Settings } from 'lucide-react';
+import { Home, ScanLine, FileText, MessageCircle, Settings, Receipt } from 'lucide-react';
 
 interface PortalLayoutProps {
   children: ReactNode;
@@ -9,8 +9,9 @@ interface PortalLayoutProps {
 
 const navItems = [
   { id: 'portal-home', label: 'Home', icon: Home },
-  { id: 'portal-scan', label: 'Scannen', icon: ScanLine },
+  { id: 'portal-expense', label: 'Inkoop', icon: Receipt },
   { id: 'portal-invoice', label: 'Factureren', icon: FileText },
+  { id: 'portal-scan', label: 'Bank', icon: ScanLine },
   { id: 'portal-assistant', label: 'Assistent', icon: MessageCircle },
 ];
 
