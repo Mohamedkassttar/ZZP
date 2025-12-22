@@ -187,9 +187,11 @@ export async function bookInvoice(params: BookInvoiceParams): Promise<BookInvoic
     const invoiceDate = invoiceData.invoice_date || new Date().toISOString().split('T')[0];
     const description = `Inkoopfactuur ${invoiceData.invoice_number || ''} - ${invoiceData.supplier_name || 'Leverancier'}`.trim();
 
-    const { data: journalEntry, error: journalError } = await supabase
+    const entryId = crypto.randomUUID();
+    const { error: journalError } = await supabase
       .from('journal_entries')
       .insert({
+        id: entryId,
         company_id: companyId,
         entry_date: invoiceDate,
         description: description,
@@ -197,14 +199,13 @@ export async function bookInvoice(params: BookInvoiceParams): Promise<BookInvoic
         status: 'Final',
         contact_id: contactId,
         memoriaal_type: 'Inkoopfactuur',
-      })
-      .select()
-      .single();
+      });
 
-    if (journalError || !journalEntry) {
+    if (journalError) {
       console.error('  ❌ Journal entry creation failed:', journalError);
       throw new Error(`Failed to create journal entry: ${journalError?.message}`);
     }
+    const journalEntry = { id: entryId };
 
     console.log(`  ✓ Journal Entry created (ID: ${journalEntry.id})`);
 
@@ -382,9 +383,11 @@ export async function bookInvoice(params: BookInvoiceParams): Promise<BookInvoic
         // DEBIT: Creditor (clear liability) / CREDIT: Cash or Private account
         const paymentDescription = `Betaling ${invoiceData.invoice_number || ''} via ${paymentAccount.name}`.trim();
 
-        const { data: paymentEntry, error: paymentEntryError } = await supabase
+        const paymentEntryId = crypto.randomUUID();
+        const { error: paymentEntryError } = await supabase
           .from('journal_entries')
           .insert({
+            id: paymentEntryId,
             company_id: companyId,
             entry_date: invoiceDate,
             description: paymentDescription,
@@ -392,13 +395,12 @@ export async function bookInvoice(params: BookInvoiceParams): Promise<BookInvoic
             status: 'Final',
             contact_id: contactId,
             memoriaal_type: 'Betaling',
-          })
-          .select()
-          .single();
+          });
 
-        if (paymentEntryError || !paymentEntry) {
+        if (paymentEntryError) {
           throw new Error(`Failed to create payment entry: ${paymentEntryError?.message}`);
         }
+        const paymentEntry = { id: paymentEntryId };
 
         const paymentLines = [
           {

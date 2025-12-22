@@ -132,20 +132,21 @@ export function InvoicesManager() {
         .select('*, accounts(*)')
         .eq('invoice_id', invoice.id);
 
-      const { data: journalEntry, error: jeError } = await supabase
+      const entryId = crypto.randomUUID();
+      const { error: jeError } = await supabase
         .from('journal_entries')
         .insert({
+          id: entryId,
           company_id: companyId,
           entry_date: invoice.invoice_date,
           description: `Invoice ${invoice.invoice_number}`,
           reference: invoice.invoice_number,
           status: 'Draft',
           contact_id: invoice.contact_id,
-        })
-        .select()
-        .single();
+        });
 
       if (jeError) throw jeError;
+      const journalEntry = { id: entryId };
 
       const journalLines = [
         {

@@ -395,38 +395,37 @@ export async function bookUnmatchedTransaction(
       notes: `Auto-booked from bank transaction: ${params.description}`,
     };
 
-    const { data: invoice, error: invoiceError } = await supabase
+    const invoiceId = crypto.randomUUID();
+    const { error: invoiceError } = await supabase
       .from('invoices')
-      .insert(invoiceData)
-      .select('id')
-      .single();
+      .insert({
+        id: invoiceId,
+        ...invoiceData,
+      });
 
     if (invoiceError) {
       console.error('[Booking] Failed to create invoice:', invoiceError, 'Data:', invoiceData);
       throw new Error(`Failed to create invoice: ${invoiceError.message} (Code: ${invoiceError.code})`);
     }
 
-    if (!invoice) {
-      console.error('[Booking] No invoice data returned');
-      throw new Error('Failed to create invoice: No data returned');
-    }
+    console.log('[Booking] Invoice created successfully:', invoiceId);
+    const invoice = { id: invoiceId };
 
-    console.log('[Booking] Invoice created successfully:', invoice.id);
-
-    const { data: costEntry, error: costEntryError } = await supabase
+    const costEntryId = crypto.randomUUID();
+    const { error: costEntryError } = await supabase
       .from('journal_entries')
       .insert({
+        id: costEntryId,
         company_id: companyId,
         entry_date: params.transactionDate,
         description: `Cost: ${params.description}`,
         status: 'Final',
-      })
-      .select('id')
-      .single();
+      });
 
-    if (costEntryError || !costEntry) {
+    if (costEntryError) {
       throw new Error('Failed to create cost journal entry');
     }
+    const costEntry = { id: costEntryId };
 
     const costLines = [
       {
@@ -473,21 +472,22 @@ export async function bookUnmatchedTransaction(
       throw new Error('Suspense account 2300 (Nog te ontvangen inkoopfacturen) not found');
     }
 
-    const { data: paymentEntry, error: paymentEntryError } = await supabase
+    const paymentEntryId = crypto.randomUUID();
+    const { error: paymentEntryError } = await supabase
       .from('journal_entries')
       .insert({
+        id: paymentEntryId,
         company_id: companyId,
         entry_date: params.transactionDate,
         description: `Bank payment (suspense): ${params.description}`,
         status: 'Final',
         type: 'Bank',
-      })
-      .select('id')
-      .single();
+      });
 
-    if (paymentEntryError || !paymentEntry) {
+    if (paymentEntryError) {
       throw new Error('Failed to create payment journal entry');
     }
+    const paymentEntry = { id: paymentEntryId };
 
     const { error: paymentLinesError } = await supabase
       .from('journal_lines')
@@ -525,22 +525,23 @@ export async function bookUnmatchedTransaction(
       throw new Error('Failed to update bank transaction');
     }
 
-    const { data: settlementEntry, error: settlementError } = await supabase
+    const settlementEntryId = crypto.randomUUID();
+    const { error: settlementError } = await supabase
       .from('journal_entries')
       .insert({
+        id: settlementEntryId,
         company_id: companyId,
         entry_date: params.transactionDate,
         description: `Settlement: ${params.description}`,
         reference: `SETTLEMENT-AUTO-${Date.now()}`,
         status: 'Final',
         type: 'settlement',
-      })
-      .select('id')
-      .single();
+      });
 
-    if (settlementError || !settlementEntry) {
+    if (settlementError) {
       throw new Error('Failed to create settlement journal entry');
     }
+    const settlementEntry = { id: settlementEntryId };
 
     const { error: settlementLinesError } = await supabase
       .from('journal_lines')

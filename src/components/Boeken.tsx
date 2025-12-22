@@ -121,20 +121,23 @@ export function Boeken() {
         throw new Error('Geen bedrijf geselecteerd');
       }
 
-      const { data: entry, error: entryError } = await supabase
+      const entryId = crypto.randomUUID();
+
+      const { error: entryError } = await supabase
         .from('journal_entries')
         .insert({
+          id: entryId,
           company_id: companyId,
           entry_date: entryDate,
           description,
           reference,
           type: 'Memoriaal',
           status: 'Final',
-        })
-        .select()
-        .single();
+        });
 
       if (entryError) throw entryError;
+
+      const entry = { id: entryId };
 
       const journalLines = lines
         .filter((line) => parseFloat(line.debit) > 0 || parseFloat(line.credit) > 0)

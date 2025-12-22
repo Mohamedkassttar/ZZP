@@ -132,9 +132,11 @@ export async function createAndBookInvoice(
     );
     const total = subtotal + vatAmount;
 
-    const { data: journalEntry, error: journalError } = await supabase
+    const entryId = crypto.randomUUID();
+    const { error: journalError } = await supabase
       .from('journal_entries')
       .insert({
+        id: entryId,
         company_id: companyId,
         entry_date: invoiceDate,
         description: `Verkoopfactuur ${invoiceNumber}`,
@@ -142,16 +144,15 @@ export async function createAndBookInvoice(
         status: 'Final',
         contact_id: contactId,
         memoriaal_type: 'Verkoopfactuur',
-      })
-      .select()
-      .single();
+      });
 
-    if (journalError || !journalEntry) {
+    if (journalError) {
       return {
         success: false,
         error: `Fout bij aanmaken journaalpost: ${journalError?.message || 'Unknown error'}`,
       };
     }
+    const journalEntry = { id: entryId };
 
     const journalLines = [
       {

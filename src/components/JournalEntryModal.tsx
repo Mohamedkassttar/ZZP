@@ -190,19 +190,20 @@ export function JournalEntryModal({
 
         if (insertError) throw insertError;
       } else {
-        const { data: journalEntry, error: entryError } = await supabase
+        const entryId = crypto.randomUUID();
+        const { error: entryError } = await supabase
           .from('journal_entries')
           .insert({
+            id: entryId,
             company_id: companyId,
             entry_date: entryDate,
             description,
             reference: reference || null,
             status: asFinal ? 'Final' : 'Draft',
-          })
-          .select()
-          .single();
+          });
 
         if (entryError) throw entryError;
+        const journalEntry = { id: entryId };
 
         const journalLinesWithId = journalLines.map((line) => ({
           ...line,

@@ -72,18 +72,21 @@ export function FixedAssetsManager() {
       const monthlyDepreciation =
         (asset.purchase_price - asset.residual_value) / asset.lifespan_months;
 
-      const { data: journalEntry, error: jeError } = await supabase
+      const entryId = crypto.randomUUID();
+
+      const { error: jeError } = await supabase
         .from('journal_entries')
         .insert({
+          id: entryId,
           company_id: companyId,
           entry_date: new Date().toISOString().split('T')[0],
           description: `Depreciation: ${asset.name}`,
           status: 'Draft',
-        })
-        .select()
-        .single();
+        });
 
       if (jeError) throw jeError;
+
+      const journalEntry = { id: entryId };
 
       const journalLines = [
         {

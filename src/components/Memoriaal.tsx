@@ -113,20 +113,26 @@ export function Memoriaal() {
         throw new Error('Debits must equal Credits');
       }
 
-      const { data: journalEntry, error: entryError } = await supabase
+      const tempId = crypto.randomUUID();
+
+      const { error: entryError } = await supabase
         .from('journal_entries')
         .insert({
+          id: tempId,
           company_id: companyId,
           entry_date: entryDate,
           description,
           reference: reference || null,
           status: asFinal ? 'Final' : 'Draft',
           type: 'Memoriaal',
-        })
-        .select()
-        .single();
+        });
 
-      if (entryError) throw entryError;
+      if (entryError) {
+        console.error('Insert error:', entryError);
+        throw entryError;
+      }
+
+      const journalEntry = { id: tempId };
 
       const journalLines = lines
         .filter((line) => line.account_id && (parseFloat(line.debit) > 0 || parseFloat(line.credit) > 0))

@@ -163,20 +163,21 @@ async function createRuleBasedContactEntry(
 
     const entryDescription = rule.description_template || `${description} (Rule: ${rule.keyword})`;
 
-    const { data: journalEntry, error: entryError } = await supabase
+    const entryId = crypto.randomUUID();
+    const { error: entryError } = await supabase
       .from('journal_entries')
       .insert({
+        id: entryId,
         company_id: companyId,
         entry_date: transactionDate,
         description: entryDescription,
         status: 'Draft',
         contact_id: contact.id,
         type: 'Bank',
-      })
-      .select('id')
-      .single();
+      });
 
-    if (entryError || !journalEntry) throw entryError;
+    if (entryError) throw entryError;
+    const journalEntry = { id: entryId };
 
     const { data: bankAccount } = await supabase
       .from('accounts')
@@ -266,20 +267,21 @@ async function createContactBasedJournalEntry(
       throw new Error('No company selected');
     }
 
-    const { data: journalEntry, error: entryError } = await supabase
+    const entryId = crypto.randomUUID();
+    const { error: entryError } = await supabase
       .from('journal_entries')
       .insert({
+        id: entryId,
         company_id: companyId,
         entry_date: transactionDate,
         description: `${description} (Contact: ${contact.company_name})`,
         status: 'Draft',
         contact_id: contact.id,
         type: 'Bank',
-      })
-      .select('id')
-      .single();
+      });
 
-    if (entryError || !journalEntry) throw entryError;
+    if (entryError) throw entryError;
+    const journalEntry = { id: entryId };
 
     const { data: bankAccount } = await supabase
       .from('accounts')
@@ -365,19 +367,20 @@ async function createProposedJournalEntry(
 
     const description = rule.description_template || originalDescription;
 
-    const { data: journalEntry, error: entryError } = await supabase
+    const entryId = crypto.randomUUID();
+    const { error: entryError } = await supabase
       .from('journal_entries')
       .insert({
+        id: entryId,
         company_id: companyId,
         entry_date: transactionDate,
         description: `${description} (Auto-matched: ${rule.keyword})`,
         status: 'Draft',
         type: 'Bank',
-      })
-      .select('id')
-      .single();
+      });
 
-    if (entryError || !journalEntry) throw entryError;
+    if (entryError) throw entryError;
+    const journalEntry = { id: entryId };
 
     const { data: bankAccount } = await supabase
       .from('accounts')

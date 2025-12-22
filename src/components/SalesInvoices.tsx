@@ -522,9 +522,11 @@ export function SalesInvoices() {
       throw new Error('Active Debiteuren account not found. Please ensure you have an active Debiteuren account in Settings.');
     }
 
-    const { data: journalEntry, error: entryError } = await supabase
+    const entryId = crypto.randomUUID();
+    const { error: entryError } = await supabase
       .from('journal_entries')
       .insert({
+        id: entryId,
         company_id: companyId,
         entry_date: invoiceData.invoice_date,
         description: `Verkoopfactuur ${invoiceData.invoice_number}`,
@@ -532,11 +534,10 @@ export function SalesInvoices() {
         contact_id: invoiceData.contact_id,
         type: 'Sales',
         status: 'Final',
-      })
-      .select()
-      .single();
+      });
 
     if (entryError) throw entryError;
+    const journalEntry = { id: entryId };
 
     const journalLines = [];
 

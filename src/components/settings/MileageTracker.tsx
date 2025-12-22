@@ -81,18 +81,19 @@ export function MileageTracker() {
         throw new Error('Required accounts not found (4000 Autokosten, 1700 Privé)');
       }
 
-      const { data: journalEntry, error: jeError } = await supabase
+      const entryId = crypto.randomUUID();
+      const { error: jeError } = await supabase
         .from('journal_entries')
         .insert({
+          id: entryId,
           company_id: companyId,
           entry_date: new Date().toISOString().split('T')[0],
           description: `Mileage reimbursement: ${totalKm.toFixed(2)} km`,
           status: 'Draft',
-        })
-        .select()
-        .single();
+        });
 
       if (jeError) throw jeError;
+      const journalEntry = { id: entryId };
 
       const journalLines = [
         {

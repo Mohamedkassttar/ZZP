@@ -94,23 +94,24 @@ export async function settlePurchaseTransaction(
     const entryDescription = params.description ||
       `Settlement: ${invoice.invoice_number} - Payment matched to invoice`;
 
-    const { data: journalEntry, error: entryError } = await supabase
+    const entryId = crypto.randomUUID();
+    const { error: entryError } = await supabase
       .from('journal_entries')
       .insert({
+        id: entryId,
         company_id: companyId,
         fiscal_year_id: params.fiscalYearId,
         entry_date: new Date().toISOString().split('T')[0],
         description: entryDescription,
         reference: `SETTLEMENT-${invoice.invoice_number}`,
         type: 'settlement'
-      })
-      .select()
-      .single();
+      });
 
-    if (entryError || !journalEntry) {
+    if (entryError) {
       console.error('Failed to create journal entry:', entryError);
       return { success: false, error: 'Failed to create settlement entry' };
     }
+    const journalEntry = { id: entryId };
 
     const lines = [
       {
@@ -190,23 +191,24 @@ export async function settleSalesTransaction(
     const entryDescription = params.description ||
       `Settlement: ${invoice.invoice_number} - Receipt matched to invoice`;
 
-    const { data: journalEntry, error: entryError } = await supabase
+    const entryId = crypto.randomUUID();
+    const { error: entryError } = await supabase
       .from('journal_entries')
       .insert({
+        id: entryId,
         company_id: companyId,
         fiscal_year_id: params.fiscalYearId,
         entry_date: new Date().toISOString().split('T')[0],
         description: entryDescription,
         reference: `SETTLEMENT-${invoice.invoice_number}`,
         type: 'settlement'
-      })
-      .select()
-      .single();
+      });
 
-    if (entryError || !journalEntry) {
+    if (entryError) {
       console.error('Failed to create journal entry:', entryError);
       return { success: false, error: 'Failed to create settlement entry' };
     }
+    const journalEntry = { id: entryId };
 
     const lines = [
       {
