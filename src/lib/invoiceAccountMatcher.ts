@@ -1,7 +1,9 @@
 /**
  * Invoice Account Matcher - Smart Matching with VAT Validation
  *
- * Matches invoices to expense accounts using:
+ * Matches invoices to expense accounts using a priority hierarchy:
+ * 0. Direct Enrichment ID Override (HIGHEST PRIORITY)
+ *    - If Tavily provides a specific accountId, validate and use it immediately
  * 1. Implicit VAT Rate Calculation
  * 2. Keyword Matching (Tavily industry → account name)
  * 3. VAT Code Filtering (21%, 9%, 0%, etc.)
@@ -13,6 +15,7 @@
 
 import { supabase } from './supabase';
 import type { Database } from './database.types';
+import type { EnrichmentResult } from './tavilyEnrichmentService';
 
 type Account = Database['public']['Tables']['accounts']['Row'];
 
@@ -22,7 +25,7 @@ export interface AccountMatchResult {
   accountName: string;
   confidence: number;
   reason: string;
-  matchType: 'keyword_vat' | 'vat_only' | 'keyword_only' | 'fallback';
+  matchType: 'ai_enrichment' | 'keyword_vat' | 'vat_only' | 'keyword_only' | 'fallback';
 }
 
 /**
@@ -99,6 +102,7 @@ function isBlacklistedAccount(account: Account): boolean {
  * @param netAmount - Net amount (excl. VAT)
  * @param vatAmount - VAT amount
  * @param totalAmount - Total amount (incl. VAT)
+ * @param enrichmentResult - Complete enrichment result from Tavily (if available)
  */
 export async function findBestAccountMatch(
   supplierName: string,
@@ -106,7 +110,8 @@ export async function findBestAccountMatch(
   tags?: string[],
   netAmount?: number,
   vatAmount?: number,
-  totalAmount?: number
+  totalAmount?: number,
+  enrichmentResult?: EnrichmentResult | null
 ): Promise<AccountMatchResult | null> {
   try {
     console.log('\n' + '═'.repeat(70));
@@ -116,6 +121,52 @@ export async function findBestAccountMatch(
     console.log(`Industry: ${industry || 'Unknown'}`);
     console.log(`Tags: ${tags?.join(', ') || 'None'}`);
     console.log(`Amounts: Net €${netAmount?.toFixed(2) || '?'} + VAT €${vatAmount?.toFixed(2) || '?'} = Total €${totalAmount?.toFixed(2) || '?'}`);
+    console.log(`Enrichment Result: ${enrichmentResult ? 'PROVIDED ✓' : 'Not available'}`);
+    if (enrichmentResult) {
+      console.log(`  → Account ID from enrichment: ${enrichmentResult.accountId}`);
+      console.log(`  → Confidence: ${enrichmentResult.confidence}%`);
+      console.log(`  → Reason: ${enrichmentResult.reason}`);
+    }
+
+    // STEP 0: Direct Enrichment ID Override (HIGHEST PRIORITY)
+    if (enrichmentResult?.accountId) {
+      console.log(`\n🔥 STEP 0: Direct Enrichment ID Override`);
+      console.log(`  Checking if enrichment account ID "${enrichmentResult.accountId}" exists...`);
+
+      // Fetch the specific account by ID
+      const { data: enrichmentAccount, error: fetchError } = await supabase
+        .from('accounts')
+        .select('*')
+        .eq('id', enrichmentResult.accountId)
+        .eq('is_active', true)
+        .eq('type', 'Expense')
+        .maybeSingle();
+
+      if (enrichmentAccount && !fetchError) {
+        // Validate it's not blacklisted
+        if (!isBlacklistedAccount(enrichmentAccount)) {
+          console.log(`  ✓✓✓ DIRECT MATCH: ${enrichmentAccount.code} - ${enrichmentAccount.name}`);
+          console.log(`  Confidence: ${enrichmentResult.confidence}%`);
+          console.log(`  Source: AI Enrichment (Tavily)`);
+          console.log(`  Skipping keyword/VAT matching - using enrichment result directly`);
+
+          return {
+            accountId: enrichmentAccount.id,
+            accountCode: enrichmentAccount.code,
+            accountName: enrichmentAccount.name,
+            confidence: Math.min(enrichmentResult.confidence / 100, 0.95), // Cap at 0.95
+            reason: `Direct match from AI Enrichment: ${enrichmentResult.reason}`,
+            matchType: 'ai_enrichment',
+          };
+        } else {
+          console.log(`  ⚠ Enrichment account is blacklisted (depreciation/internal)`);
+          console.log(`  Falling back to keyword/VAT matching...`);
+        }
+      } else {
+        console.log(`  ⚠ Enrichment account ID not found or inactive`);
+        console.log(`  Falling back to keyword/VAT matching...`);
+      }
+    }
 
     // STEP 1: Calculate Implicit VAT Rate
     let detectedVATRate: number | null = null;
@@ -260,7 +311,7 @@ export async function findBestAccountMatch(
       }
 
       // Determine match type
-      let matchType: 'keyword_vat' | 'vat_only' | 'keyword_only' | 'fallback' = 'fallback';
+      let matchType: 'ai_enrichment' | 'keyword_vat' | 'vat_only' | 'keyword_only' | 'fallback' = 'fallback';
       if (hasKeywordMatch && hasVATMatch) {
         matchType = 'keyword_vat';
       } else if (hasVATMatch) {

@@ -215,22 +215,27 @@ export async function processInvoiceWithAI(
       }
 
       // Now use smart matching with VAT validation
+      // CRITICAL: Pass the complete enrichment result so the matcher can use the specific account ID
       const matchResult = await findBestAccountMatch(
         extractedData.supplier_name,
         industry,
         tags.length > 0 ? tags : undefined,
         extractedData.net_amount,
         extractedData.vat_amount,
-        extractedData.total_amount
+        extractedData.total_amount,
+        tavilyEnrichment // Pass complete enrichment result
       );
 
       if (matchResult) {
         const aiConfidence = extractedData.confidence || 0;
 
-        // PRIORITY LOGIC: Tavily ALWAYS wins over OpenAI
-        // If we have Tavily enrichment data, use smart match result
-        // Otherwise, only use smart match if it's better than AI
+        // PRIORITY LOGIC:
+        // 1. AI Enrichment (direct account ID from Tavily) - ALWAYS wins (matchType === 'ai_enrichment')
+        // 2. Tavily + Smart Match - ALWAYS wins
+        // 3. Smart Match with perfect keyword+VAT - wins if better than AI
+        // 4. AI suggestion - fallback
         const shouldUseSmartMatch =
+          matchResult.matchType === 'ai_enrichment' ||     // Direct enrichment ID
           tavilyUsed ||                                    // Tavily always wins
           !accountId ||                                    // No AI suggestion
           matchResult.matchType === 'keyword_vat' ||       // Perfect match
@@ -242,13 +247,21 @@ export async function processInvoiceWithAI(
           accountName = matchResult.accountName;
           enrichmentReason = matchResult.reason;
 
-          const source = tavilyUsed ? 'Tavily + Smart Match' : 'Smart Match';
+          let source = 'Smart Match';
+          if (matchResult.matchType === 'ai_enrichment') {
+            source = 'AI Enrichment (Direct ID)';
+          } else if (tavilyUsed) {
+            source = 'Tavily + Smart Match';
+          }
+
           console.log(`  ✓ ${source} Used: ${accountCode} - ${accountName}`);
           console.log(`    Match Type: ${matchResult.matchType}`);
           console.log(`    Confidence: ${(matchResult.confidence * 100).toFixed(0)}%`);
           console.log(`    Reason: ${matchResult.reason}`);
 
-          if (tavilyUsed) {
+          if (matchResult.matchType === 'ai_enrichment') {
+            notes.push(`AI direct match: ${accountName} (${(matchResult.confidence * 100).toFixed(0)}%)`);
+          } else if (tavilyUsed) {
             notes.push(`Tavily enrichment: ${accountName} (${matchResult.matchType}, ${(matchResult.confidence * 100).toFixed(0)}%)`);
           } else {
             notes.push(`Smart matching: ${accountName} (${matchResult.matchType}, ${(matchResult.confidence * 100).toFixed(0)}%)`);
