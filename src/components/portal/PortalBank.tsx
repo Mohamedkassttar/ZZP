@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Upload as UploadIcon, Zap, CheckCircle, Loader2, DollarSign } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { useCompany } from '../../lib/CompanyContext';
 import { PortalUpload } from './PortalUpload';
 import { bookBankTransaction } from '../../lib/bankService';
 import { analyzeTransaction } from '../../lib/bankAutomationService';
@@ -16,6 +17,7 @@ interface ProcessProgress {
 }
 
 export function PortalBank() {
+  const { currentCompany } = useCompany();
   const [activeTab, setActiveTab] = useState<'upload' | 'process'>('upload');
   const [transactions, setTransactions] = useState<BankTransaction[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -26,24 +28,28 @@ export function PortalBank() {
   const [result, setResult] = useState<{ private: number; ai: number; skipped: number } | null>(null);
 
   useEffect(() => {
-    if (activeTab === 'process') {
+    if (activeTab === 'process' && currentCompany) {
       loadUnmatchedTransactions();
     }
-  }, [activeTab]);
+  }, [activeTab, currentCompany]);
 
   async function loadUnmatchedTransactions() {
+    if (!currentCompany) return;
+
     setLoading(true);
     try {
       const [txnsRes, accountsRes] = await Promise.all([
         supabase
           .from('bank_transactions')
           .select('*')
+          .eq('company_id', currentCompany.id)
           .eq('status', 'Unmatched')
           .order('transaction_date', { ascending: false })
           .limit(100),
         supabase
           .from('accounts')
           .select('*')
+          .eq('company_id', currentCompany.id)
           .eq('is_active', true),
       ]);
 

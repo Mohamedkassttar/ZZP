@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
+import { useCompany } from '../../lib/CompanyContext';
 import { Wallet, TrendingDown, TrendingUp, Clock, ArrowRight } from 'lucide-react';
 
 interface DashboardData {
@@ -16,6 +17,7 @@ interface DashboardData {
 }
 
 export function PortalDashboard() {
+  const { currentCompany } = useCompany();
   const [data, setData] = useState<DashboardData>({
     bankBalance: 0,
     unpaidPurchases: 0,
@@ -25,31 +27,62 @@ export function PortalDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadDashboardData();
-  }, []);
+    if (currentCompany) {
+      loadDashboardData();
+    }
+  }, [currentCompany]);
 
   async function loadDashboardData() {
+    if (!currentCompany) return;
+
     try {
-      const [bankResult, purchasesResult, salesResult, activitiesResult] = await Promise.all([
-        supabase.from('accounts').select('id, code, name').eq('code', '1100').eq('is_active', true).maybeSingle(),
-        supabase.from('purchase_invoices').select('total_amount').eq('status', 'Pending'),
-        supabase.from('sales_invoices').select('total_amount').eq('status', 'open'),
+      const [bankAccountsResult, purchasesResult, salesResult, activitiesResult] = await Promise.all([
+        supabase
+          .from('accounts')
+          .select('id, code, name')
+          .eq('company_id', currentCompany.id)
+          .gte('code', '1000')
+          .lte('code', '1199')
+          .eq('is_active', true),
+        supabase
+          .from('purchase_invoices')
+          .select('total_amount')
+          .eq('company_id', currentCompany.id)
+          .eq('status', 'Pending'),
+        supabase
+          .from('sales_invoices')
+          .select('total_amount')
+          .eq('company_id', currentCompany.id)
+          .eq('status', 'open'),
         supabase
           .from('journal_entries')
           .select('id, entry_date, description, memoriaal_type')
+          .eq('company_id', currentCompany.id)
+          .eq('status', 'Final')
           .order('entry_date', { ascending: false })
           .limit(10),
       ]);
 
       let bankBalance = 0;
-      if (bankResult.data) {
+      if (bankAccountsResult.data && bankAccountsResult.data.length > 0) {
+        const bankAccountIds = bankAccountsResult.data.map((acc) => acc.id);
         const { data: lines } = await supabase
           .from('journal_lines')
-          .select('debit, credit')
-          .eq('account_id', bankResult.data.id);
+          .select('debit, credit, account_id, journal_entry_id')
+          .in('account_id', bankAccountIds);
 
         if (lines) {
-          bankBalance = lines.reduce((sum, line) => sum + (line.debit || 0) - (line.credit || 0), 0);
+          const { data: finalEntries } = await supabase
+            .from('journal_entries')
+            .select('id')
+            .eq('company_id', currentCompany.id)
+            .eq('status', 'Final');
+
+          const finalEntryIds = new Set(finalEntries?.map((e) => e.id) || []);
+
+          bankBalance = lines
+            .filter((line) => finalEntryIds.has(line.journal_entry_id))
+            .reduce((sum, line) => sum + (line.debit || 0) - (line.credit || 0), 0);
         }
       }
 
@@ -78,7 +111,7 @@ export function PortalDashboard() {
     }
   }
 
-  if (loading) {
+  if (loading || !currentCompany) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
