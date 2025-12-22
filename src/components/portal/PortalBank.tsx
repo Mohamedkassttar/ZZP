@@ -17,7 +17,7 @@ interface ProcessProgress {
 }
 
 export function PortalBank() {
-  const { currentCompany } = useCompany();
+  const { currentCompany, loading: companyLoading } = useCompany();
   const [activeTab, setActiveTab] = useState<'upload' | 'process'>('upload');
   const [transactions, setTransactions] = useState<BankTransaction[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -26,6 +26,14 @@ export function PortalBank() {
   const [processing, setProcessing] = useState(false);
   const [progress, setProgress] = useState<ProcessProgress | null>(null);
   const [result, setResult] = useState<{ private: number; ai: number; skipped: number } | null>(null);
+
+  if (companyLoading || !currentCompany) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
+      </div>
+    );
+  }
 
   useEffect(() => {
     if (activeTab === 'process' && currentCompany) {

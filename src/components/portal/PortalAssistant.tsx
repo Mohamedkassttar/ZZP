@@ -11,7 +11,7 @@ interface Message {
 }
 
 export function PortalAssistant() {
-  const { currentCompany } = useCompany();
+  const { currentCompany, loading: companyLoading } = useCompany();
   const [messages, setMessages] = useState<Message[]>([
     {
       id: crypto.randomUUID(),
@@ -24,6 +24,14 @@ export function PortalAssistant() {
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  if (companyLoading || !currentCompany) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
+      </div>
+    );
+  }
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
