@@ -765,7 +765,7 @@ export function PortalCreateInvoice() {
 
       {showEditor && (
         <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-6">
-          <div className="relative flex w-full max-w-5xl flex-col rounded-xl bg-white shadow-2xl max-h-[90vh]">
+          <div className="relative flex w-full max-w-5xl flex-col rounded-xl bg-white shadow-2xl max-h-[calc(100dvh-120px)] md:max-h-[85vh]">
             {/* HEADER (Fixed) */}
             <div className="flex-none flex items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-200">
               <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
@@ -1157,7 +1157,7 @@ export function PortalCreateInvoice() {
 
       {showContactEditModal && contactToEdit && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4 sm:p-6">
-          <div className="relative flex w-full max-w-2xl flex-col rounded-2xl bg-white shadow-2xl max-h-[90vh]">
+          <div className="relative flex w-full max-w-2xl flex-col rounded-2xl bg-white shadow-2xl max-h-[calc(100dvh-120px)] md:max-h-[85vh]">
             {/* HEADER */}
             <div className="flex-none p-4 sm:p-6 border-b border-slate-200">
               <div className="flex items-start gap-3">

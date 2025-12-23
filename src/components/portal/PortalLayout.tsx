@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { Home, ScanLine, FileText, MessageCircle, Settings, Receipt, Clock } from 'lucide-react';
+import { Home, ScanLine, FileText, MessageCircle, Settings, Receipt, Clock, Wallet } from 'lucide-react';
 import { PortalAssistant } from './PortalAssistant';
 
 interface PortalLayoutProps {
@@ -10,7 +10,7 @@ interface PortalLayoutProps {
 
 const navItems = [
   { id: 'portal-home', label: 'Home', icon: Home },
-  { id: 'portal-expense', label: 'Inkoop', icon: Receipt },
+  { id: 'portal-finance', label: 'Financieel', icon: Wallet },
   { id: 'portal-invoice', label: 'Factureren', icon: FileText },
   { id: 'portal-time', label: 'Uren', icon: Clock },
   { id: 'portal-scan', label: 'Bank', icon: ScanLine },
@@ -18,7 +18,7 @@ const navItems = [
 
 export function PortalLayout({ children, currentView, onNavigate }: PortalLayoutProps) {
   return (
-    <div className="flex h-screen w-full flex-col bg-gradient-to-br from-blue-50 via-white to-slate-50 overflow-hidden">
+    <div className="flex min-h-[100dvh] w-full flex-col bg-gradient-to-br from-blue-50 via-white to-slate-50 overflow-hidden">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_30%,rgba(59,130,246,0.06),transparent_60%)] pointer-events-none" />
 
       <header className="flex-none z-30 bg-white/80 backdrop-blur-xl border-b border-gray-200 shadow-sm relative">
@@ -45,7 +45,7 @@ export function PortalLayout({ children, currentView, onNavigate }: PortalLayout
       </header>
 
       <main className="flex-1 overflow-y-auto overflow-x-hidden relative z-10 min-h-0">
-        <div className="px-4 py-6 pb-24 pr-4 md:pr-4">
+        <div className="px-4 py-6 pb-32 pr-4 md:pr-4">
           {children}
         </div>
       </main>

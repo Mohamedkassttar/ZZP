@@ -22,10 +22,11 @@ import { PortalBank } from './components/portal/PortalBank';
 import { PortalCreateInvoice } from './components/portal/PortalCreateInvoice';
 import { PortalExpense } from './components/portal/PortalExpense';
 import { PortalRelations } from './components/portal/PortalRelations';
+import { PortalFinance } from './components/portal/PortalFinance';
 import { seedAccounts } from './lib/seedAccounts';
 import { isSupabaseConfigured } from './lib/supabase';
 
-type View = 'dashboard' | 'inbox' | 'boeken' | 'memoriaal-boekingen' | 'bankboekingen' | 'bank' | 'reports' | 'settings' | 'outstanding' | 'account-detail' | 'relations' | 'tax' | 'ib-aangifte' | 'sales' | 'time-tracking' | 'portal-home' | 'portal-scan' | 'portal-invoice' | 'portal-expense' | 'portal-time' | 'portal-relations';
+type View = 'dashboard' | 'inbox' | 'boeken' | 'memoriaal-boekingen' | 'bankboekingen' | 'bank' | 'reports' | 'settings' | 'outstanding' | 'account-detail' | 'relations' | 'tax' | 'ib-aangifte' | 'sales' | 'time-tracking' | 'portal-home' | 'portal-scan' | 'portal-invoice' | 'portal-expense' | 'portal-time' | 'portal-relations' | 'portal-finance';
 
 interface ViewState {
   view: View;
@@ -153,6 +154,8 @@ function App() {
           return <div>No data available</div>;
         case 'portal-home':
           return <PortalDashboard />;
+        case 'portal-finance':
+          return <PortalFinance />;
         case 'portal-expense':
           return <PortalExpense />;
         case 'portal-scan':

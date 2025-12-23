@@ -158,19 +158,19 @@ export function PortalAssistant() {
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 w-16 h-16 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-full shadow-2xl hover:shadow-emerald-500/50 transition-all duration-300 flex items-center justify-center z-50 hover:scale-110 group"
+        className="fixed bottom-24 right-4 md:bottom-8 md:right-6 w-12 h-12 md:w-14 md:h-14 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-full shadow-2xl hover:shadow-emerald-500/50 transition-all duration-300 flex items-center justify-center z-50 hover:scale-110 group"
         aria-label="Open AI Assistent"
       >
-        <Sparkles className="w-7 h-7 text-white group-hover:rotate-12 transition-transform" />
-        <div className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center">
-          <span className="text-xs font-bold text-white">AI</span>
+        <Sparkles className="w-5 h-5 md:w-6 md:h-6 text-white group-hover:rotate-12 transition-transform" />
+        <div className="absolute -top-1 -right-1 w-4 h-4 md:w-5 md:h-5 bg-red-500 rounded-full flex items-center justify-center">
+          <span className="text-[9px] md:text-xs font-bold text-white">AI</span>
         </div>
       </button>
     );
   }
 
   return (
-    <div className="fixed bottom-6 right-6 w-[400px] h-[600px] flex flex-col bg-white rounded-2xl shadow-2xl z-50 border border-gray-200 animate-in slide-in-from-bottom-8 duration-300">
+    <div className="fixed bottom-24 right-4 md:bottom-8 md:right-6 w-[calc(100vw-2rem)] max-w-[400px] h-[500px] md:h-[600px] flex flex-col bg-white rounded-2xl shadow-2xl z-50 border border-gray-200 animate-in slide-in-from-bottom-8 duration-300">
       <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-t-2xl p-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center">
