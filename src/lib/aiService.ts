@@ -108,25 +108,26 @@ STEP 2: MATCH the supplier to an existing contact from the contact list
 
 STEP 3: SELECT the correct ledger account from the available accounts list
   - Based on the supplier type and description
-  - MUST choose an account ID from the "Available accounts" list below
-  - DO NOT invent new account IDs or codes
+  - You MUST provide BOTH the account ID and the account CODE
+  - Find the matching account in the list and copy BOTH values
 
 ═══════════════════════════════════════════════════════════════
 ⚠️ CRITICAL ACCOUNT SELECTION RULES ⚠️
 ═══════════════════════════════════════════════════════════════
 1. You MUST choose from accounts with type "Expense" or "Asset" (see list below)
-2. The suggested_account_id MUST be copied EXACTLY from the "Available accounts" list
-3. DO NOT invent new UUIDs or account codes
-4. NEVER suggest depreciation accounts (code 4200-4299) - these are year-end entries only
-5. NEVER suggest VAT accounts, Creditor accounts, Bank accounts, or Equity accounts
+2. The suggested_account_id MUST be the UUID copied EXACTLY from the "Available accounts" list
+3. The suggested_account_code MUST be the 4-digit code from the same account
+4. DO NOT invent new UUIDs or account codes - copy them from the list
+5. NEVER suggest depreciation accounts (code 4200-4299) - these are year-end entries only
+6. NEVER suggest VAT accounts, Creditor accounts, Bank accounts, or Equity accounts
 
 Examples of correct matching:
-- Shell, BP, Esso → Look for "Brandstof" or "Autokosten" in the list
-- Office supplies, software → Look for "Software" or "Kantoorkosten" in the list
-- Marketing, ads → Look for "Marketing" in the list
-- Phone, internet → Look for "Telecommunicatie" or "Telefoon" in the list
-- Bank fees → Look for "Bankkosten" in the list
-- Restaurant → Look for "Representatie" in the list
+- Shell, BP, Esso → Look for "Brandstof" (code 4605) in the list, copy its ID
+- Office supplies, software → Look for "Software" (code 4815) in the list, copy its ID
+- Marketing, ads → Look for "Marketing" (code 4500) in the list, copy its ID
+- Phone, internet → Look for "Telecommunicatie" (code 4800) in the list, copy its ID
+- Bank fees → Look for "Bankkosten" (code 4950) in the list, copy its ID
+- Restaurant → Look for "Representatie" (code 4510) in the list, copy its ID
 
 ═══════════════════════════════════════════════════════════════
 📤 REQUIRED RESPONSE FORMAT (JSON)
@@ -146,14 +147,19 @@ Return ONLY valid JSON in this exact format:
   "vat_amount": 21.00,
   "net_amount": 100.00,
   "vat_percentage": 21,
-  "suggested_account_id": "COPY-UUID-FROM-ACCOUNTS-LIST",
+  "suggested_account_id": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
   "suggested_account_code": "4605",
   "suggested_account_name": "Brandstof",
   "description": "Fuel purchase",
   "confidence": 0.95
 }
 
-⚠️ CRITICAL: The suggested_account_id field must contain a UUID copied EXACTLY from the Available accounts list below. Do NOT generate a new UUID.
+⚠️ CRITICAL REMINDER:
+- suggested_account_id = The UUID from the accounts list (looks like "a1b2c3d4-5678-90ab-cdef-1234567890ab")
+- suggested_account_code = The 4-digit code (looks like "4605")
+- suggested_account_name = The account name (looks like "Brandstof")
+- ALL THREE must come from the SAME account in the list below
+- Do NOT invent UUIDs - copy them EXACTLY from the list
 
 ═══════════════════════════════════════════════════════════════
 Available contacts:
@@ -234,34 +240,76 @@ ${JSON.stringify(accountList, null, 2)}`;
 
     const extractedData: ExtractedInvoiceData = extractJSON(content);
 
-    // VALIDATION: Check if the suggested account exists in the accounts list
+    // ═══════════════════════════════════════════════════════════════
+    // VALIDATION & AUTO-CORRECTION: Code → UUID Mapping
+    // ═══════════════════════════════════════════════════════════════
+    // Problem: AI sometimes returns a CODE (e.g., "4510") in the suggested_account_id field
+    // Solution: Detect this and convert CODE → UUID using the accounts list
+
+    console.log('🔍 [VALIDATION] Checking AI account suggestion...');
+    console.log(`   Raw suggested_account_id: ${extractedData.suggested_account_id}`);
+    console.log(`   Raw suggested_account_code: ${extractedData.suggested_account_code}`);
+
+    let validatedAccount = null;
+
+    // STEP 1: Check if suggested_account_id looks like a CODE instead of UUID
     if (extractedData.suggested_account_id) {
-      const foundAccount = accountList.find(acc => acc.id === extractedData.suggested_account_id);
-      if (!foundAccount) {
-        console.log('⚠️ [INVOICE AI] AI suggested invalid account ID - removing suggestion');
-        console.log(`   AI suggested: ${extractedData.suggested_account_id}`);
-        console.log(`   This ID does not exist in the database`);
-        extractedData.suggested_account_id = undefined;
-        extractedData.suggested_account_code = undefined;
-        extractedData.suggested_account_name = undefined;
+      const suggestedId = String(extractedData.suggested_account_id);
+
+      // UUID pattern: 8-4-4-4-12 hex characters
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(suggestedId);
+
+      if (isUUID) {
+        // Looks like a UUID - validate it exists
+        validatedAccount = accountList.find(acc => acc.id === suggestedId);
+        if (validatedAccount) {
+          console.log('   ✓ Valid UUID found:', validatedAccount.code, validatedAccount.name);
+        } else {
+          console.log('   ⚠️ UUID not found in database:', suggestedId);
+        }
       } else {
-        console.log('✓ [INVOICE AI] Account suggestion validated:', foundAccount.code, foundAccount.name);
+        // Looks like a CODE (e.g., "4510") - convert to UUID
+        console.log(`   🔄 AI returned CODE instead of UUID: "${suggestedId}"`);
+        validatedAccount = accountList.find(acc => acc.code === suggestedId);
+        if (validatedAccount) {
+          console.log(`   ✓ Converted CODE → UUID: ${suggestedId} → ${validatedAccount.id}`);
+          extractedData.suggested_account_id = validatedAccount.id;
+          extractedData.suggested_account_code = validatedAccount.code;
+          extractedData.suggested_account_name = validatedAccount.name;
+        } else {
+          console.log(`   ❌ CODE "${suggestedId}" not found in database`);
+        }
       }
     }
 
-    // VALIDATION: Check if the suggested account code matches
-    if (extractedData.suggested_account_code && !extractedData.suggested_account_id) {
-      const foundAccount = accountList.find(acc => acc.code === extractedData.suggested_account_code);
-      if (foundAccount) {
-        console.log('✓ [INVOICE AI] Account code validated, adding ID:', foundAccount.code, foundAccount.name);
-        extractedData.suggested_account_id = foundAccount.id;
-        extractedData.suggested_account_name = foundAccount.name;
+    // STEP 2: If no valid ID yet, try using the suggested_account_code field
+    if (!validatedAccount && extractedData.suggested_account_code) {
+      const suggestedCode = String(extractedData.suggested_account_code);
+      console.log(`   🔄 Trying to find account by code: "${suggestedCode}"`);
+
+      validatedAccount = accountList.find(acc => acc.code === suggestedCode);
+      if (validatedAccount) {
+        console.log(`   ✓ Found account by code: ${validatedAccount.code} ${validatedAccount.name}`);
+        extractedData.suggested_account_id = validatedAccount.id;
+        extractedData.suggested_account_code = validatedAccount.code;
+        extractedData.suggested_account_name = validatedAccount.name;
       } else {
-        console.log('⚠️ [INVOICE AI] AI suggested invalid account code - removing suggestion');
-        console.log(`   AI suggested code: ${extractedData.suggested_account_code}`);
-        extractedData.suggested_account_code = undefined;
-        extractedData.suggested_account_name = undefined;
+        console.log(`   ❌ Code "${suggestedCode}" not found in database`);
       }
+    }
+
+    // STEP 3: Clean up if no valid account found
+    if (!validatedAccount) {
+      console.log('   ❌ No valid account found - removing all suggestions');
+      extractedData.suggested_account_id = undefined;
+      extractedData.suggested_account_code = undefined;
+      extractedData.suggested_account_name = undefined;
+    } else {
+      console.log('   ✅ Final validated account:', {
+        id: validatedAccount.id,
+        code: validatedAccount.code,
+        name: validatedAccount.name,
+      });
     }
 
     console.log('✓ [INVOICE AI] Analysis complete');
