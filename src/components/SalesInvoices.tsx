@@ -186,7 +186,23 @@ export function SalesInvoices() {
       if (revenueAccountIds.length > 0) {
         const { data: journalLines } = await supabase
           .from('journal_lines')
-          .select('*, journal_entries!inner(*), accounts!inner(*), contacts(*)')
+          .select(`
+            *,
+            journal_entries!inner (
+              *,
+              contacts (
+                id,
+                company_name,
+                email
+              )
+            ),
+            accounts!inner (
+              id,
+              code,
+              name,
+              type
+            )
+          `)
           .in('account_id', revenueAccountIds)
           .neq('journal_entries.type', 'Sales')
           .gt('credit', 0);
@@ -200,7 +216,7 @@ export function SalesInvoices() {
 
             if (!entry.contact_id) continue;
 
-            const contact = line.contacts as any;
+            const contact = entry.contacts;
 
             transactions.push({
               id: line.id,
