@@ -525,31 +525,9 @@ export function Reports({ onNavigate, fiscalYear }: ReportsProps) {
                   Passiva
                 </td>
               </tr>
-              <tr className="border-b border-gray-100">
-                <td className="py-2 px-3 text-sm text-gray-900">Ondernemingsvermogen</td>
-                <td className="py-2 px-3 text-sm text-right text-gray-900 whitespace-nowrap">
-                  €{(totalActiva - totalPassiva).toLocaleString('nl-NL', { minimumFractionDigits: 2 })}
-                </td>
-                <td className="py-2 px-3 text-sm text-right font-medium text-gray-900 whitespace-nowrap">
-                  €{eigenVermogen.toLocaleString('nl-NL', { minimumFractionDigits: 2 })}
-                </td>
-                <td className="py-2 px-3 text-center">
-                  <button
-                    onClick={() => copyToClipboard(eigenVermogen, 'eigen-vermogen')}
-                    className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                    title="Kopieer naar klembord"
-                  >
-                    {copiedField === 'eigen-vermogen' ? (
-                      <CheckCircle className="w-4 h-4 text-green-600" />
-                    ) : (
-                      <Copy className="w-4 h-4" />
-                    )}
-                  </button>
-                </td>
-              </tr>
               {balanceData
                 .filter((item) =>
-                  ['Voorzieningen', 'Langlopende schulden', 'Kortlopende schulden'].includes(
+                  ['Ondernemingsvermogen', 'Voorzieningen', 'Langlopende schulden', 'Kortlopende schulden'].includes(
                     item.category
                   )
                 )
