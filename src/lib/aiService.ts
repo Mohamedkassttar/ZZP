@@ -93,50 +93,52 @@ export async function analyzeInvoice(
 
 Your task is to extract data from invoices and receipts, and suggest the correct General Ledger account for booking.
 
-Extract the following information:
-1. supplier_name - Name of the company/supplier
-2. supplier_address - Street name and number (e.g., "Mariaplaats 50")
-3. supplier_city - City name (e.g., "Utrecht")
-4. category_clues - Keywords that indicate the business type (e.g., "Restaurant", "Bar", "Cafe", "Taxi", "Supermarket", "Garage", "Software"). Look for these words on the receipt/invoice.
-5. invoice_date - Date in YYYY-MM-DD format
-6. invoice_number - Invoice or receipt number
-7. total_amount - Total amount including VAT (in euros)
-8. vat_amount - VAT amount (in euros)
-9. net_amount - Amount excluding VAT (in euros)
-10. vat_percentage - VAT percentage (21, 9, or 0)
-11. description - Brief description of what was purchased
-12. confidence - Your confidence level (0-1)
-13. contact_id - Match supplier name to existing contact ID from the list (if found)
-14. is_new_supplier - Set to true if supplier is NOT found in the contact list
+═══════════════════════════════════════════════════════════════
+📋 STEP-BY-STEP PROCESS
+═══════════════════════════════════════════════════════════════
+STEP 1: EXTRACT the visible data from the invoice/receipt
+  - Supplier name, address, city
+  - Invoice date, number, amounts
+  - VAT details
+  - Look for category clues (keywords like "Restaurant", "Garage", "Software", etc.)
 
-IMPORTANT: Try to match the extracted supplier name to an existing contact from the contact list.
-If no match is found, set is_new_supplier to true and leave contact_id empty.
+STEP 2: MATCH the supplier to an existing contact from the contact list
+  - If found: set contact_id and is_new_supplier = false
+  - If NOT found: leave contact_id empty and set is_new_supplier = true
 
-Suggest the correct EXPENSE or ASSET account from the provided Chart of Accounts based on:
-- The supplier name and type of business
-- The description of goods/services
-- Common Dutch accounting practices for ZZP
+STEP 3: SELECT the correct ledger account from the available accounts list
+  - Based on the supplier type and description
+  - MUST choose an account ID from the "Available accounts" list below
+  - DO NOT invent new account IDs or codes
 
-CRITICAL RULES:
-1. ONLY suggest accounts with type "Expense" or "Asset" (available in the list below)
-2. NEVER suggest VAT accounts, Creditor accounts, Bank accounts, or Equity accounts
-3. NEVER suggest depreciation accounts (4200, 4900) - depreciation is a year-end journal entry only
-4. The suggested_account_id MUST exist in the "Available accounts" list
+═══════════════════════════════════════════════════════════════
+⚠️ CRITICAL ACCOUNT SELECTION RULES ⚠️
+═══════════════════════════════════════════════════════════════
+1. You MUST choose from accounts with type "Expense" or "Asset" (see list below)
+2. The suggested_account_id MUST be copied EXACTLY from the "Available accounts" list
+3. DO NOT invent new UUIDs or account codes
+4. NEVER suggest depreciation accounts (code 4200-4299) - these are year-end entries only
+5. NEVER suggest VAT accounts, Creditor accounts, Bank accounts, or Equity accounts
 
-Examples:
-- Shell, BP, Esso → Brandstofkosten (Expense)
-- Office supplies, software → Software & Licenties (Expense)
-- Marketing, ads → Marketing & Advertenties (Expense)
-- Phone, internet → Telefoon en Internet (Expense)
-- Bank fees → Bankkosten en rente (Expense)
+Examples of correct matching:
+- Shell, BP, Esso → Look for "Brandstof" or "Autokosten" in the list
+- Office supplies, software → Look for "Software" or "Kantoorkosten" in the list
+- Marketing, ads → Look for "Marketing" in the list
+- Phone, internet → Look for "Telecommunicatie" or "Telefoon" in the list
+- Bank fees → Look for "Bankkosten" in the list
+- Restaurant → Look for "Representatie" in the list
 
+═══════════════════════════════════════════════════════════════
+📤 REQUIRED RESPONSE FORMAT (JSON)
+═══════════════════════════════════════════════════════════════
 Return ONLY valid JSON in this exact format:
+
 {
   "supplier_name": "Shell Nederland B.V.",
   "supplier_address": "Mariaplaats 50",
   "supplier_city": "Utrecht",
-  "category_clues": "Restaurant Bar Cafe",
-  "contact_id": "uuid-from-contact-list-or-empty",
+  "category_clues": "Gas Station Fuel",
+  "contact_id": "uuid-from-contact-list-or-empty-string",
   "is_new_supplier": false,
   "invoice_date": "2024-03-15",
   "invoice_number": "INV-2024-001",
@@ -144,17 +146,20 @@ Return ONLY valid JSON in this exact format:
   "vat_amount": 21.00,
   "net_amount": 100.00,
   "vat_percentage": 21,
-  "suggested_account_id": "uuid-from-list",
-  "suggested_account_code": "4000",
-  "suggested_account_name": "Autokosten",
-  "description": "Brandstof",
+  "suggested_account_id": "COPY-UUID-FROM-ACCOUNTS-LIST",
+  "suggested_account_code": "4605",
+  "suggested_account_name": "Brandstof",
+  "description": "Fuel purchase",
   "confidence": 0.95
 }
 
+⚠️ CRITICAL: The suggested_account_id field must contain a UUID copied EXACTLY from the Available accounts list below. Do NOT generate a new UUID.
+
+═══════════════════════════════════════════════════════════════
 Available contacts:
 ${JSON.stringify(contactList, null, 2)}
 
-Available accounts:
+Available accounts (COPY THE ID EXACTLY):
 ${JSON.stringify(accountList, null, 2)}`;
 
   let messages: OpenAIMessage[];
@@ -229,11 +234,42 @@ ${JSON.stringify(accountList, null, 2)}`;
 
     const extractedData: ExtractedInvoiceData = extractJSON(content);
 
+    // VALIDATION: Check if the suggested account exists in the accounts list
+    if (extractedData.suggested_account_id) {
+      const foundAccount = accountList.find(acc => acc.id === extractedData.suggested_account_id);
+      if (!foundAccount) {
+        console.log('⚠️ [INVOICE AI] AI suggested invalid account ID - removing suggestion');
+        console.log(`   AI suggested: ${extractedData.suggested_account_id}`);
+        console.log(`   This ID does not exist in the database`);
+        extractedData.suggested_account_id = undefined;
+        extractedData.suggested_account_code = undefined;
+        extractedData.suggested_account_name = undefined;
+      } else {
+        console.log('✓ [INVOICE AI] Account suggestion validated:', foundAccount.code, foundAccount.name);
+      }
+    }
+
+    // VALIDATION: Check if the suggested account code matches
+    if (extractedData.suggested_account_code && !extractedData.suggested_account_id) {
+      const foundAccount = accountList.find(acc => acc.code === extractedData.suggested_account_code);
+      if (foundAccount) {
+        console.log('✓ [INVOICE AI] Account code validated, adding ID:', foundAccount.code, foundAccount.name);
+        extractedData.suggested_account_id = foundAccount.id;
+        extractedData.suggested_account_name = foundAccount.name;
+      } else {
+        console.log('⚠️ [INVOICE AI] AI suggested invalid account code - removing suggestion');
+        console.log(`   AI suggested code: ${extractedData.suggested_account_code}`);
+        extractedData.suggested_account_code = undefined;
+        extractedData.suggested_account_name = undefined;
+      }
+    }
+
     console.log('✓ [INVOICE AI] Analysis complete');
     console.log('📊 Result:', {
       supplier: extractedData.supplier_name,
       amount: extractedData.total_amount,
       account: extractedData.suggested_account_code,
+      accountId: extractedData.suggested_account_id,
       confidence: extractedData.confidence,
     });
 

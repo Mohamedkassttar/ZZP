@@ -656,6 +656,12 @@ SPECIAL RULES for 🍽️ FOOD & HOSPITALITY:
 ═══════════════════════════════════════════════════════════════
 📤 REQUIRED RESPONSE FORMAT (JSON)
 ═══════════════════════════════════════════════════════════════
+⚠️ CRITICAL VALIDATION RULES ⚠️
+1. You MUST choose an account from the list above
+2. The "id" field MUST be copied EXACTLY from the account list (do NOT generate a new UUID)
+3. The "selected_account_code" MUST match a code from the list above
+4. If you cannot find a perfect match, choose the closest semantic match
+
 You MUST respond with valid JSON in this exact format:
 
 {
@@ -663,7 +669,7 @@ You MUST respond with valid JSON in this exact format:
   "category_group": "The emoji category (e.g., '🚗 CAR & TRAVEL')",
   "selected_account_code": "The 4-digit code (e.g., '4605')",
   "selected_account_name": "The account name",
-  "id": "The full UUID of the selected account"
+  "id": "The full UUID of the selected account - COPY THIS EXACTLY FROM THE LIST ABOVE"
 }
 
 Example response:
@@ -675,7 +681,9 @@ Example response:
   "id": "a1b2c3d4-1234-5678-9abc-def012345678"
 }
 
-Think step-by-step, then respond with the JSON.`;
+⚠️ REMINDER: Copy the account ID EXACTLY from the account list. Do NOT invent a new UUID.
+
+Think step-by-step, then respond ONLY with the JSON (no extra text).`;
 }
 
 /**
@@ -792,7 +800,7 @@ async function mapIndustryToLedgerAccount(
         model: AI_CONFIG.model,
         messages: [{ role: 'user', content: prompt }],
         temperature: AI_CONFIG.temperature,
-        max_tokens: 300, // Increased for chain-of-thought response
+        max_tokens: 500, // Increased for chain-of-thought response with full reasoning
       }),
     });
 
@@ -888,11 +896,15 @@ function parseChainOfThoughtResponse(
           companyType: industry,
         };
       } else {
-        console.log('    ⚠ Account ID found but not in list:', accountId);
+        console.log(`    ❌ VALIDATION FAILED: AI generated UUID "${accountId}" not found in database`);
+        console.log(`    💡 The AI invented a UUID instead of copying from the account list`);
+        console.log(`    🔄 Falling back to code-based matching...`);
       }
+    } else {
+      console.log(`    ⚠ No "id" field found in AI response, trying code fallback...`);
     }
 
-    // Try to match by code if ID not found
+    // Try to match by code if ID not found or invalid
     if (parsed.selected_account_code) {
       const foundAccount = accounts.find(acc => acc.code === parsed.selected_account_code);
       if (foundAccount) {
@@ -909,7 +921,12 @@ function parseChainOfThoughtResponse(
           suggestedCategory: foundAccount.name,
           companyType: industry,
         };
+      } else {
+        console.log(`    ❌ VALIDATION FAILED: AI suggested code "${parsed.selected_account_code}" not found in database`);
+        console.log(`    💡 The AI invented an account code instead of selecting from the list`);
       }
+    } else {
+      console.log(`    ⚠ No "selected_account_code" field found in AI response`);
     }
   } catch (e) {
     console.log('    ✗ Strategy 1 failed:', (e as Error).message);
