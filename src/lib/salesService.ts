@@ -327,7 +327,10 @@ export async function createCustomer(input: {
 /**
  * Resend an existing invoice via email
  */
-export async function resendInvoice(invoiceId: string): Promise<{
+export async function resendInvoice(
+  invoiceId: string,
+  targetEmail?: string
+): Promise<{
   success: boolean;
   message: string;
 }> {
@@ -340,6 +343,7 @@ export async function resendInvoice(invoiceId: string): Promise<{
         invoice_number,
         date,
         total_amount,
+        status,
         contact:contacts(email, company_name)
       `)
       .eq('id', invoiceId)
@@ -353,11 +357,12 @@ export async function resendInvoice(invoiceId: string): Promise<{
     }
 
     const contact = invoice.contact as any;
+    const emailToUse = targetEmail || contact?.email;
 
-    if (!contact?.email || !isValidEmail(contact.email)) {
+    if (!emailToUse || !isValidEmail(emailToUse)) {
       return {
         success: false,
-        message: 'Geen geldig emailadres beschikbaar voor deze relatie',
+        message: 'Geen geldig emailadres beschikbaar',
       };
     }
 
@@ -368,7 +373,7 @@ export async function resendInvoice(invoiceId: string): Promise<{
 
     // Send email
     const emailResult = await sendInvoiceReminder({
-      to: contact.email,
+      to: emailToUse,
       invoiceNumber: invoice.invoice_number || 'Onbekend',
       invoiceDate: invoice.date,
       totalAmount: invoice.total_amount || 0,
@@ -377,13 +382,20 @@ export async function resendInvoice(invoiceId: string): Promise<{
     });
 
     if (emailResult.success) {
-      // Update invoice with last sent timestamp
+      // Update invoice with email tracking and status
+      const updateData: any = {
+        sent_to_email: emailToUse,
+        last_sent_at: emailResult.sentAt,
+      };
+
+      // Update status to 'sent' if it was 'draft'
+      if (invoice.status === 'draft') {
+        updateData.status = 'sent';
+      }
+
       await supabase
         .from('sales_invoices')
-        .update({
-          sent_to_email: contact.email,
-          last_sent_at: emailResult.sentAt,
-        })
+        .update(updateData)
         .eq('id', invoiceId);
 
       return {

@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, FileText, Clock, Receipt, CreditCard, CheckCircle } from 'lucide-react';
+import { ArrowLeft, FileText, Clock, Receipt, CreditCard, CheckCircle, Mail, Eye } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { resendInvoice } from '../lib/salesService';
+import { ResendInvoiceModal } from './ResendInvoiceModal';
 import type { Database } from '../lib/database.types';
 
 type Contact = Database['public']['Tables']['contacts']['Row'];
 type Invoice = Database['public']['Tables']['invoices']['Row'];
+type SalesInvoice = Database['public']['Tables']['sales_invoices']['Row'];
 
 interface JournalEntry {
   id: string;
@@ -22,10 +25,22 @@ interface ContactDetailProps {
 }
 
 export function ContactDetail({ contact, onBack }: ContactDetailProps) {
-  const [activeTab, setActiveTab] = useState<'outstanding' | 'history'>('outstanding');
+  const [activeTab, setActiveTab] = useState<'outstanding' | 'history' | 'invoices'>('outstanding');
   const [outstandingInvoices, setOutstandingInvoices] = useState<Invoice[]>([]);
+  const [salesInvoices, setSalesInvoices] = useState<SalesInvoice[]>([]);
   const [history, setHistory] = useState<JournalEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [resendModal, setResendModal] = useState<{
+    isOpen: boolean;
+    invoiceId: string;
+    invoiceNumber: string;
+    defaultEmail: string;
+  }>({
+    isOpen: false,
+    invoiceId: '',
+    invoiceNumber: '',
+    defaultEmail: '',
+  });
 
   const isCreditor = contact.relation_type === 'Supplier' || contact.relation_type === 'Both';
   const isDebtor = contact.relation_type === 'Customer' || contact.relation_type === 'Both';
@@ -37,12 +52,23 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
   async function loadData() {
     setLoading(true);
     try {
-      await Promise.all([loadOutstandingInvoices(), loadHistory()]);
+      await Promise.all([loadOutstandingInvoices(), loadSalesInvoices(), loadHistory()]);
     } catch (error) {
       console.error('Error loading contact data:', error);
     } finally {
       setLoading(false);
     }
+  }
+
+  async function loadSalesInvoices() {
+    const { data, error } = await supabase
+      .from('sales_invoices')
+      .select('*')
+      .eq('contact_id', contact.id)
+      .order('date', { ascending: false });
+
+    if (error) throw error;
+    setSalesInvoices(data || []);
   }
 
   async function loadOutstandingInvoices() {
@@ -156,6 +182,42 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
     0
   );
 
+  const handleResendClick = (invoice: SalesInvoice) => {
+    setResendModal({
+      isOpen: true,
+      invoiceId: invoice.id,
+      invoiceNumber: invoice.invoice_number || 'Onbekend',
+      defaultEmail: invoice.sent_to_email || contact.email || '',
+    });
+  };
+
+  const handleResend = async (email: string) => {
+    const result = await resendInvoice(resendModal.invoiceId, email);
+
+    if (result.success) {
+      await loadSalesInvoices();
+    }
+
+    return result;
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'draft':
+        return 'bg-slate-100 text-slate-800';
+      case 'open':
+        return 'bg-amber-100 text-amber-800';
+      case 'sent':
+        return 'bg-blue-100 text-blue-800';
+      case 'paid':
+        return 'bg-green-100 text-green-800';
+      case 'overdue':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-slate-100 text-slate-800';
+    }
+  };
+
   if (loading) {
     return (
       <div className="max-w-7xl mx-auto p-6">
@@ -216,6 +278,17 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
             Openstaand
           </button>
           <button
+            onClick={() => setActiveTab('invoices')}
+            className={`flex items-center gap-2 px-6 py-4 font-semibold transition-colors ${
+              activeTab === 'invoices'
+                ? 'text-blue-700 border-b-2 border-blue-600 bg-blue-50/50'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+            }`}
+          >
+            <Receipt className="w-5 h-5" />
+            Factuurhistorie
+          </button>
+          <button
             onClick={() => setActiveTab('history')}
             className={`flex items-center gap-2 px-6 py-4 font-semibold transition-colors ${
               activeTab === 'history'
@@ -229,7 +302,93 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
         </div>
 
         <div className="p-6">
-          {activeTab === 'outstanding' ? (
+          {activeTab === 'invoices' ? (
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900 mb-4">Factuurhistorie</h2>
+              {salesInvoices.length === 0 ? (
+                <div className="text-center py-12 text-slate-500">
+                  <Receipt className="w-12 h-12 mx-auto mb-3 text-slate-400" />
+                  <p>Geen facturen gevonden</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-slate-50 border-b border-slate-200">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-900">
+                          Datum
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-900">
+                          Factuurnummer
+                        </th>
+                        <th className="px-4 py-3 text-right text-xs font-semibold text-slate-900">
+                          Bedrag
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-900">
+                          Status
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-900">
+                          Laatst verzonden
+                        </th>
+                        <th className="px-4 py-3 text-right text-xs font-semibold text-slate-900">
+                          Acties
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200">
+                      {salesInvoices.map((invoice) => (
+                        <tr key={invoice.id} className="hover:bg-slate-50">
+                          <td className="px-4 py-3 text-sm text-slate-700">
+                            {new Date(invoice.date).toLocaleDateString('nl-NL')}
+                          </td>
+                          <td className="px-4 py-3 text-sm font-medium text-slate-900">
+                            {invoice.invoice_number}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-right font-medium text-slate-900">
+                            €{Number(invoice.total_amount).toFixed(2)}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(invoice.status)}`}>
+                              {invoice.status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-slate-600">
+                            {invoice.last_sent_at ? (
+                              <div>
+                                <div>{new Date(invoice.last_sent_at).toLocaleDateString('nl-NL')}</div>
+                                {invoice.sent_to_email && (
+                                  <div className="text-xs text-slate-500">{invoice.sent_to_email}</div>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-slate-400">Niet verzonden</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                className="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                title="Bekijken"
+                              >
+                                <Eye className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleResendClick(invoice)}
+                                className="p-2 text-slate-600 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                                title="Opnieuw mailen"
+                              >
+                                <Mail className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          ) : activeTab === 'outstanding' ? (
             <div>
               <h2 className="text-lg font-semibold text-slate-900 mb-4">Openstaande Facturen</h2>
               {outstandingInvoices.length === 0 ? (
@@ -362,6 +521,14 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
           )}
         </div>
       </div>
+
+      <ResendInvoiceModal
+        isOpen={resendModal.isOpen}
+        onClose={() => setResendModal({ ...resendModal, isOpen: false })}
+        invoiceNumber={resendModal.invoiceNumber}
+        defaultEmail={resendModal.defaultEmail}
+        onResend={handleResend}
+      />
     </div>
   );
 }
