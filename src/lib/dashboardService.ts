@@ -15,7 +15,7 @@ export interface RevenueStats {
 
 /**
  * Get revenue statistics for today, this week, and this month
- * Based on sales_invoices total_amount (excluding VAT if possible)
+ * Based on journal entries posted to Revenue accounts (type='Revenue')
  */
 export async function getRevenueStats(): Promise<RevenueStats> {
   const now = new Date();
@@ -41,39 +41,52 @@ export async function getRevenueStats(): Promise<RevenueStats> {
   const monthStartStr = monthStart.toISOString().split('T')[0];
 
   try {
-    // Fetch today's revenue
+    // Get all Revenue accounts
+    const { data: revenueAccounts } = await supabase
+      .from('accounts')
+      .select('id')
+      .eq('type', 'Revenue')
+      .eq('is_active', true);
+
+    if (!revenueAccounts || revenueAccounts.length === 0) {
+      return { today: 0, thisWeek: 0, thisMonth: 0 };
+    }
+
+    const accountIds = revenueAccounts.map(acc => acc.id);
+
+    // Fetch today's revenue from journal lines
     const { data: todayData } = await supabase
-      .from('sales_invoices')
-      .select('total_amount, vat_amount')
-      .gte('date', todayStartStr)
-      .lt('date', todayEnd.toISOString().split('T')[0]);
+      .from('journal_lines')
+      .select('credit, debit, journal_entries!inner(entry_date)')
+      .in('account_id', accountIds)
+      .gte('journal_entries.entry_date', todayStartStr)
+      .lt('journal_entries.entry_date', todayEnd.toISOString().split('T')[0]);
 
     // Fetch this week's revenue
     const { data: weekData } = await supabase
-      .from('sales_invoices')
-      .select('total_amount, vat_amount')
-      .gte('date', weekStartStr);
+      .from('journal_lines')
+      .select('credit, debit, journal_entries!inner(entry_date)')
+      .in('account_id', accountIds)
+      .gte('journal_entries.entry_date', weekStartStr);
 
     // Fetch this month's revenue
     const { data: monthData } = await supabase
-      .from('sales_invoices')
-      .select('total_amount, vat_amount')
-      .gte('date', monthStartStr);
+      .from('journal_lines')
+      .select('credit, debit, journal_entries!inner(entry_date)')
+      .in('account_id', accountIds)
+      .gte('journal_entries.entry_date', monthStartStr);
 
-    // Calculate totals (subtract VAT to get net revenue)
-    const today = todayData?.reduce((sum, inv) => {
-      const netAmount = (inv.total_amount || 0) - (inv.vat_amount || 0);
-      return sum + netAmount;
+    // Calculate totals (for Revenue accounts, credit increases revenue)
+    const today = todayData?.reduce((sum, line) => {
+      return sum + (Number(line.credit) - Number(line.debit));
     }, 0) || 0;
 
-    const thisWeek = weekData?.reduce((sum, inv) => {
-      const netAmount = (inv.total_amount || 0) - (inv.vat_amount || 0);
-      return sum + netAmount;
+    const thisWeek = weekData?.reduce((sum, line) => {
+      return sum + (Number(line.credit) - Number(line.debit));
     }, 0) || 0;
 
-    const thisMonth = monthData?.reduce((sum, inv) => {
-      const netAmount = (inv.total_amount || 0) - (inv.vat_amount || 0);
-      return sum + netAmount;
+    const thisMonth = monthData?.reduce((sum, line) => {
+      return sum + (Number(line.credit) - Number(line.debit));
     }, 0) || 0;
 
     return {
