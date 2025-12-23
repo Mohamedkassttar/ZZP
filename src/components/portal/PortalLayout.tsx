@@ -10,6 +10,7 @@ interface PortalLayoutProps {
 
 const navItems = [
   { id: 'portal-home', label: 'Home', icon: Home },
+  { id: 'portal-expense', label: 'Inkoop', icon: Receipt },
   { id: 'portal-finance', label: 'Financieel', icon: Wallet },
   { id: 'portal-invoice', label: 'Factureren', icon: FileText },
   { id: 'portal-time', label: 'Uren', icon: Clock },
@@ -45,13 +46,13 @@ export function PortalLayout({ children, currentView, onNavigate }: PortalLayout
       </header>
 
       <main className="flex-1 overflow-y-auto overflow-x-hidden relative z-10 min-h-0">
-        <div className="px-4 py-6 pb-32 pr-4 md:pr-4">
+        <div className="px-4 py-6 pb-36 pr-4 md:pr-4">
           {children}
         </div>
       </main>
 
       <nav className="flex-none z-30 bg-white border-t border-gray-200 shadow-lg">
-        <div className="flex items-center justify-around px-2 py-3">
+        <div className="flex items-center justify-around px-1 py-2.5">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = currentView === item.id;
@@ -60,14 +61,14 @@ export function PortalLayout({ children, currentView, onNavigate }: PortalLayout
               <button
                 key={item.id}
                 onClick={() => onNavigate(item.id)}
-                className={`flex flex-col items-center justify-center min-w-[70px] py-2 px-3 rounded-xl transition-all ${
+                className={`flex flex-col items-center justify-center min-w-[56px] py-1.5 px-2 rounded-xl transition-all ${
                   isActive
                     ? 'bg-blue-50 text-blue-600'
                     : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                 }`}
               >
-                <Icon className={`w-6 h-6 mb-1 ${isActive ? 'stroke-[2.5]' : 'stroke-[2]'}`} />
-                <span className={`text-xs font-medium ${isActive ? 'font-semibold' : ''}`}>
+                <Icon className={`w-5 h-5 mb-0.5 ${isActive ? 'stroke-[2.5]' : 'stroke-[2]'}`} />
+                <span className={`text-[10px] font-medium leading-tight ${isActive ? 'font-semibold' : ''}`}>
                   {item.label}
                 </span>
               </button>
