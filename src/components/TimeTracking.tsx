@@ -274,8 +274,9 @@ export function TimeTracking() {
     }
 
     const isComplete = contactData.address && contactData.postal_code && contactData.city;
+    const hasHourlyRate = contactData.hourly_rate && contactData.hourly_rate > 0;
 
-    if (!isComplete) {
+    if (!isComplete || !hasHourlyRate) {
       setContactToEdit(contactData as Contact);
       setPendingInvoiceContactId(contactId);
       setShowContactEditModal(true);
@@ -292,13 +293,8 @@ export function TimeTracking() {
 
     const hourlyRate = contactData.hourly_rate || 0;
 
-    if (hourlyRate <= 0) {
-      alert('Geen uurtarief ingesteld voor deze relatie');
-      return;
-    }
-
     const lines: InvoiceLineInput[] = unbilledEntries.map((entry) => ({
-      description: `${entry.description} (${entry.hours} uur @ €${hourlyRate}/uur)`,
+      description: `${entry.description} (${entry.hours} uur${hourlyRate > 0 ? ` @ €${hourlyRate}/uur` : ''})`,
       quantity: entry.hours,
       unit_price: hourlyRate,
       vat_rate: 21,
@@ -329,6 +325,7 @@ export function TimeTracking() {
         city: contactToEdit.city,
         email: contactToEdit.email || null,
         vat_number: contactToEdit.vat_number || null,
+        hourly_rate: contactToEdit.hourly_rate || null,
       })
       .eq('id', contactToEdit.id);
 
@@ -668,9 +665,9 @@ export function TimeTracking() {
                   <AlertCircle className="w-6 h-6 text-amber-600" />
                 </div>
                 <div className="flex-1">
-                  <h2 className="text-2xl font-black text-slate-800 mb-1">Klantgegevens Incompleet</h2>
+                  <h2 className="text-2xl font-black text-slate-800 mb-1">Klantgegevens Aanvullen</h2>
                   <p className="text-sm text-slate-600">
-                    Voor het aanmaken van een factuur zijn volledige klantgegevens vereist. Vul de ontbrekende gegevens aan.
+                    Voor het aanmaken van een factuur zijn volledige klantgegevens en een uurtarief vereist. Vul de ontbrekende gegevens aan.
                   </p>
                 </div>
               </div>
@@ -746,6 +743,24 @@ export function TimeTracking() {
                   placeholder="NL123456789B01"
                   className="w-full px-4 py-2.5 border-2 border-slate-300 rounded-xl focus:border-blue-500 focus:outline-none"
                 />
+              </div>
+
+              <div className="p-4 bg-amber-50 border-2 border-amber-300 rounded-xl">
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Uurtarief (€) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={contactToEdit.hourly_rate || ''}
+                  onChange={(e) => setContactToEdit({ ...contactToEdit, hourly_rate: parseFloat(e.target.value) || null })}
+                  placeholder="85.00"
+                  className="w-full px-4 py-2.5 border-2 border-slate-300 rounded-xl focus:border-blue-500 focus:outline-none"
+                />
+                <p className="text-xs text-slate-600 mt-1">
+                  Dit tarief wordt gebruikt om de factuurregels automatisch te berekenen
+                </p>
               </div>
             </div>
 
