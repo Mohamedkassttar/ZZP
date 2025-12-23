@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 import type { Database } from './database.types';
 import { findActiveAccountsReceivable, findActiveVATPayable } from './systemAccountsService';
+import { sendInvoiceEmail, sendInvoiceReminder, isValidEmail } from './emailService';
 
 type Account = Database['public']['Tables']['accounts']['Row'];
 
@@ -15,6 +16,7 @@ export interface CreateInvoiceInput {
   lines: InvoiceLine[];
   invoiceDate?: string;
   dueDate?: string;
+  shouldSendEmail?: boolean;
 }
 
 export interface CreateInvoiceResult {
@@ -22,6 +24,8 @@ export interface CreateInvoiceResult {
   invoiceId?: string;
   invoiceNumber?: string;
   error?: string;
+  emailSent?: boolean;
+  emailMessage?: string;
 }
 
 async function generateNextInvoiceNumber(): Promise<string> {
@@ -209,10 +213,58 @@ export async function createAndBookInvoice(
       };
     }
 
+    // Handle email sending if requested
+    let emailSent = false;
+    let emailMessage = '';
+
+    if (input.shouldSendEmail) {
+      // Get contact email
+      const { data: contact } = await supabase
+        .from('contacts')
+        .select('email, company_name')
+        .eq('id', contactId)
+        .single();
+
+      if (contact?.email && isValidEmail(contact.email)) {
+        try {
+          const emailResult = await sendInvoiceEmail({
+            to: contact.email,
+            invoiceNumber: invoiceNumber,
+            invoiceDate: invoiceDate,
+            totalAmount: total,
+            contactName: contact.company_name,
+            dueDate: dueDate,
+          });
+
+          if (emailResult.success) {
+            // Update invoice with email tracking
+            await supabase
+              .from('sales_invoices')
+              .update({
+                sent_to_email: contact.email,
+                last_sent_at: emailResult.sentAt,
+                status: 'sent',
+              })
+              .eq('id', invoiceData.id);
+
+            emailSent = true;
+            emailMessage = emailResult.message;
+          }
+        } catch (emailError) {
+          console.error('Error sending invoice email:', emailError);
+          emailMessage = 'Factuur aangemaakt, maar email kon niet worden verzonden';
+        }
+      } else {
+        emailMessage = 'Factuur aangemaakt, maar geen geldig emailadres beschikbaar';
+      }
+    }
+
     return {
       success: true,
       invoiceId: invoiceData.id,
       invoiceNumber: invoiceNumber,
+      emailSent,
+      emailMessage,
     };
   } catch (err) {
     console.error('Unexpected error in createAndBookInvoice:', err);
@@ -270,4 +322,85 @@ export async function createCustomer(input: {
   }
 
   return data;
+}
+
+/**
+ * Resend an existing invoice via email
+ */
+export async function resendInvoice(invoiceId: string): Promise<{
+  success: boolean;
+  message: string;
+}> {
+  try {
+    // Get invoice details
+    const { data: invoice, error: invoiceError } = await supabase
+      .from('sales_invoices')
+      .select(`
+        id,
+        invoice_number,
+        date,
+        total_amount,
+        contact:contacts(email, company_name)
+      `)
+      .eq('id', invoiceId)
+      .single();
+
+    if (invoiceError || !invoice) {
+      return {
+        success: false,
+        message: 'Factuur niet gevonden',
+      };
+    }
+
+    const contact = invoice.contact as any;
+
+    if (!contact?.email || !isValidEmail(contact.email)) {
+      return {
+        success: false,
+        message: 'Geen geldig emailadres beschikbaar voor deze relatie',
+      };
+    }
+
+    // Calculate due date (30 days from invoice date)
+    const invoiceDate = new Date(invoice.date);
+    const dueDate = new Date(invoiceDate);
+    dueDate.setDate(dueDate.getDate() + 30);
+
+    // Send email
+    const emailResult = await sendInvoiceReminder({
+      to: contact.email,
+      invoiceNumber: invoice.invoice_number || 'Onbekend',
+      invoiceDate: invoice.date,
+      totalAmount: invoice.total_amount || 0,
+      contactName: contact.company_name,
+      dueDate: dueDate.toISOString().split('T')[0],
+    });
+
+    if (emailResult.success) {
+      // Update invoice with last sent timestamp
+      await supabase
+        .from('sales_invoices')
+        .update({
+          sent_to_email: contact.email,
+          last_sent_at: emailResult.sentAt,
+        })
+        .eq('id', invoiceId);
+
+      return {
+        success: true,
+        message: emailResult.message,
+      };
+    }
+
+    return {
+      success: false,
+      message: 'Fout bij verzenden email',
+    };
+  } catch (err) {
+    console.error('Error in resendInvoice:', err);
+    return {
+      success: false,
+      message: err instanceof Error ? err.message : 'Onbekende fout',
+    };
+  }
 }

@@ -1,7 +1,8 @@
 import { useState, useEffect, DragEvent } from 'react';
-import { Upload, FileText, Building2, Landmark, MapPin, Package, Edit3, TrendingUp, TrendingDown, Wallet } from 'lucide-react';
+import { Upload, FileText, Building2, Landmark, MapPin, Package, Edit3, TrendingUp, TrendingDown, Wallet, DollarSign, Calendar } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { CashflowChart } from './CashflowChart';
+import { getRevenueStats, type RevenueStats } from '../lib/dashboardService';
 
 interface FinancialMetrics {
   openSales: number;
@@ -19,11 +20,26 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     openCosts: 0,
     bankBalance: 0,
   });
+  const [revenueStats, setRevenueStats] = useState<RevenueStats>({
+    today: 0,
+    thisWeek: 0,
+    thisMonth: 0,
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadMetrics();
+    loadRevenueStats();
   }, []);
+
+  async function loadRevenueStats() {
+    try {
+      const stats = await getRevenueStats();
+      setRevenueStats(stats);
+    } catch (error) {
+      console.error('Error loading revenue stats:', error);
+    }
+  }
 
   async function loadMetrics() {
     try {
@@ -86,6 +102,48 @@ export function Dashboard({ onNavigate }: DashboardProps) {
       <div>
         <h1 className="text-4xl font-black text-slate-800">Dashboard</h1>
         <p className="text-lg text-slate-600 mt-2 font-medium">Overzicht van je administratie</p>
+      </div>
+
+      {/* Revenue KPI Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-3xl shadow-xl shadow-emerald-100/40 p-7 hover:shadow-2xl hover:shadow-emerald-200/60 transition-all duration-300 border border-emerald-200">
+          <div className="flex items-center gap-4 mb-4">
+            <div className="p-3 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-2xl shadow-lg">
+              <DollarSign className="w-6 h-6 text-white" />
+            </div>
+            <span className="text-sm text-slate-700 font-bold">Omzet Vandaag</span>
+          </div>
+          <p className="text-4xl font-black text-slate-800">
+            €{revenueStats.today.toFixed(2)}
+          </p>
+          <p className="text-xs text-slate-500 mt-2 font-medium">Excl. BTW</p>
+        </div>
+
+        <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-3xl shadow-xl shadow-blue-100/40 p-7 hover:shadow-2xl hover:shadow-blue-200/60 transition-all duration-300 border border-blue-200">
+          <div className="flex items-center gap-4 mb-4">
+            <div className="p-3 bg-gradient-to-br from-blue-400 to-cyan-600 rounded-2xl shadow-lg">
+              <Calendar className="w-6 h-6 text-white" />
+            </div>
+            <span className="text-sm text-slate-700 font-bold">Omzet Deze Week</span>
+          </div>
+          <p className="text-4xl font-black text-slate-800">
+            €{revenueStats.thisWeek.toFixed(2)}
+          </p>
+          <p className="text-xs text-slate-500 mt-2 font-medium">Excl. BTW</p>
+        </div>
+
+        <div className="bg-gradient-to-br from-violet-50 to-fuchsia-50 rounded-3xl shadow-xl shadow-violet-100/40 p-7 hover:shadow-2xl hover:shadow-violet-200/60 transition-all duration-300 border border-violet-200">
+          <div className="flex items-center gap-4 mb-4">
+            <div className="p-3 bg-gradient-to-br from-violet-400 to-fuchsia-600 rounded-2xl shadow-lg">
+              <TrendingUp className="w-6 h-6 text-white" />
+            </div>
+            <span className="text-sm text-slate-700 font-bold">Omzet Deze Maand</span>
+          </div>
+          <p className="text-4xl font-black text-slate-800">
+            €{revenueStats.thisMonth.toFixed(2)}
+          </p>
+          <p className="text-xs text-slate-500 mt-2 font-medium">Excl. BTW</p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">

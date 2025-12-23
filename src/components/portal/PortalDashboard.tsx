@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Wallet, TrendingDown, TrendingUp, Clock, ArrowRight } from 'lucide-react';
+import { Wallet, TrendingDown, TrendingUp, Clock, ArrowRight, DollarSign, Calendar } from 'lucide-react';
+import { getRevenueStats, type RevenueStats } from '../../lib/dashboardService';
 
 interface DashboardData {
   bankBalance: number;
@@ -22,11 +23,26 @@ export function PortalDashboard() {
     unpaidSales: 0,
     recentActivities: [],
   });
+  const [revenueStats, setRevenueStats] = useState<RevenueStats>({
+    today: 0,
+    thisWeek: 0,
+    thisMonth: 0,
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadDashboardData();
+    loadRevenueStats();
   }, []);
+
+  async function loadRevenueStats() {
+    try {
+      const stats = await getRevenueStats();
+      setRevenueStats(stats);
+    } catch (error) {
+      console.error('Error loading revenue stats:', error);
+    }
+  }
 
   async function loadDashboardData() {
     try {
@@ -100,6 +116,45 @@ export function PortalDashboard() {
           {new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR' }).format(data.bankBalance)}
         </div>
         <p className="text-sm opacity-80">Per vandaag</p>
+      </div>
+
+      {/* Revenue KPI Cards */}
+      <div className="grid grid-cols-3 gap-4">
+        <div className="bg-white rounded-2xl shadow-md p-4 border border-gray-100">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-8 h-8 bg-emerald-50 rounded-lg flex items-center justify-center">
+              <DollarSign className="w-4 h-4 text-emerald-600" />
+            </div>
+          </div>
+          <div className="text-lg font-bold text-gray-900 mb-1">
+            {new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR' }).format(revenueStats.today)}
+          </div>
+          <p className="text-xs text-gray-600 font-medium">Omzet vandaag</p>
+        </div>
+
+        <div className="bg-white rounded-2xl shadow-md p-4 border border-gray-100">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
+              <Calendar className="w-4 h-4 text-blue-600" />
+            </div>
+          </div>
+          <div className="text-lg font-bold text-gray-900 mb-1">
+            {new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR' }).format(revenueStats.thisWeek)}
+          </div>
+          <p className="text-xs text-gray-600 font-medium">Deze week</p>
+        </div>
+
+        <div className="bg-white rounded-2xl shadow-md p-4 border border-gray-100">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-8 h-8 bg-violet-50 rounded-lg flex items-center justify-center">
+              <TrendingUp className="w-4 h-4 text-violet-600" />
+            </div>
+          </div>
+          <div className="text-lg font-bold text-gray-900 mb-1">
+            {new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR' }).format(revenueStats.thisMonth)}
+          </div>
+          <p className="text-xs text-gray-600 font-medium">Deze maand</p>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
