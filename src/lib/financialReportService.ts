@@ -31,37 +31,11 @@ export interface FinancialContext {
   insights: string[];
 }
 
-async function getAccountBalance(accountCodes: string[], startDate: string, endDate: string): Promise<number> {
-  if (accountCodes.length === 0) return 0;
-
+async function getAccountBalanceByType(accountType: 'Revenue' | 'Expense' | 'Asset' | 'Liability' | 'Equity', startDate: string, endDate: string): Promise<number> {
   const { data: accounts } = await supabase
     .from('accounts')
     .select('id')
-    .in('code', accountCodes);
-
-  if (!accounts || accounts.length === 0) return 0;
-
-  const accountIds = accounts.map(a => a.id);
-
-  const { data: lines } = await supabase
-    .from('journal_lines')
-    .select('debit, credit, journal_entries!inner(entry_date)')
-    .in('account_id', accountIds)
-    .gte('journal_entries.entry_date', startDate)
-    .lte('journal_entries.entry_date', endDate);
-
-  if (!lines || lines.length === 0) return 0;
-
-  return lines.reduce((sum, line) => {
-    return sum + (parseFloat(line.credit as string) - parseFloat(line.debit as string));
-  }, 0);
-}
-
-async function getAccountBalanceByCategory(category: string, startDate: string, endDate: string): Promise<number> {
-  const { data: accounts } = await supabase
-    .from('accounts')
-    .select('id')
-    .eq('tax_category', category)
+    .eq('type', accountType)
     .eq('is_active', true);
 
   if (!accounts || accounts.length === 0) return 0;
@@ -70,72 +44,113 @@ async function getAccountBalanceByCategory(category: string, startDate: string, 
 
   const { data: lines } = await supabase
     .from('journal_lines')
-    .select('debit, credit, journal_entries!inner(entry_date)')
+    .select('debit, credit, journal_entries!inner(entry_date, status)')
     .in('account_id', accountIds)
     .gte('journal_entries.entry_date', startDate)
-    .lte('journal_entries.entry_date', endDate);
+    .lte('journal_entries.entry_date', endDate)
+    .eq('journal_entries.status', 'Final');
 
   if (!lines || lines.length === 0) return 0;
 
   return lines.reduce((sum, line) => {
     const debit = parseFloat(line.debit as string);
     const credit = parseFloat(line.credit as string);
-    return sum + (debit - credit);
-  }, 0);
-}
 
-async function getCurrentBalance(accountCodes: string[]): Promise<number> {
-  if (accountCodes.length === 0) return 0;
-
-  const { data: accounts } = await supabase
-    .from('accounts')
-    .select('id')
-    .in('code', accountCodes);
-
-  if (!accounts || accounts.length === 0) return 0;
-
-  const accountIds = accounts.map(a => a.id);
-
-  const { data: lines } = await supabase
-    .from('journal_lines')
-    .select('debit, credit')
-    .in('account_id', accountIds);
-
-  if (!lines || lines.length === 0) return 0;
-
-  return lines.reduce((sum, line) => {
-    return sum + (parseFloat(line.debit as string) - parseFloat(line.credit as string));
+    if (accountType === 'Revenue' || accountType === 'Liability' || accountType === 'Equity') {
+      return sum + (credit - debit);
+    } else {
+      return sum + (debit - credit);
+    }
   }, 0);
 }
 
 async function getMetricsForPeriod(startDate: string, endDate: string): Promise<FinancialMetrics> {
-  const revenue = await getAccountBalanceByCategory('Omzet', startDate, endDate);
+  const revenue = await getAccountBalanceByType('Revenue', startDate, endDate);
+  const totalExpenses = await getAccountBalanceByType('Expense', startDate, endDate);
 
-  const costsOfSales = await getAccountBalanceByCategory('Inkoopwaarde van de omzet', startDate, endDate);
-  const generalCosts = await getAccountBalanceByCategory('Algemene kosten', startDate, endDate);
-  const housingCosts = await getAccountBalanceByCategory('Huisvestingskosten', startDate, endDate);
-  const salesCosts = await getAccountBalanceByCategory('Verkoopkosten', startDate, endDate);
-  const transportCosts = await getAccountBalanceByCategory('Kosten van vervoer', startDate, endDate);
-  const financialCosts = await getAccountBalanceByCategory('Financieringskosten', startDate, endDate);
-
-  const totalExpenses = costsOfSales + generalCosts + housingCosts + salesCosts + transportCosts + financialCosts;
-
-  const grossMargin = revenue - costsOfSales;
+  const grossMargin = revenue;
   const netProfit = revenue - totalExpenses;
 
-  const bankBalance = await getCurrentBalance(['1000', '1100', '1200']);
+  const { data: bankAccounts } = await supabase
+    .from('accounts')
+    .select('id')
+    .eq('type', 'Asset')
+    .ilike('name', '%bank%')
+    .eq('is_active', true);
 
-  const accountsReceivable = await getCurrentBalance(['1300', '1310']);
-  const accountsPayable = await getCurrentBalance(['1500']);
+  const bankAccountIds = bankAccounts?.map(a => a.id) || [];
+
+  let bankBalance = 0;
+  if (bankAccountIds.length > 0) {
+    const { data: bankLines } = await supabase
+      .from('journal_lines')
+      .select('debit, credit, journal_entries!inner(status)')
+      .in('account_id', bankAccountIds)
+      .eq('journal_entries.status', 'Final');
+
+    if (bankLines) {
+      bankBalance = bankLines.reduce((sum, line) => {
+        return sum + (parseFloat(line.debit as string) - parseFloat(line.credit as string));
+      }, 0);
+    }
+  }
+
+  const { data: receivableAccounts } = await supabase
+    .from('accounts')
+    .select('id')
+    .eq('type', 'Asset')
+    .or('name.ilike.%debiteuren%,name.ilike.%receivable%')
+    .eq('is_active', true);
+
+  const receivableAccountIds = receivableAccounts?.map(a => a.id) || [];
+
+  let accountsReceivable = 0;
+  if (receivableAccountIds.length > 0) {
+    const { data: receivableLines } = await supabase
+      .from('journal_lines')
+      .select('debit, credit, journal_entries!inner(status)')
+      .in('account_id', receivableAccountIds)
+      .eq('journal_entries.status', 'Final');
+
+    if (receivableLines) {
+      accountsReceivable = receivableLines.reduce((sum, line) => {
+        return sum + (parseFloat(line.debit as string) - parseFloat(line.credit as string));
+      }, 0);
+    }
+  }
+
+  const { data: payableAccounts } = await supabase
+    .from('accounts')
+    .select('id')
+    .eq('type', 'Liability')
+    .or('name.ilike.%crediteuren%,name.ilike.%payable%')
+    .eq('is_active', true);
+
+  const payableAccountIds = payableAccounts?.map(a => a.id) || [];
+
+  let accountsPayable = 0;
+  if (payableAccountIds.length > 0) {
+    const { data: payableLines } = await supabase
+      .from('journal_lines')
+      .select('debit, credit, journal_entries!inner(status)')
+      .in('account_id', payableAccountIds)
+      .eq('journal_entries.status', 'Final');
+
+    if (payableLines) {
+      accountsPayable = payableLines.reduce((sum, line) => {
+        return sum + (parseFloat(line.credit as string) - parseFloat(line.debit as string));
+      }, 0);
+    }
+  }
 
   return {
-    revenue_ytd: Math.abs(revenue),
-    expenses_ytd: Math.abs(totalExpenses),
-    gross_margin: Math.abs(grossMargin),
+    revenue_ytd: revenue,
+    expenses_ytd: totalExpenses,
+    gross_margin: grossMargin,
     net_profit: netProfit,
     bank_balance: bankBalance,
-    accounts_receivable: Math.abs(accountsReceivable),
-    accounts_payable: Math.abs(accountsPayable),
+    accounts_receivable: accountsReceivable,
+    accounts_payable: accountsPayable,
   };
 }
 
