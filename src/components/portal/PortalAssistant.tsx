@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Loader2, Bot, User } from 'lucide-react';
+import { Send, Loader2, TrendingUp, User } from 'lucide-react';
+import { getFinancialContext, formatFinancialContextForAI } from '../../lib/financialReportService';
 
 interface Message {
   id: string;
@@ -8,40 +9,59 @@ interface Message {
   timestamp: Date;
 }
 
-const SYSTEM_PROMPT = `Je bent een strikte Nederlandse belastingassistent voor ZZP'ers en kleine ondernemers.
+const CFO_SYSTEM_PROMPT = `Je bent de Virtuele CFO en Financial Controller van dit bedrijf.
+Je analyseert de financiële gezondheid op basis van boekjaren, trends en ratio's.
 
-REGELS:
-- Baseer je antwoorden UITSLUITEND op informatie van belastingdienst.nl, kvk.nl of rijksoverheid.nl
-- Geef extreem korte, bondige antwoorden
-- Gebruik bulletpoints waar mogelijk
-- Maximaal 3-4 zinnen per antwoord
-- Voeg ALTIJD toe: "⚠️ Check dit bij je boekhouder"
-- Als je het niet zeker weet, zeg dan eerlijk: "Ik weet het niet zeker"
-- Geen lappen tekst, direct to the point
+JOUW STIJL:
+• Zakelijk en to-the-point
+• Denk in risico's en kansen
+• Geef concrete, uitvoerbare adviezen
+• Gebruik financiële termen: YoY groei, winstmarge, runway, cashflow
+• Maximaal 5-6 zinnen, tenzij een diepere analyse nodig is
+
+ANALYSE FRAMEWORK:
+1. TRENDS: Vergelijk altijd met vorig jaar (Year-over-Year)
+   - Is de omzet gestegen of gedaald?
+   - Stijgen kosten sneller dan omzet? (= margedruk)
+
+2. LIQUIDITEIT: Check de cashflow positie
+   - Runway < 3 maanden = waarschuwing
+   - Veel debiteuren = creditmanagement issue
+   - Werkkapitaal negatief = gevaar
+
+3. WINSTGEVENDHEID: Analyseer de marges
+   - Winstmarge < 10% = te laag voor gezonde groei
+   - Bruto marge dalend = prijsdruk of kostenstijging
+
+4. ADVIES: Concrete acties
+   - Investeringen? Check of cashflow het toelaat
+   - Groei? Kijk of de marge het kan dragen
+   - Kostenbesparingen? Focus op grootste kostenposten
 
 VOORBEELDEN:
-User: "Mag ik mijn telefoon aftrekken?"
-Assistent: "Ja, als je deze zakelijk gebruikt:
-• 100% zakelijk = volledig aftrekbaar
-• Ook privé = 80% aftrekbaar (zakelijk deel)
-• BTW kan je terugvragen
+User: "Kan ik een nieuwe laptop kopen van €2000?"
+Assistent: "Op basis van je cijfers:
+• Banksaldo: €15.400
+• Runway: 2,1 maanden (onder de veilige 3 maanden!)
+• Je hebt €8.500 aan openstaande debiteuren
 
-⚠️ Check dit bij je boekhouder"
+⚠️ ADVIES: Focus eerst op het innen van je debiteuren. Met 2,1 maanden runway is elke uitgave risicovol. Als je de laptop echt nodig hebt, maak er dan een investering van die je afschrijft."
 
-User: "Wat is de BTW-vrijstelling?"
-Assistent: "€20.000 omzet in het jaar.
-• Daaronder = vrijstelling mogelijk
-• Voordeel: geen BTW berekenen
-• Nadeel: geen BTW terugvragen
+User: "Hoe gaat het met mijn bedrijf?"
+Assistent: "FINANCIËLE GEZONDHEID:
+• Omzet: +20% YoY - uitstekende groei!
+• Kosten: +5% YoY - goed onder controle
+• Winstmarge: 29% - zeer gezond
 
-⚠️ Check dit bij je boekhouder"`;
+⚠️ AANDACHTSPUNT: Je runway is slechts 2,1 maanden. Bij deze groei wil je minimaal 6 maanden buffer. Prioriteer cashflow management."`;
+
 
 export function PortalAssistant() {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: crypto.randomUUID(),
       role: 'assistant',
-      content: 'Hoi! Ik help je met Nederlandse belastingvragen. Stel je vraag!',
+      content: 'Hoi! Ik ben je Virtuele CFO. Ik analyseer je financiële cijfers en geef advies op basis van trends en ratio\'s. Wat wil je weten?',
       timestamp: new Date(),
     },
   ]);
@@ -69,33 +89,8 @@ export function PortalAssistant() {
     setIsLoading(true);
 
     try {
-      const tavilyApiKey = import.meta.env.VITE_TAVILY_API_KEY;
-      let context = '';
-
-      if (tavilyApiKey) {
-        try {
-          const searchQuery = `${userMessage.content} Nederlands belasting ZZP`;
-          const tavilyResponse = await fetch('https://api.tavily.com/search', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              api_key: tavilyApiKey,
-              query: searchQuery,
-              search_depth: 'basic',
-              max_results: 3,
-              include_answer: true,
-              include_domains: ['belastingdienst.nl', 'kvk.nl', 'rijksoverheid.nl'],
-            }),
-          });
-
-          if (tavilyResponse.ok) {
-            const tavilyData = await tavilyResponse.json();
-            context = tavilyData.answer || tavilyData.results?.map((r: any) => r.content).join('\n') || '';
-          }
-        } catch (error) {
-          console.warn('Tavily search failed, proceeding without context');
-        }
-      }
+      const financialContext = await getFinancialContext();
+      const formattedContext = formatFinancialContextForAI(financialContext);
 
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -106,14 +101,14 @@ export function PortalAssistant() {
         body: JSON.stringify({
           model: 'gpt-4o-mini',
           messages: [
-            { role: 'system', content: SYSTEM_PROMPT },
+            { role: 'system', content: CFO_SYSTEM_PROMPT },
             {
               role: 'user',
-              content: `Context van betrouwbare bronnen:\n${context}\n\nVraag: ${userMessage.content}`,
+              content: `${formattedContext}\n\nVRAAG VAN GEBRUIKER:\n${userMessage.content}\n\nGEEF EEN SCHERPE CFO-ANALYSE MET CONCRETE ADVIEZEN.`,
             },
           ],
           temperature: 0.7,
-          max_tokens: 300,
+          max_tokens: 500,
         }),
       });
 
@@ -131,11 +126,11 @@ export function PortalAssistant() {
 
       setMessages((prev) => [...prev, assistantMessage]);
     } catch (error) {
-      console.error('Assistant error:', error);
+      console.error('CFO Assistant error:', error);
       const errorMessage: Message = {
         id: crypto.randomUUID(),
         role: 'assistant',
-        content: 'Sorry, er ging iets fout. Probeer het opnieuw.',
+        content: 'Sorry, er ging iets fout bij het ophalen van je financiële data. Probeer het opnieuw.',
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMessage]);
@@ -156,12 +151,12 @@ export function PortalAssistant() {
     <div className="flex flex-col h-[calc(100vh-180px)] max-w-2xl mx-auto">
       <div className="bg-white rounded-t-3xl shadow-lg p-4 border border-gray-100 border-b-0">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
-            <Bot className="w-6 h-6 text-white" />
+          <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-full flex items-center justify-center">
+            <TrendingUp className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h2 className="font-bold text-gray-900">Fiscale AI Assistent</h2>
-            <p className="text-xs text-gray-500">Belastingdienst.nl informatie</p>
+            <h2 className="font-bold text-gray-900">Virtuele CFO</h2>
+            <p className="text-xs text-gray-500">Financiële analyse & advies op basis van je cijfers</p>
           </div>
         </div>
       </div>
@@ -176,13 +171,13 @@ export function PortalAssistant() {
               className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
                 message.role === 'user'
                   ? 'bg-gradient-to-br from-gray-600 to-gray-700'
-                  : 'bg-gradient-to-br from-blue-500 to-blue-600'
+                  : 'bg-gradient-to-br from-emerald-500 to-teal-600'
               }`}
             >
               {message.role === 'user' ? (
                 <User className="w-4 h-4 text-white" />
               ) : (
-                <Bot className="w-4 h-4 text-white" />
+                <TrendingUp className="w-4 h-4 text-white" />
               )}
             </div>
 
@@ -210,13 +205,13 @@ export function PortalAssistant() {
 
         {isLoading && (
           <div className="flex gap-3">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
-              <Bot className="w-4 h-4 text-white" />
+            <div className="w-8 h-8 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-full flex items-center justify-center flex-shrink-0">
+              <TrendingUp className="w-4 h-4 text-white" />
             </div>
             <div className="bg-gray-100 rounded-2xl px-4 py-3">
               <div className="flex items-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
-                <span className="text-sm text-gray-600">Zoekt informatie...</span>
+                <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
+                <span className="text-sm text-gray-600">Analyseer financiële data...</span>
               </div>
             </div>
           </div>
@@ -232,21 +227,21 @@ export function PortalAssistant() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyPress}
-            placeholder="Stel je belastingvraag..."
+            placeholder="Stel je financiële vraag... (bijv. 'Hoe gaat het met mijn bedrijf?')"
             rows={1}
-            className="flex-1 px-4 py-3 border-2 border-gray-200 rounded-2xl focus:border-blue-500 focus:outline-none resize-none"
+            className="flex-1 px-4 py-3 border-2 border-gray-200 rounded-2xl focus:border-emerald-500 focus:outline-none resize-none"
             style={{ minHeight: '48px', maxHeight: '120px' }}
           />
           <button
             onClick={handleSend}
             disabled={!input.trim() || isLoading}
-            className="bg-blue-600 text-white p-3 rounded-2xl hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+            className="bg-emerald-600 text-white p-3 rounded-2xl hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
           >
             <Send className="w-5 h-5" />
           </button>
         </div>
         <p className="text-xs text-gray-500 mt-2 text-center">
-          Antwoorden zijn gebaseerd op officiële bronnen. Altijd dubbelchecken bij je boekhouder!
+          Analyse is gebaseerd op je actuele boekhouding met vergelijking YoY
         </p>
       </div>
     </div>
