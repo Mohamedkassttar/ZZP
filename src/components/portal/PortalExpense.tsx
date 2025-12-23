@@ -15,7 +15,7 @@ import {
   Brain,
 } from 'lucide-react';
 import {
-  uploadAndProcessInvoice,
+  uploadAndProcessInvoiceFast,
   bookInvoiceFromPortal,
   getExpenseAccounts,
 } from '../../lib/invoiceService';
@@ -70,7 +70,8 @@ export function PortalExpense() {
     try {
       setState('processing');
 
-      const result = await uploadAndProcessInvoice(file);
+      console.log('🚀 [PORTAL EXPENSE] Starting fast upload with compression...');
+      const result = await uploadAndProcessInvoiceFast(file);
 
       if (!result.success || !result.extractedData) {
         throw new Error(result.error || 'Fout bij verwerken factuur');

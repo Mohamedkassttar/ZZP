@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { Upload, Camera, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { processInvoiceWithAI } from '../../lib/intelligentInvoiceProcessor';
+import { uploadAndProcessInvoiceFast } from '../../lib/invoiceService';
 import { bookInvoice } from '../../lib/invoiceBookingService';
 import { parseMT940File, parseCSVFile, parseCAMT053, parsePDFFile, importBankTransactions, type ImportResult } from '../../lib/bankImportService';
 import type { EnhancedInvoiceData } from '../../lib/intelligentInvoiceProcessor';
@@ -35,6 +35,37 @@ export function PortalUpload({ type }: PortalUploadProps) {
     setError(null);
 
     try {
+      if (isInvoice) {
+        // Use fast path for invoices (client-side compression + parallel upload)
+        console.log('🚀 [PORTAL UPLOAD] Starting fast upload with compression...');
+        setState('analyzing');
+
+        const result = await uploadAndProcessInvoiceFast(selectedFile);
+
+        if (!result.success || !result.extractedData) {
+          throw new Error(result.error || 'Fout bij verwerken factuur');
+        }
+
+        setDocumentId(result.documentId);
+        setPreview(result.extractedData);
+        setState('preview');
+      } else {
+        // Bank statements still use traditional upload (no AI analysis)
+        await handleBankImport(selectedFile);
+      }
+    } catch (err) {
+      console.error('Upload error:', err);
+      setError(err instanceof Error ? err.message : 'Upload failed');
+      setState('error');
+    }
+  }
+
+  async function handleBankImport(selectedFile: File) {
+    setState('uploading');
+    setError(null);
+
+    try {
+      // Upload file to storage first
       const timestamp = Date.now();
       const fileName = `${timestamp}_${selectedFile.name}`;
       const filePath = `invoices/${fileName}`;
@@ -61,38 +92,10 @@ export function PortalUpload({ type }: PortalUploadProps) {
         .single();
 
       if (docError || !document) throw new Error('Failed to create document record');
-
       setDocumentId(document.id);
 
-      if (isInvoice) {
-        setState('analyzing');
+      setState('analyzing');
 
-        const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-          .from('invoices')
-          .createSignedUrl(uploadData.path, 300);
-
-        if (signedUrlError || !signedUrlData) {
-          throw new Error('Kon geen signed URL maken voor AI verwerking');
-        }
-
-        const invoiceData = await processInvoiceWithAI(signedUrlData.signedUrl, document.id);
-        setPreview(invoiceData);
-        setState('preview');
-      } else {
-        await handleBankImport(selectedFile);
-      }
-    } catch (err) {
-      console.error('Upload error:', err);
-      setError(err instanceof Error ? err.message : 'Upload failed');
-      setState('error');
-    }
-  }
-
-  async function handleBankImport(selectedFile: File) {
-    setState('analyzing');
-    setError(null);
-
-    try {
       const { data: bankAccount } = await supabase
         .from('accounts')
         .select('id')
