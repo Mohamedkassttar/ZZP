@@ -703,21 +703,22 @@ export function PortalCreateInvoice() {
       )}
 
       {showEditor && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-5xl w-full my-8">
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h2 className="text-2xl font-bold text-gray-900">
-                {editingInvoice ? 'Factuur Bewerken' : 'Nieuwe Factuur'}
-              </h2>
-              <button
-                onClick={closeEditor}
-                className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full transition-colors"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 overflow-y-auto">
+          <div className="min-h-screen flex items-start justify-center p-2 sm:p-4 md:p-8">
+            <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl max-w-5xl w-full my-4 sm:my-8 max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-4rem)] flex flex-col">
+              <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 flex-shrink-0">
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
+                  {editingInvoice ? 'Factuur Bewerken' : 'Nieuwe Factuur'}
+                </h2>
+                <button
+                  onClick={closeEditor}
+                  className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full transition-colors"
+                >
+                  <X className="w-5 h-5 sm:w-6 sm:h-6" />
+                </button>
+              </div>
 
-            <div className="p-6 space-y-6">
+              <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 overflow-y-auto flex-1">
               {error && (
                 <div className="p-4 bg-red-50 border-2 border-red-200 rounded-2xl flex items-start gap-3">
                   <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
@@ -732,9 +733,9 @@ export function PortalCreateInvoice() {
                 </div>
               )}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-3 sm:gap-4">
                 <div className="relative">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1.5 sm:mb-2">
                     Klant *
                   </label>
                   <div className="relative">
@@ -747,9 +748,9 @@ export function PortalCreateInvoice() {
                       }}
                       onFocus={() => setShowClientDropdown(true)}
                       placeholder="Zoek of maak nieuwe klant..."
-                      className="w-full px-4 py-3 pr-10 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none text-sm"
+                      className="w-full px-3 sm:px-4 py-2.5 sm:py-3 pr-10 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none text-sm"
                     />
-                    <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
                   </div>
 
                   {showClientDropdown && (
@@ -796,59 +797,61 @@ export function PortalCreateInvoice() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1.5 sm:mb-2">
                     Factuurnummer *
                   </label>
                   <input
                     type="text"
                     value={invoiceNumber}
                     onChange={(e) => setInvoiceNumber(e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none text-sm"
+                    className="w-full px-3 sm:px-4 py-2.5 sm:py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none text-sm"
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Factuurdatum *
-                  </label>
-                  <input
-                    type="date"
-                    value={invoiceDate}
-                    onChange={(e) => setInvoiceDate(e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none text-sm"
-                  />
-                </div>
+                <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                  <div>
+                    <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1.5 sm:mb-2">
+                      Factuurdatum *
+                    </label>
+                    <input
+                      type="date"
+                      value={invoiceDate}
+                      onChange={(e) => setInvoiceDate(e.target.value)}
+                      className="w-full px-3 sm:px-4 py-2.5 sm:py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none text-sm"
+                    />
+                  </div>
 
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Vervaldatum *
-                  </label>
-                  <input
-                    type="date"
-                    value={dueDate}
-                    onChange={(e) => setDueDate(e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none text-sm"
-                  />
+                  <div>
+                    <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1.5 sm:mb-2">
+                      Vervaldatum *
+                    </label>
+                    <input
+                      type="date"
+                      value={dueDate}
+                      onChange={(e) => setDueDate(e.target.value)}
+                      className="w-full px-3 sm:px-4 py-2.5 sm:py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none text-sm"
+                    />
+                  </div>
                 </div>
               </div>
 
               {showQuickCreate && (
-                <div className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-200 rounded-2xl space-y-4">
+                <div className="p-3 sm:p-4 bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-200 rounded-xl sm:rounded-2xl space-y-3 sm:space-y-4">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-bold text-blue-900">
+                    <h3 className="text-base sm:text-lg font-bold text-blue-900">
                       Nieuwe Klant Aanmaken
                     </h3>
                     <button
                       onClick={() => setShowQuickCreate(false)}
                       className="text-blue-600 hover:text-blue-800"
                     >
-                      <X className="w-5 h-5" />
+                      <X className="w-4 h-4 sm:w-5 sm:h-5" />
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-3 sm:space-y-0 sm:grid sm:grid-cols-2 sm:gap-4">
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1.5 sm:mb-2">
                         Bedrijfsnaam *
                       </label>
                       <input
@@ -860,12 +863,12 @@ export function PortalCreateInvoice() {
                             company_name: e.target.value,
                           })
                         }
-                        className="w-full px-3 py-2 text-sm border-2 border-blue-200 rounded-xl focus:border-blue-500 focus:outline-none bg-white"
+                        className="w-full px-3 py-2 text-xs sm:text-sm border-2 border-blue-200 rounded-xl focus:border-blue-500 focus:outline-none bg-white"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1.5 sm:mb-2">
                         BTW-nummer
                       </label>
                       <input
@@ -878,12 +881,12 @@ export function PortalCreateInvoice() {
                           })
                         }
                         placeholder="NL123456789B01"
-                        className="w-full px-3 py-2 text-sm border-2 border-blue-200 rounded-xl focus:border-blue-500 focus:outline-none bg-white"
+                        className="w-full px-3 py-2 text-xs sm:text-sm border-2 border-blue-200 rounded-xl focus:border-blue-500 focus:outline-none bg-white"
                       />
                     </div>
 
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1.5 sm:mb-2">
                         Adres
                       </label>
                       <input
@@ -892,12 +895,12 @@ export function PortalCreateInvoice() {
                         onChange={(e) =>
                           setQuickCreateData({ ...quickCreateData, address: e.target.value })
                         }
-                        className="w-full px-3 py-2 text-sm border-2 border-blue-200 rounded-xl focus:border-blue-500 focus:outline-none bg-white"
+                        className="w-full px-3 py-2 text-xs sm:text-sm border-2 border-blue-200 rounded-xl focus:border-blue-500 focus:outline-none bg-white"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1.5 sm:mb-2">
                         Postcode
                       </label>
                       <input
@@ -909,12 +912,12 @@ export function PortalCreateInvoice() {
                             postal_code: e.target.value,
                           })
                         }
-                        className="w-full px-3 py-2 text-sm border-2 border-blue-200 rounded-xl focus:border-blue-500 focus:outline-none bg-white"
+                        className="w-full px-3 py-2 text-xs sm:text-sm border-2 border-blue-200 rounded-xl focus:border-blue-500 focus:outline-none bg-white"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1.5 sm:mb-2">
                         Plaats
                       </label>
                       <input
@@ -923,87 +926,88 @@ export function PortalCreateInvoice() {
                         onChange={(e) =>
                           setQuickCreateData({ ...quickCreateData, city: e.target.value })
                         }
-                        className="w-full px-3 py-2 text-sm border-2 border-blue-200 rounded-xl focus:border-blue-500 focus:outline-none bg-white"
+                        className="w-full px-3 py-2 text-xs sm:text-sm border-2 border-blue-200 rounded-xl focus:border-blue-500 focus:outline-none bg-white"
                       />
                     </div>
                   </div>
 
                   <button
                     onClick={handleQuickCreateClient}
-                    className="w-full px-4 py-3 text-sm font-semibold bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors"
+                    className="w-full px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors"
                   >
                     Klant Opslaan en Selecteren
                   </button>
                 </div>
               )}
 
-              <div className="border-t-2 border-gray-200 pt-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-bold text-gray-900">Factuurregels</h3>
+              <div className="border-t-2 border-gray-200 pt-4 sm:pt-6">
+                <div className="flex items-center justify-between mb-3 sm:mb-4">
+                  <h3 className="text-base sm:text-lg font-bold text-gray-900">Factuurregels</h3>
                   <button
                     onClick={addLine}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-xl font-semibold hover:bg-blue-700 transition-colors flex items-center gap-2"
+                    className="bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold hover:bg-blue-700 transition-colors flex items-center gap-1.5 sm:gap-2"
                   >
-                    <Plus className="w-4 h-4" />
-                    Regel toevoegen
+                    <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    <span className="hidden sm:inline">Regel toevoegen</span>
+                    <span className="sm:hidden">Regel</span>
                   </button>
                 </div>
 
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                   {lines.map((line, index) => (
-                    <div key={line.id} className="bg-gray-50 rounded-2xl p-4 border-2 border-gray-200">
-                      <div className="flex items-start justify-between mb-3">
-                        <span className="text-sm font-semibold text-gray-700">Regel {index + 1}</span>
+                    <div key={line.id} className="bg-gray-50 rounded-xl sm:rounded-2xl p-3 sm:p-4 border-2 border-gray-200">
+                      <div className="flex items-start justify-between mb-2 sm:mb-3">
+                        <span className="text-xs sm:text-sm font-semibold text-gray-700">Regel {index + 1}</span>
                         {lines.length > 1 && (
                           <button
                             onClick={() => removeLine(line.id)}
                             className="text-red-600 hover:text-red-700 p-1 hover:bg-red-50 rounded transition-colors"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                           </button>
                         )}
                       </div>
 
-                      <div className="space-y-3">
+                      <div className="space-y-2 sm:space-y-3">
                         <input
                           type="text"
                           value={line.description}
                           onChange={(e) => updateLine(line.id, 'description', e.target.value)}
                           placeholder="Omschrijving..."
-                          className="w-full px-3 py-2 text-sm border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none bg-white"
+                          className="w-full px-3 py-2 text-xs sm:text-sm border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none bg-white"
                         />
 
-                        <div className="grid grid-cols-3 gap-3">
+                        <div className="grid grid-cols-3 gap-2 sm:gap-3">
                           <div>
-                            <label className="block text-xs font-semibold text-gray-600 mb-1">Aantal</label>
+                            <label className="block text-[10px] sm:text-xs font-semibold text-gray-600 mb-1">Aantal</label>
                             <input
                               type="number"
                               step="0.01"
                               min="0"
                               value={line.quantity}
                               onChange={(e) => updateLine(line.id, 'quantity', e.target.value)}
-                              className="w-full px-3 py-2 text-sm border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none bg-white"
+                              className="w-full px-2 sm:px-3 py-2 text-xs sm:text-sm border-2 border-gray-300 rounded-lg sm:rounded-xl focus:border-blue-500 focus:outline-none bg-white"
                             />
                           </div>
 
                           <div>
-                            <label className="block text-xs font-semibold text-gray-600 mb-1">Prijs (ex. BTW)</label>
+                            <label className="block text-[10px] sm:text-xs font-semibold text-gray-600 mb-1">Prijs</label>
                             <input
                               type="number"
                               step="0.01"
                               min="0"
                               value={line.unit_price}
                               onChange={(e) => updateLine(line.id, 'unit_price', e.target.value)}
-                              className="w-full px-3 py-2 text-sm border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none bg-white"
+                              className="w-full px-2 sm:px-3 py-2 text-xs sm:text-sm border-2 border-gray-300 rounded-lg sm:rounded-xl focus:border-blue-500 focus:outline-none bg-white"
                             />
                           </div>
 
                           <div>
-                            <label className="block text-xs font-semibold text-gray-600 mb-1">BTW %</label>
+                            <label className="block text-[10px] sm:text-xs font-semibold text-gray-600 mb-1">BTW</label>
                             <select
                               value={line.vat_rate}
                               onChange={(e) => updateLine(line.id, 'vat_rate', e.target.value)}
-                              className="w-full px-3 py-2 text-sm border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none bg-white"
+                              className="w-full px-2 sm:px-3 py-2 text-xs sm:text-sm border-2 border-gray-300 rounded-lg sm:rounded-xl focus:border-blue-500 focus:outline-none bg-white"
                             >
                               <option value="0">0%</option>
                               <option value="9">9%</option>
@@ -1012,9 +1016,9 @@ export function PortalCreateInvoice() {
                           </div>
                         </div>
 
-                        <div className="text-right">
-                          <span className="text-sm text-gray-600">Totaal: </span>
-                          <span className="text-base font-bold text-gray-900">
+                        <div className="text-right pt-1">
+                          <span className="text-xs sm:text-sm text-gray-600">Totaal: </span>
+                          <span className="text-sm sm:text-base font-bold text-gray-900">
                             {new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR' }).format(line.amount + line.vat_amount)}
                           </span>
                         </div>
@@ -1023,23 +1027,23 @@ export function PortalCreateInvoice() {
                   ))}
                 </div>
 
-                <div className="mt-6 bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl p-6 border-2 border-blue-200">
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
+                <div className="mt-4 sm:mt-6 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl sm:rounded-2xl p-4 sm:p-6 border-2 border-blue-200">
+                  <div className="space-y-1.5 sm:space-y-2">
+                    <div className="flex justify-between text-xs sm:text-sm">
                       <span className="text-gray-700 font-medium">Subtotaal:</span>
                       <span className="font-semibold text-gray-900">
                         {new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR' }).format(subtotal)}
                       </span>
                     </div>
-                    <div className="flex justify-between text-sm">
+                    <div className="flex justify-between text-xs sm:text-sm">
                       <span className="text-gray-700 font-medium">BTW:</span>
                       <span className="font-semibold text-gray-900">
                         {new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR' }).format(vatAmount)}
                       </span>
                     </div>
-                    <div className="flex justify-between pt-3 border-t-2 border-blue-300">
-                      <span className="font-bold text-blue-900 text-lg">Totaal:</span>
-                      <span className="font-bold text-blue-900 text-2xl">
+                    <div className="flex justify-between pt-2 sm:pt-3 border-t-2 border-blue-300">
+                      <span className="font-bold text-blue-900 text-base sm:text-lg">Totaal:</span>
+                      <span className="font-bold text-blue-900 text-lg sm:text-2xl">
                         {new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR' }).format(total)}
                       </span>
                     </div>
@@ -1048,7 +1052,7 @@ export function PortalCreateInvoice() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1.5 sm:mb-2">
                   Opmerkingen
                 </label>
                 <textarea
@@ -1056,27 +1060,29 @@ export function PortalCreateInvoice() {
                   onChange={(e) => setNotes(e.target.value)}
                   rows={3}
                   placeholder="Optionele opmerkingen..."
-                  className="w-full px-4 py-3 text-sm border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none"
+                  className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none"
                 />
               </div>
 
-              <div className="flex justify-end gap-3 pt-6 border-t-2 border-gray-200">
+              </div>
+
+              <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-3 p-4 sm:p-6 border-t-2 border-gray-200 flex-shrink-0">
                 <button
                   onClick={closeEditor}
-                  className="px-6 py-3 text-sm font-semibold border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors"
+                  className="px-4 sm:px-6 py-2.5 sm:py-3 text-sm font-semibold border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors"
                 >
                   Annuleren
                 </button>
                 <button
                   onClick={() => handleSaveInvoice(false)}
-                  className="px-6 py-3 text-sm font-semibold bg-gray-600 text-white rounded-xl hover:bg-gray-700 transition-colors flex items-center gap-2"
+                  className="px-4 sm:px-6 py-2.5 sm:py-3 text-sm font-semibold bg-gray-600 text-white rounded-xl hover:bg-gray-700 transition-colors flex items-center justify-center gap-2"
                 >
                   <Save className="w-4 h-4" />
                   Concept Opslaan
                 </button>
                 <button
                   onClick={() => handleSaveInvoice(true)}
-                  className="px-6 py-3 text-sm font-semibold bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors flex items-center gap-2"
+                  className="px-4 sm:px-6 py-2.5 sm:py-3 text-sm font-semibold bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
                 >
                   <Send className="w-4 h-4" />
                   Boeken & Versturen
