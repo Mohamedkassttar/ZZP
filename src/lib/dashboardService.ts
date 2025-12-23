@@ -59,8 +59,7 @@ export async function getRevenueStats(): Promise<RevenueStats> {
       .from('journal_lines')
       .select('credit, debit, journal_entries!inner(entry_date)')
       .in('account_id', accountIds)
-      .gte('journal_entries.entry_date', todayStartStr)
-      .lt('journal_entries.entry_date', todayEnd.toISOString().split('T')[0]);
+      .eq('journal_entries.entry_date', todayStartStr);
 
     // Fetch this week's revenue
     const { data: weekData } = await supabase
