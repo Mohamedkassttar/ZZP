@@ -764,21 +764,23 @@ export function PortalCreateInvoice() {
       )}
 
       {showEditor && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-5xl w-full my-8 max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="flex-shrink-0 flex items-center justify-between p-6 border-b border-gray-200">
-              <h2 className="text-2xl font-bold text-gray-900">
+        <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-6">
+          <div className="relative flex w-full max-w-5xl flex-col rounded-xl bg-white shadow-2xl max-h-[90vh]">
+            {/* HEADER (Fixed) */}
+            <div className="flex-none flex items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-200">
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
                 {editingInvoice ? 'Factuur Bewerken' : 'Nieuwe Factuur'}
               </h2>
               <button
                 onClick={closeEditor}
-                className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full transition-colors"
+                className="absolute right-4 top-4 text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full transition-colors"
               >
-                <X className="w-6 h-6" />
+                <X className="w-5 h-5 sm:w-6 sm:h-6" />
               </button>
             </div>
 
-            <div className="flex-1 p-6 space-y-6 overflow-y-auto">
+            {/* BODY (Scrollable) */}
+            <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
               {error && (
                 <div className="p-4 bg-red-50 border-2 border-red-200 rounded-2xl flex items-start gap-3">
                   <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
@@ -1126,23 +1128,24 @@ export function PortalCreateInvoice() {
 
             </div>
 
-            <div className="flex-shrink-0 sticky bottom-0 bg-white border-t-2 border-gray-200 p-4 z-10 flex justify-end gap-3">
+            {/* FOOTER (Fixed at bottom) */}
+            <div className="flex-none bg-white border-t-2 border-gray-200 px-4 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row justify-end gap-2 sm:gap-3">
               <button
                 onClick={closeEditor}
-                className="px-6 py-3 text-sm font-semibold border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors"
+                className="px-4 sm:px-6 py-2.5 sm:py-3 text-sm font-semibold border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors order-3 sm:order-1"
               >
                 Annuleren
               </button>
               <button
                 onClick={() => handleSaveInvoice(false)}
-                className="px-6 py-3 text-sm font-semibold bg-gray-600 text-white rounded-xl hover:bg-gray-700 transition-colors flex items-center gap-2"
+                className="px-4 sm:px-6 py-2.5 sm:py-3 text-sm font-semibold bg-gray-600 text-white rounded-xl hover:bg-gray-700 transition-colors flex items-center justify-center gap-2 order-2"
               >
                 <Save className="w-4 h-4" />
                 Concept Opslaan
               </button>
               <button
                 onClick={() => handleSaveInvoice(true)}
-                className="px-6 py-3 text-sm font-semibold bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors flex items-center gap-2"
+                className="px-4 sm:px-6 py-2.5 sm:py-3 text-sm font-semibold bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors flex items-center justify-center gap-2 order-1 sm:order-3"
               >
                 <Send className="w-4 h-4" />
                 Boeken & Versturen
@@ -1153,23 +1156,25 @@ export function PortalCreateInvoice() {
       )}
 
       {showContactEditModal && contactToEdit && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="flex-shrink-0 p-6 border-b border-slate-200">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4 sm:p-6">
+          <div className="relative flex w-full max-w-2xl flex-col rounded-2xl bg-white shadow-2xl max-h-[90vh]">
+            {/* HEADER */}
+            <div className="flex-none p-4 sm:p-6 border-b border-slate-200">
               <div className="flex items-start gap-3">
                 <div className="p-2 bg-amber-100 rounded-lg">
                   <AlertCircle className="w-6 h-6 text-amber-600" />
                 </div>
                 <div className="flex-1">
-                  <h2 className="text-2xl font-black text-slate-800 mb-1">Klantgegevens Incompleet</h2>
-                  <p className="text-sm text-slate-600">
+                  <h2 className="text-xl sm:text-2xl font-black text-slate-800 mb-1">Klantgegevens Incompleet</h2>
+                  <p className="text-xs sm:text-sm text-slate-600">
                     Voor het boeken en versturen van een factuur zijn volledige klantgegevens vereist. Vul de ontbrekende gegevens aan.
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+            {/* BODY (Scrollable) */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
               <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
                 <p className="font-semibold text-blue-900">Klant: {contactToEdit.company_name}</p>
               </div>
@@ -1242,22 +1247,23 @@ export function PortalCreateInvoice() {
               </div>
             </div>
 
-            <div className="flex-shrink-0 sticky bottom-0 bg-white border-t border-slate-200 p-4 z-10 flex justify-end gap-3">
+            {/* FOOTER */}
+            <div className="flex-none bg-white border-t border-slate-200 p-4 flex justify-end gap-3">
               <button
                 onClick={() => {
                   setShowContactEditModal(false);
                   setContactToEdit(null);
                   setPendingFinalize(false);
                 }}
-                className="px-6 py-2.5 border-2 border-slate-300 text-slate-700 rounded-xl hover:bg-slate-50 transition-colors font-semibold"
+                className="px-4 sm:px-6 py-2.5 border-2 border-slate-300 text-slate-700 rounded-xl hover:bg-slate-50 transition-colors font-semibold"
               >
                 Annuleren
               </button>
               <button
                 onClick={handleSaveContactDetails}
-                className="px-6 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors flex items-center gap-2 font-semibold"
+                className="px-4 sm:px-6 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors flex items-center gap-2 font-semibold"
               >
-                <Save className="w-5 h-5" />
+                <Save className="w-4 h-4 sm:w-5 sm:h-5" />
                 Opslaan & Doorgaan
               </button>
             </div>
