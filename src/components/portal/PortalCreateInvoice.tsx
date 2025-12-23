@@ -703,9 +703,9 @@ export function PortalCreateInvoice() {
       )}
 
       {showEditor && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-5xl w-full my-8 max-h-screen overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+        <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-5xl w-full my-8 max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex-shrink-0 flex items-center justify-between p-6 border-b border-gray-200">
               <h2 className="text-2xl font-bold text-gray-900">
                 {editingInvoice ? 'Factuur Bewerken' : 'Nieuwe Factuur'}
               </h2>
@@ -717,7 +717,7 @@ export function PortalCreateInvoice() {
               </button>
             </div>
 
-            <div className="p-6 space-y-6 overflow-y-auto">
+            <div className="flex-1 p-6 space-y-6 overflow-y-auto">
               {error && (
                 <div className="p-4 bg-red-50 border-2 border-red-200 rounded-2xl flex items-start gap-3">
                   <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
@@ -1065,7 +1065,7 @@ export function PortalCreateInvoice() {
 
             </div>
 
-            <div className="flex justify-end gap-3 p-6 border-t-2 border-gray-200">
+            <div className="flex-shrink-0 flex justify-end gap-3 p-6 border-t-2 border-gray-200 bg-gray-50">
               <button
                 onClick={closeEditor}
                 className="px-6 py-3 text-sm font-semibold border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors"

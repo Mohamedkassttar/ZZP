@@ -18,7 +18,7 @@ const navItems = [
 
 export function PortalLayout({ children, currentView, onNavigate }: PortalLayoutProps) {
   return (
-    <div className="h-screen bg-gradient-to-br from-blue-50 via-white to-slate-50 flex flex-col overflow-hidden">
+    <div className="h-screen bg-gradient-to-br from-blue-50 via-white to-slate-50 flex flex-col overflow-hidden overflow-x-hidden">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_30%,rgba(59,130,246,0.06),transparent_60%)] pointer-events-none" />
 
       <header className="flex-shrink-0 bg-white/80 backdrop-blur-xl border-b border-gray-200 shadow-sm relative z-10">
@@ -44,8 +44,8 @@ export function PortalLayout({ children, currentView, onNavigate }: PortalLayout
         </div>
       </header>
 
-      <main className="flex-1 overflow-y-auto relative z-10 pb-20">
-        <div className="px-4 py-6">
+      <main className="flex-1 overflow-y-auto overflow-x-hidden relative z-10 pb-20">
+        <div className="px-4 py-6 pr-24 md:pr-4">
           {children}
         </div>
       </main>
