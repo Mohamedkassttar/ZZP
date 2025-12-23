@@ -715,22 +715,22 @@ export function PortalCreateInvoice() {
               <tbody className="divide-y divide-gray-100">
                 {revenueTransactions.map((transaction) => (
                   <tr key={transaction.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
+                    <td className="px-6 py-2 text-sm text-gray-900 whitespace-nowrap">
                       {new Date(transaction.date).toLocaleDateString('nl-NL')}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap font-medium">
+                    <td className="px-6 py-2 text-sm text-gray-900 whitespace-nowrap font-medium">
                       {transaction.reference}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-900">
+                    <td className="px-6 py-2 text-sm text-gray-900">
                       {transaction.contact_name || '-'}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
+                    <td className="px-6 py-2 text-sm text-gray-600">
                       {transaction.description}
                     </td>
-                    <td className="px-6 py-4 text-sm text-right font-semibold text-gray-900 whitespace-nowrap">
+                    <td className="px-6 py-2 text-sm text-right font-semibold text-gray-900 whitespace-nowrap">
                       {new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR' }).format(transaction.amount)}
                     </td>
-                    <td className="px-6 py-4 text-center">
+                    <td className="px-6 py-2 text-center">
                       <span
                         className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${
                           transaction.source === 'Invoice'
@@ -741,7 +741,7 @@ export function PortalCreateInvoice() {
                         {transaction.source === 'Invoice' ? 'Factuur' : 'Boeking'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-6 py-2 text-right">
                       {transaction.source === 'Invoice' && transaction.invoice_id && (
                         <button
                           onClick={() => {
@@ -1126,7 +1126,7 @@ export function PortalCreateInvoice() {
 
             </div>
 
-            <div className="flex-shrink-0 flex justify-end gap-3 p-6 border-t-2 border-gray-200 bg-gray-50">
+            <div className="flex-shrink-0 sticky bottom-0 bg-white border-t-2 border-gray-200 p-4 z-10 flex justify-end gap-3">
               <button
                 onClick={closeEditor}
                 className="px-6 py-3 text-sm font-semibold border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors"
@@ -1242,14 +1242,14 @@ export function PortalCreateInvoice() {
               </div>
             </div>
 
-            <div className="flex-shrink-0 flex justify-end gap-3 p-6 border-t border-slate-200 bg-slate-50">
+            <div className="flex-shrink-0 sticky bottom-0 bg-white border-t border-slate-200 p-4 z-10 flex justify-end gap-3">
               <button
                 onClick={() => {
                   setShowContactEditModal(false);
                   setContactToEdit(null);
                   setPendingFinalize(false);
                 }}
-                className="px-6 py-2.5 border-2 border-slate-300 text-slate-700 rounded-xl hover:bg-white transition-colors font-semibold"
+                className="px-6 py-2.5 border-2 border-slate-300 text-slate-700 rounded-xl hover:bg-slate-50 transition-colors font-semibold"
               >
                 Annuleren
               </button>

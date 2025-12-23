@@ -82,8 +82,8 @@ export function TimeEntryModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full">
-        <div className="flex items-center justify-between p-6 border-b border-slate-200">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col">
+        <div className="flex-shrink-0 flex items-center justify-between p-6 border-b border-slate-200">
           <h2 className="text-2xl font-black text-slate-800">Tijdregel Bewerken</h2>
           <button
             onClick={handleClose}
@@ -93,7 +93,7 @@ export function TimeEntryModal({
           </button>
         </div>
 
-        <div className="p-6 space-y-4">
+        <div className="flex-1 overflow-y-auto p-6 space-y-4">
           {error && (
             <div className="p-4 bg-red-50 border border-red-200 rounded-xl">
               <p className="text-sm text-red-800">{error}</p>
@@ -148,10 +148,10 @@ export function TimeEntryModal({
           </div>
         </div>
 
-        <div className="flex justify-end gap-3 p-6 border-t border-slate-200 bg-slate-50">
+        <div className="flex-shrink-0 sticky bottom-0 bg-white border-t border-slate-200 p-4 z-10 flex justify-end gap-3">
           <button
             onClick={handleClose}
-            className="px-6 py-2.5 border-2 border-slate-300 text-slate-700 rounded-xl hover:bg-white transition-colors font-semibold"
+            className="px-6 py-2.5 border-2 border-slate-300 text-slate-700 rounded-xl hover:bg-slate-50 transition-colors font-semibold"
           >
             Annuleren
           </button>

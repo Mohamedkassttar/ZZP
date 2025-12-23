@@ -104,18 +104,18 @@ export function PortalDashboard() {
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
-      <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-3xl shadow-xl p-6 text-white">
-        <div className="flex items-center justify-between mb-3">
+      <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-3xl shadow-xl p-5 text-white">
+        <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
-            <Wallet className="w-6 h-6" />
+            <Wallet className="w-5 h-5" />
             <span className="text-sm font-medium opacity-90">Bank Saldo</span>
           </div>
           <span className="text-xs opacity-75">Zakelijk</span>
         </div>
-        <div className="text-4xl font-bold mb-1">
+        <div className="text-2xl md:text-3xl font-bold mb-1">
           {new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR' }).format(data.bankBalance)}
         </div>
-        <p className="text-sm opacity-80">Per vandaag</p>
+        <p className="text-xs opacity-80">Per vandaag</p>
       </div>
 
       {/* Revenue KPI Cards */}

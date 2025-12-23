@@ -585,10 +585,10 @@ export function InvoiceFormModal({
           </div>
         </div>
 
-        <div className="flex-shrink-0 flex justify-end gap-3 p-6 border-t border-slate-200 bg-slate-50">
+        <div className="flex-shrink-0 sticky bottom-0 bg-white border-t border-slate-200 p-4 z-10 flex justify-end gap-3">
           <button
             onClick={handleClose}
-            className="px-6 py-2.5 border-2 border-slate-300 text-slate-700 rounded-xl hover:bg-white transition-colors font-semibold"
+            className="px-6 py-2.5 border-2 border-slate-300 text-slate-700 rounded-xl hover:bg-slate-50 transition-colors font-semibold"
           >
             Annuleren
           </button>
@@ -718,13 +718,13 @@ export function InvoiceFormModal({
               </div>
             </div>
 
-            <div className="flex-shrink-0 flex justify-end gap-3 p-6 border-t border-slate-200 bg-slate-50">
+            <div className="flex-shrink-0 sticky bottom-0 bg-white border-t border-slate-200 p-4 z-10 flex justify-end gap-3">
               <button
                 onClick={() => {
                   setShowContactEdit(false);
                   setEditingContact(null);
                 }}
-                className="px-6 py-2.5 border-2 border-slate-300 text-slate-700 rounded-xl hover:bg-white transition-colors font-semibold"
+                className="px-6 py-2.5 border-2 border-slate-300 text-slate-700 rounded-xl hover:bg-slate-50 transition-colors font-semibold"
               >
                 Annuleren
               </button>

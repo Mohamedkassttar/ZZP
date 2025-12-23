@@ -405,11 +405,11 @@ export function JournalEntryModal({
           </div>
         </div>
 
-        <div className="px-6 py-4 border-t border-slate-200 flex justify-end gap-3 bg-slate-50">
+        <div className="flex-shrink-0 sticky bottom-0 bg-white border-t border-slate-200 p-4 z-10 flex justify-end gap-3">
           <button
             onClick={onClose}
             disabled={saving}
-            className="px-6 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-white transition-colors disabled:opacity-50"
+            className="px-6 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
           >
             Annuleren
           </button>

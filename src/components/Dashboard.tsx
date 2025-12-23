@@ -106,43 +106,43 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
       {/* Revenue KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-3xl shadow-xl shadow-emerald-100/40 p-7 hover:shadow-2xl hover:shadow-emerald-200/60 transition-all duration-300 border border-emerald-200">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="p-3 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-2xl shadow-lg">
-              <DollarSign className="w-6 h-6 text-white" />
+        <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-3xl shadow-xl shadow-emerald-100/40 p-4 hover:shadow-2xl hover:shadow-emerald-200/60 transition-all duration-300 border border-emerald-200">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="p-2.5 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-2xl shadow-lg">
+              <DollarSign className="w-5 h-5 text-white" />
             </div>
-            <span className="text-sm text-slate-700 font-bold">Omzet Vandaag</span>
+            <span className="text-sm text-slate-700 font-medium">Omzet Vandaag</span>
           </div>
-          <p className="text-4xl font-black text-slate-800">
+          <p className="text-2xl md:text-3xl font-black text-slate-800">
             €{revenueStats.today.toFixed(2)}
           </p>
-          <p className="text-xs text-slate-500 mt-2 font-medium">Excl. BTW</p>
+          <p className="text-xs text-slate-500 mt-1.5 font-medium">Excl. BTW</p>
         </div>
 
-        <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-3xl shadow-xl shadow-blue-100/40 p-7 hover:shadow-2xl hover:shadow-blue-200/60 transition-all duration-300 border border-blue-200">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="p-3 bg-gradient-to-br from-blue-400 to-cyan-600 rounded-2xl shadow-lg">
-              <Calendar className="w-6 h-6 text-white" />
+        <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-3xl shadow-xl shadow-blue-100/40 p-4 hover:shadow-2xl hover:shadow-blue-200/60 transition-all duration-300 border border-blue-200">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="p-2.5 bg-gradient-to-br from-blue-400 to-cyan-600 rounded-2xl shadow-lg">
+              <Calendar className="w-5 h-5 text-white" />
             </div>
-            <span className="text-sm text-slate-700 font-bold">Omzet Deze Week</span>
+            <span className="text-sm text-slate-700 font-medium">Omzet Deze Week</span>
           </div>
-          <p className="text-4xl font-black text-slate-800">
+          <p className="text-2xl md:text-3xl font-black text-slate-800">
             €{revenueStats.thisWeek.toFixed(2)}
           </p>
-          <p className="text-xs text-slate-500 mt-2 font-medium">Excl. BTW</p>
+          <p className="text-xs text-slate-500 mt-1.5 font-medium">Excl. BTW</p>
         </div>
 
-        <div className="bg-gradient-to-br from-violet-50 to-fuchsia-50 rounded-3xl shadow-xl shadow-violet-100/40 p-7 hover:shadow-2xl hover:shadow-violet-200/60 transition-all duration-300 border border-violet-200">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="p-3 bg-gradient-to-br from-violet-400 to-fuchsia-600 rounded-2xl shadow-lg">
-              <TrendingUp className="w-6 h-6 text-white" />
+        <div className="bg-gradient-to-br from-blue-50 to-sky-50 rounded-3xl shadow-xl shadow-blue-100/40 p-4 hover:shadow-2xl hover:shadow-blue-200/60 transition-all duration-300 border border-blue-200">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="p-2.5 bg-gradient-to-br from-blue-400 to-sky-600 rounded-2xl shadow-lg">
+              <TrendingUp className="w-5 h-5 text-white" />
             </div>
-            <span className="text-sm text-slate-700 font-bold">Omzet Deze Maand</span>
+            <span className="text-sm text-slate-700 font-medium">Omzet Deze Maand</span>
           </div>
-          <p className="text-4xl font-black text-slate-800">
+          <p className="text-2xl md:text-3xl font-black text-slate-800">
             €{revenueStats.thisMonth.toFixed(2)}
           </p>
-          <p className="text-xs text-slate-500 mt-2 font-medium">Excl. BTW</p>
+          <p className="text-xs text-slate-500 mt-1.5 font-medium">Excl. BTW</p>
         </div>
       </div>
 
@@ -248,38 +248,38 @@ export function Dashboard({ onNavigate }: DashboardProps) {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
-        <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-xl shadow-emerald-100/40 p-7 hover:shadow-2xl hover:shadow-emerald-200/60 transition-all duration-300 hover:scale-[1.02]">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="p-3 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-2xl shadow-lg">
-              <TrendingUp className="w-6 h-6 text-white" />
+        <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-xl shadow-emerald-100/40 p-4 hover:shadow-2xl hover:shadow-emerald-200/60 transition-all duration-300 hover:scale-[1.02]">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="p-2.5 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-2xl shadow-lg">
+              <TrendingUp className="w-5 h-5 text-white" />
             </div>
-            <span className="text-sm text-slate-600 font-bold">Openstaande verkoop</span>
+            <span className="text-sm text-slate-600 font-medium">Openstaande verkoop</span>
           </div>
-          <p className="text-4xl font-black text-slate-800">
+          <p className="text-2xl md:text-3xl font-black text-slate-800">
             {loading ? '...' : `€${metrics.openSales.toFixed(2)}`}
           </p>
         </div>
 
-        <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-xl shadow-rose-100/40 p-7 hover:shadow-2xl hover:shadow-rose-200/60 transition-all duration-300 hover:scale-[1.02]">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="p-3 bg-gradient-to-br from-rose-400 to-rose-600 rounded-2xl shadow-lg">
-              <TrendingDown className="w-6 h-6 text-white" />
+        <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-xl shadow-rose-100/40 p-4 hover:shadow-2xl hover:shadow-rose-200/60 transition-all duration-300 hover:scale-[1.02]">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="p-2.5 bg-gradient-to-br from-rose-400 to-rose-600 rounded-2xl shadow-lg">
+              <TrendingDown className="w-5 h-5 text-white" />
             </div>
-            <span className="text-sm text-slate-600 font-bold">Openstaande kosten</span>
+            <span className="text-sm text-slate-600 font-medium">Openstaande kosten</span>
           </div>
-          <p className="text-4xl font-black text-slate-800">
+          <p className="text-2xl md:text-3xl font-black text-slate-800">
             {loading ? '...' : `€${metrics.openCosts.toFixed(2)}`}
           </p>
         </div>
 
-        <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-xl shadow-slate-200/40 p-7 hover:shadow-2xl hover:shadow-blue-200/50 transition-all duration-300 hover:scale-[1.02] sm:col-span-2 md:col-span-1">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="p-3 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl shadow-lg">
-              <Wallet className="w-6 h-6 text-white" />
+        <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-xl shadow-slate-200/40 p-4 hover:shadow-2xl hover:shadow-blue-200/50 transition-all duration-300 hover:scale-[1.02] sm:col-span-2 md:col-span-1">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="p-2.5 bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl shadow-lg">
+              <Wallet className="w-5 h-5 text-white" />
             </div>
-            <span className="text-sm text-slate-600 font-bold">Banksaldo</span>
+            <span className="text-sm text-slate-600 font-medium">Banksaldo</span>
           </div>
-          <p className="text-4xl font-black text-slate-800">
+          <p className="text-2xl md:text-3xl font-black text-slate-800">
             {loading ? '...' : `€${metrics.bankBalance.toFixed(2)}`}
           </p>
         </div>
