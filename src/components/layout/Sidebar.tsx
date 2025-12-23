@@ -10,6 +10,7 @@ import {
   ChevronDown,
   ChevronRight,
   Smartphone,
+  Clock,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -60,6 +61,12 @@ export function Sidebar({ currentView, onNavigate }: SidebarProps) {
         { id: 'sales', label: 'Verkoop', view: 'sales' },
         { id: 'inbox', label: 'Inkoop', view: 'inbox' },
       ],
+    },
+    {
+      id: 'time-tracking',
+      label: 'Urenregistratie',
+      icon: Clock,
+      view: 'time-tracking',
     },
     {
       id: 'relaties',
