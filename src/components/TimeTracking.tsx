@@ -1,15 +1,16 @@
 import { useState, useEffect } from 'react';
-import { Clock, Plus, Trash2, ChevronLeft, ChevronRight, DollarSign, Save, Loader, AlertCircle } from 'lucide-react';
+import { Clock, Plus, Trash2, ChevronLeft, ChevronRight, DollarSign, Save, Loader, AlertCircle, Edit2 } from 'lucide-react';
 import {
   getTimeEntries,
   createTimeEntry,
   deleteTimeEntry,
   getContactsWithUnbilledHours,
-  convertHoursToInvoice,
   type TimeEntry,
 } from '../lib/timeEntryService';
 import { getAllContacts } from '../lib/invoiceService';
 import { supabase } from '../lib/supabase';
+import { InvoiceFormModal, type InvoiceLineInput } from './InvoiceFormModal';
+import { TimeEntryModal } from './TimeEntryModal';
 
 interface Contact {
   id: string;
@@ -50,6 +51,12 @@ export function TimeTracking() {
   const [showContactEditModal, setShowContactEditModal] = useState(false);
   const [contactToEdit, setContactToEdit] = useState<Contact | null>(null);
   const [pendingInvoiceContactId, setPendingInvoiceContactId] = useState<string | null>(null);
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [invoiceContact, setInvoiceContact] = useState<Contact | null>(null);
+  const [invoiceLines, setInvoiceLines] = useState<InvoiceLineInput[]>([]);
+  const [invoiceTimeEntryIds, setInvoiceTimeEntryIds] = useState<string[]>([]);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
 
   useEffect(() => {
     loadData();
@@ -275,28 +282,33 @@ export function TimeTracking() {
       return;
     }
 
-    await proceedWithInvoicing(contactId);
+    await proceedWithInvoicing(contactId, contactData as Contact);
   }
 
-  async function proceedWithInvoicing(contactId: string) {
+  async function proceedWithInvoicing(contactId: string, contactData: Contact) {
     const unbilledEntries = existingEntries.filter(
       (e) => e.contact_id === contactId && e.status === 'open'
     );
 
-    const entryIds = unbilledEntries.map((e) => e.id);
-    const shouldSend = confirm('Factuur direct per email versturen?');
+    const hourlyRate = contactData.hourly_rate || 0;
 
-    const result = await convertHoursToInvoice(contactId, entryIds, shouldSend);
-
-    if (result.success) {
-      alert(
-        `Factuur ${result.invoiceNumber} aangemaakt!\n${result.emailMessage || ''}`
-      );
-      setShowBillModal(false);
-      await loadData();
-    } else {
-      alert(result.error || 'Fout bij factureren');
+    if (hourlyRate <= 0) {
+      alert('Geen uurtarief ingesteld voor deze relatie');
+      return;
     }
+
+    const lines: InvoiceLineInput[] = unbilledEntries.map((entry) => ({
+      description: `${entry.description} (${entry.hours} uur @ €${hourlyRate}/uur)`,
+      quantity: entry.hours,
+      unit_price: hourlyRate,
+      vat_rate: 21,
+    }));
+
+    setInvoiceContact(contactData);
+    setInvoiceLines(lines);
+    setInvoiceTimeEntryIds(unbilledEntries.map((e) => e.id));
+    setShowBillModal(false);
+    setShowInvoiceModal(true);
   }
 
   async function handleSaveContactDetails() {
@@ -328,11 +340,21 @@ export function TimeTracking() {
     setShowContactEditModal(false);
 
     if (pendingInvoiceContactId) {
-      await proceedWithInvoicing(pendingInvoiceContactId);
+      await proceedWithInvoicing(pendingInvoiceContactId, contactToEdit);
       setPendingInvoiceContactId(null);
     }
 
     setContactToEdit(null);
+  }
+
+  function handleEditEntry(entry: TimeEntry) {
+    setEditingEntry(entry);
+    setShowEditModal(true);
+  }
+
+  function handleInvoiceSaved(invoiceId: string, invoiceNumber: string) {
+    alert(`Factuur ${invoiceNumber} succesvol aangemaakt!`);
+    loadData();
   }
 
   function goToPreviousWeek() {
@@ -511,7 +533,7 @@ export function TimeTracking() {
                       </select>
                     </div>
 
-                    <div className="md:col-span-5">
+                    <div className="md:col-span-4">
                       <label className="block text-xs font-semibold text-slate-600 mb-1">Omschrijving</label>
                       <input
                         type="text"
@@ -537,15 +559,39 @@ export function TimeTracking() {
                       />
                     </div>
 
-                    <div className="md:col-span-1 flex items-end">
+                    <div className="md:col-span-2 flex items-end gap-2">
                       {entry.isExisting ? (
-                        <button
-                          onClick={() => handleDeleteExistingEntry(entry.existingId!)}
-                          className="w-full p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          title="Verwijderen"
-                        >
-                          <Trash2 className="w-5 h-5 mx-auto" />
-                        </button>
+                        <>
+                          {(() => {
+                            const existingEntry = existingEntries.find((e) => e.id === entry.existingId);
+                            const isOpen = existingEntry?.status === 'open';
+                            return isOpen ? (
+                              <>
+                                <button
+                                  onClick={() => {
+                                    const fullEntry = existingEntries.find((e) => e.id === entry.existingId);
+                                    if (fullEntry) handleEditEntry(fullEntry);
+                                  }}
+                                  className="flex-1 p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                  title="Bewerken"
+                                >
+                                  <Edit2 className="w-5 h-5 mx-auto" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteExistingEntry(entry.existingId!)}
+                                  className="flex-1 p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                  title="Verwijderen"
+                                >
+                                  <Trash2 className="w-5 h-5 mx-auto" />
+                                </button>
+                              </>
+                            ) : (
+                              <div className="flex-1 p-2 text-center">
+                                <span className="text-xs text-slate-500 font-semibold">Gefactureerd</span>
+                              </div>
+                            );
+                          })()}
+                        </>
                       ) : (
                         day.entries.length > 1 && (
                           <button
@@ -725,6 +771,30 @@ export function TimeTracking() {
           </div>
         </div>
       )}
+
+      <InvoiceFormModal
+        isOpen={showInvoiceModal}
+        onClose={() => setShowInvoiceModal(false)}
+        onSave={handleInvoiceSaved}
+        initialContact={invoiceContact || undefined}
+        initialLines={invoiceLines}
+        timeEntryIds={invoiceTimeEntryIds}
+      />
+
+      <TimeEntryModal
+        isOpen={showEditModal}
+        onClose={() => {
+          setShowEditModal(false);
+          setEditingEntry(null);
+        }}
+        onSave={() => {
+          setShowEditModal(false);
+          setEditingEntry(null);
+          loadData();
+        }}
+        entry={editingEntry}
+        contacts={contacts}
+      />
     </div>
   );
 }
