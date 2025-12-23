@@ -21,10 +21,11 @@ import { PortalDashboard } from './components/portal/PortalDashboard';
 import { PortalBank } from './components/portal/PortalBank';
 import { PortalCreateInvoice } from './components/portal/PortalCreateInvoice';
 import { PortalExpense } from './components/portal/PortalExpense';
+import { PortalRelations } from './components/portal/PortalRelations';
 import { seedAccounts } from './lib/seedAccounts';
 import { isSupabaseConfigured } from './lib/supabase';
 
-type View = 'dashboard' | 'inbox' | 'boeken' | 'memoriaal-boekingen' | 'bankboekingen' | 'bank' | 'reports' | 'settings' | 'outstanding' | 'account-detail' | 'relations' | 'tax' | 'ib-aangifte' | 'sales' | 'time-tracking' | 'portal-home' | 'portal-scan' | 'portal-invoice' | 'portal-expense' | 'portal-time';
+type View = 'dashboard' | 'inbox' | 'boeken' | 'memoriaal-boekingen' | 'bankboekingen' | 'bank' | 'reports' | 'settings' | 'outstanding' | 'account-detail' | 'relations' | 'tax' | 'ib-aangifte' | 'sales' | 'time-tracking' | 'portal-home' | 'portal-scan' | 'portal-invoice' | 'portal-expense' | 'portal-time' | 'portal-relations';
 
 interface ViewState {
   view: View;
@@ -160,6 +161,8 @@ function App() {
           return <PortalCreateInvoice />;
         case 'portal-time':
           return <TimeTracking />;
+        case 'portal-relations':
+          return <PortalRelations />;
         default:
           return <Dashboard onNavigate={navigate} />;
       }

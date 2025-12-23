@@ -3,6 +3,7 @@ import { Plus, Search, Edit2, FileSpreadsheet, AlertCircle, CheckCircle, X } fro
 import { supabase } from '../lib/supabase';
 import { UniversalImporter } from './UniversalImporter';
 import { contactsConfig } from '../lib/importConfigs';
+import { ContactDetail } from './ContactDetail';
 import type { Database } from '../lib/database.types';
 
 type Contact = Database['public']['Tables']['contacts']['Row'];
@@ -22,6 +23,7 @@ export function Relations() {
   const [showModal, setShowModal] = useState(false);
   const [showImporter, setShowImporter] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
+  const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -251,6 +253,15 @@ export function Relations() {
     }
   }
 
+  if (selectedContact) {
+    return (
+      <ContactDetail
+        contact={selectedContact}
+        onBack={() => setSelectedContact(null)}
+      />
+    );
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -367,7 +378,11 @@ export function Relations() {
                 </tr>
               ) : (
                 filteredContacts.map((contact) => (
-                  <tr key={contact.id} className="h-10 border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                  <tr
+                    key={contact.id}
+                    className="h-10 border-b border-gray-100 hover:bg-blue-50 transition-colors cursor-pointer"
+                    onClick={() => setSelectedContact(contact)}
+                  >
                     <td className="px-6 py-2">
                       <div className="font-medium text-sm text-gray-900">{contact.company_name}</div>
                       {contact.contact_person && (
@@ -387,7 +402,10 @@ export function Relations() {
                     </td>
                     <td className="px-6 py-2 text-right">
                       <button
-                        onClick={() => openEditModal(contact)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openEditModal(contact);
+                        }}
                         className="h-9 inline-flex items-center gap-1 px-4 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                       >
                         <Edit2 className="w-4 h-4" />
