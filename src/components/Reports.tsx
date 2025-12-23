@@ -197,7 +197,16 @@ export function Reports({ onNavigate, fiscalYear }: ReportsProps) {
       const plResults: PLData[] = [];
 
       for (const [category, label] of Object.entries(plCategories)) {
-        const categoryAccounts = accounts.filter((acc) => acc.tax_category === category);
+        let categoryAccounts = accounts.filter((acc) => acc.tax_category === category);
+
+        // Special handling for "Inkoopwaarde omzet" - also include 7xxx accounts
+        if (category === 'Inkoopwaarde omzet') {
+          const cogs7xxxAccounts = accounts.filter(
+            (acc) => acc.code.startsWith('7') && !categoryAccounts.find((ca) => ca.id === acc.id)
+          );
+          categoryAccounts = [...categoryAccounts, ...cogs7xxxAccounts];
+        }
+
         const accountDetails: AccountPLDetail[] = [];
 
         let categoryAmount = 0;

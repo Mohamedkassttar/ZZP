@@ -236,7 +236,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
           </button>
 
           <button
-            onClick={() => onNavigate('boeken')}
+            onClick={() => onNavigate('reports')}
             className="flex flex-col items-center gap-3 p-6 bg-white/80 backdrop-blur-xl rounded-3xl shadow-xl shadow-blue-100/40 hover:shadow-2xl hover:shadow-blue-200/60 transition-all duration-300 group hover:scale-[1.02]"
           >
             <div className="p-4 bg-gradient-to-br from-blue-400 to-blue-600 rounded-2xl group-hover:shadow-xl group-hover:shadow-blue-300/60 transition-all">
