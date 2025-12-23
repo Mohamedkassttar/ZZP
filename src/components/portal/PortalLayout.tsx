@@ -1,5 +1,6 @@
 import { ReactNode } from 'react';
 import { Home, ScanLine, FileText, MessageCircle, Settings, Receipt, Clock } from 'lucide-react';
+import { PortalAssistant } from './PortalAssistant';
 
 interface PortalLayoutProps {
   children: ReactNode;
@@ -74,6 +75,8 @@ export function PortalLayout({ children, currentView, onNavigate }: PortalLayout
           })}
         </div>
       </nav>
+
+      <PortalAssistant />
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Loader2, TrendingUp, User } from 'lucide-react';
+import { Send, Loader2, TrendingUp, User, Sparkles, X, Minimize2 } from 'lucide-react';
 import { getFinancialContext, formatFinancialContextForAI } from '../../lib/financialReportService';
 
 interface Message {
@@ -55,8 +55,8 @@ Assistent: "FINANCIËLE GEZONDHEID:
 
 ⚠️ AANDACHTSPUNT: Je runway is slechts 2,1 maanden. Bij deze groei wil je minimaal 6 maanden buffer. Prioriteer cashflow management."`;
 
-
 export function PortalAssistant() {
+  const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: crypto.randomUUID(),
@@ -73,6 +73,12 @@ export function PortalAssistant() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  useEffect(() => {
+    if (isOpen) {
+      inputRef.current?.focus();
+    }
+  }, [isOpen]);
 
   async function handleSend() {
     if (!input.trim() || isLoading) return;
@@ -147,21 +153,43 @@ export function PortalAssistant() {
     }
   }
 
+  if (!isOpen) {
+    return (
+      <button
+        onClick={() => setIsOpen(true)}
+        className="fixed bottom-6 right-6 w-16 h-16 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-full shadow-2xl hover:shadow-emerald-500/50 transition-all duration-300 flex items-center justify-center z-50 hover:scale-110 group"
+        aria-label="Open AI Assistent"
+      >
+        <Sparkles className="w-7 h-7 text-white group-hover:rotate-12 transition-transform" />
+        <div className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center">
+          <span className="text-xs font-bold text-white">AI</span>
+        </div>
+      </button>
+    );
+  }
+
   return (
-    <div className="flex flex-col h-[calc(100vh-180px)] max-w-2xl mx-auto">
-      <div className="bg-white rounded-t-3xl shadow-lg p-4 border border-gray-100 border-b-0">
+    <div className="fixed bottom-6 right-6 w-[400px] h-[600px] flex flex-col bg-white rounded-2xl shadow-2xl z-50 border border-gray-200 animate-in slide-in-from-bottom-8 duration-300">
+      <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-t-2xl p-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-full flex items-center justify-center">
+          <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center">
             <TrendingUp className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h2 className="font-bold text-gray-900">Virtuele CFO</h2>
-            <p className="text-xs text-gray-500">Financiële analyse & advies op basis van je cijfers</p>
+            <h2 className="font-bold text-white">Virtuele CFO</h2>
+            <p className="text-xs text-white/80">Financiële analyse & advies</p>
           </div>
         </div>
+        <button
+          onClick={() => setIsOpen(false)}
+          className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 transition-colors flex items-center justify-center"
+          aria-label="Minimaliseren"
+        >
+          <Minimize2 className="w-4 h-4 text-white" />
+        </button>
       </div>
 
-      <div className="flex-1 bg-white border-x border-gray-100 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gradient-to-br from-gray-50 to-white">
         {messages.map((message) => (
           <div
             key={message.id}
@@ -182,10 +210,10 @@ export function PortalAssistant() {
             </div>
 
             <div
-              className={`max-w-[75%] rounded-2xl px-4 py-3 ${
+              className={`max-w-[75%] rounded-2xl px-4 py-3 shadow-sm ${
                 message.role === 'user'
                   ? 'bg-gradient-to-br from-gray-700 to-gray-800 text-white'
-                  : 'bg-gray-100 text-gray-900'
+                  : 'bg-white border border-gray-100 text-gray-900'
               }`}
             >
               <p className="text-sm whitespace-pre-wrap leading-relaxed">{message.content}</p>
@@ -208,10 +236,10 @@ export function PortalAssistant() {
             <div className="w-8 h-8 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-full flex items-center justify-center flex-shrink-0">
               <TrendingUp className="w-4 h-4 text-white" />
             </div>
-            <div className="bg-gray-100 rounded-2xl px-4 py-3">
+            <div className="bg-white border border-gray-100 rounded-2xl px-4 py-3 shadow-sm">
               <div className="flex items-center gap-2">
                 <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
-                <span className="text-sm text-gray-600">Analyseer financiële data...</span>
+                <span className="text-sm text-gray-600">Analyseer data...</span>
               </div>
             </div>
           </div>
@@ -220,28 +248,28 @@ export function PortalAssistant() {
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="bg-white rounded-b-3xl shadow-lg p-4 border border-gray-100 border-t-0">
-        <div className="flex gap-3">
+      <div className="bg-white rounded-b-2xl p-4 border-t border-gray-100">
+        <div className="flex gap-2">
           <textarea
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyPress}
-            placeholder="Stel je financiële vraag... (bijv. 'Hoe gaat het met mijn bedrijf?')"
+            placeholder="Vraag: 'Hoe gaat het met mijn bedrijf?'"
             rows={1}
-            className="flex-1 px-4 py-3 border-2 border-gray-200 rounded-2xl focus:border-emerald-500 focus:outline-none resize-none"
-            style={{ minHeight: '48px', maxHeight: '120px' }}
+            className="flex-1 px-4 py-2 border-2 border-gray-200 rounded-xl focus:border-emerald-500 focus:outline-none resize-none text-sm"
+            style={{ minHeight: '40px', maxHeight: '80px' }}
           />
           <button
             onClick={handleSend}
             disabled={!input.trim() || isLoading}
-            className="bg-emerald-600 text-white p-3 rounded-2xl hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+            className="bg-gradient-to-br from-emerald-500 to-teal-600 text-white px-4 rounded-xl hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
           >
-            <Send className="w-5 h-5" />
+            <Send className="w-4 h-4" />
           </button>
         </div>
         <p className="text-xs text-gray-500 mt-2 text-center">
-          Analyse is gebaseerd op je actuele boekhouding met vergelijking YoY
+          Analyse op basis van actuele cijfers met YoY vergelijking
         </p>
       </div>
     </div>
