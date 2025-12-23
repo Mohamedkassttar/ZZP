@@ -223,9 +223,9 @@ export function JournalEntryModal({
   const isValid = validateForm();
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="flex max-h-[90vh] w-full max-w-6xl flex-col rounded-xl bg-white shadow-2xl">
+        <div className="flex-none flex items-center justify-between border-b border-slate-200 px-6 py-4">
           <h2 className="text-xl font-bold text-slate-900">
             {editingEntry ? 'Wijzig Boeking' : 'Nieuwe Memoriaal Boeking'}
           </h2>
@@ -237,7 +237,7 @@ export function JournalEntryModal({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto px-6 py-6 min-h-0">
           {error && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
@@ -405,7 +405,8 @@ export function JournalEntryModal({
           </div>
         </div>
 
-        <div className="flex-shrink-0 sticky bottom-0 bg-white border-t border-slate-200 p-4 z-10 flex justify-end gap-3">
+        <div className="flex-none sticky bottom-0 z-10 border-t bg-gray-50 px-6 py-4">
+          <div className="flex justify-end gap-3">
           <button
             onClick={onClose}
             disabled={saving}
@@ -431,6 +432,7 @@ export function JournalEntryModal({
               {saving ? 'Opslaan...' : 'Opslaan en Definitief maken'}
             </button>
           )}
+          </div>
         </div>
       </div>
     </div>

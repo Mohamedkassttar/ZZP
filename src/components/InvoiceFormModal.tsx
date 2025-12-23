@@ -379,9 +379,9 @@ export function InvoiceFormModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="flex-shrink-0 flex items-center justify-between p-6 border-b border-slate-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="flex max-h-[90vh] w-full max-w-6xl flex-col rounded-2xl bg-white shadow-2xl">
+        <div className="flex-none flex items-center justify-between border-b border-slate-200 px-6 py-4">
           <h2 className="text-2xl font-black text-slate-800">Nieuwe Factuur</h2>
           <button
             onClick={handleClose}
@@ -391,7 +391,7 @@ export function InvoiceFormModal({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto px-6 py-6 min-h-0">
           {error && (
             <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
@@ -585,42 +585,44 @@ export function InvoiceFormModal({
           </div>
         </div>
 
-        <div className="flex-shrink-0 sticky bottom-0 bg-white border-t border-slate-200 p-4 z-10 flex justify-end gap-3">
-          <button
-            onClick={handleClose}
-            className="px-6 py-2.5 border-2 border-slate-300 text-slate-700 rounded-xl hover:bg-slate-50 transition-colors font-semibold"
-          >
-            Annuleren
-          </button>
-          <button
-            onClick={handleSaveInvoice}
-            disabled={saving}
-            className="px-6 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors flex items-center gap-2 font-semibold disabled:bg-slate-300 disabled:cursor-not-allowed"
-          >
-            {saving ? (
-              <>
-                <Loader className="w-5 h-5 animate-spin" />
-                Opslaan...
-              </>
-            ) : (
-              <>
-                <Save className="w-5 h-5" />
-                Opslaan als Concept
-              </>
-            )}
-          </button>
+        <div className="flex-none sticky bottom-0 z-10 border-t bg-gray-50 px-6 py-4">
+          <div className="flex justify-end gap-3">
+            <button
+              onClick={handleClose}
+              className="px-6 py-2.5 border-2 border-slate-300 text-slate-700 rounded-xl hover:bg-slate-50 transition-colors font-semibold"
+            >
+              Annuleren
+            </button>
+            <button
+              onClick={handleSaveInvoice}
+              disabled={saving}
+              className="px-6 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors flex items-center gap-2 font-semibold disabled:bg-slate-300 disabled:cursor-not-allowed"
+            >
+              {saving ? (
+                <>
+                  <Loader className="w-5 h-5 animate-spin" />
+                  Opslaan...
+                </>
+              ) : (
+                <>
+                  <Save className="w-5 h-5" />
+                  Opslaan als Concept
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
       {showContactEdit && editingContact && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="flex-shrink-0 p-6 border-b border-slate-200">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+          <div className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-2xl bg-white shadow-2xl">
+            <div className="flex-none border-b border-slate-200 px-6 py-4">
               <h3 className="text-2xl font-black text-slate-800">Klant Bewerken</h3>
               <p className="text-sm text-slate-600 mt-1">{editingContact.company_name}</p>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+            <div className="flex-1 overflow-y-auto px-6 py-6 space-y-4 min-h-0">
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-2">
                   Adres <span className="text-red-500">*</span>
@@ -718,23 +720,25 @@ export function InvoiceFormModal({
               </div>
             </div>
 
-            <div className="flex-shrink-0 sticky bottom-0 bg-white border-t border-slate-200 p-4 z-10 flex justify-end gap-3">
-              <button
-                onClick={() => {
-                  setShowContactEdit(false);
-                  setEditingContact(null);
-                }}
-                className="px-6 py-2.5 border-2 border-slate-300 text-slate-700 rounded-xl hover:bg-slate-50 transition-colors font-semibold"
-              >
-                Annuleren
-              </button>
-              <button
-                onClick={handleSaveContactEdit}
-                className="px-6 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors flex items-center gap-2 font-semibold"
-              >
-                <Save className="w-5 h-5" />
-                Opslaan
-              </button>
+            <div className="flex-none sticky bottom-0 z-10 border-t bg-gray-50 px-6 py-4">
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => {
+                    setShowContactEdit(false);
+                    setEditingContact(null);
+                  }}
+                  className="px-6 py-2.5 border-2 border-slate-300 text-slate-700 rounded-xl hover:bg-slate-50 transition-colors font-semibold"
+                >
+                  Annuleren
+                </button>
+                <button
+                  onClick={handleSaveContactEdit}
+                  className="px-6 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors flex items-center gap-2 font-semibold"
+                >
+                  <Save className="w-5 h-5" />
+                  Opslaan
+                </button>
+              </div>
             </div>
           </div>
         </div>

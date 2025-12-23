@@ -81,9 +81,9 @@ export function TimeEntryModal({
   const contact = contacts.find((c) => c.id === entry.contact_id);
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col">
-        <div className="flex-shrink-0 flex items-center justify-between p-6 border-b border-slate-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-2xl bg-white shadow-2xl">
+        <div className="flex-none flex items-center justify-between border-b border-slate-200 px-6 py-4">
           <h2 className="text-2xl font-black text-slate-800">Tijdregel Bewerken</h2>
           <button
             onClick={handleClose}
@@ -93,7 +93,7 @@ export function TimeEntryModal({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+        <div className="flex-1 overflow-y-auto px-6 py-6 space-y-4 min-h-0">
           {error && (
             <div className="p-4 bg-red-50 border border-red-200 rounded-xl">
               <p className="text-sm text-red-800">{error}</p>
@@ -148,30 +148,32 @@ export function TimeEntryModal({
           </div>
         </div>
 
-        <div className="flex-shrink-0 sticky bottom-0 bg-white border-t border-slate-200 p-4 z-10 flex justify-end gap-3">
-          <button
-            onClick={handleClose}
-            className="px-6 py-2.5 border-2 border-slate-300 text-slate-700 rounded-xl hover:bg-slate-50 transition-colors font-semibold"
-          >
-            Annuleren
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="px-6 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors flex items-center gap-2 font-semibold disabled:bg-slate-300 disabled:cursor-not-allowed"
-          >
-            {saving ? (
-              <>
-                <Loader className="w-5 h-5 animate-spin" />
-                Opslaan...
-              </>
-            ) : (
-              <>
-                <Save className="w-5 h-5" />
-                Opslaan
-              </>
-            )}
-          </button>
+        <div className="flex-none sticky bottom-0 z-10 border-t bg-gray-50 px-6 py-4">
+          <div className="flex justify-end gap-3">
+            <button
+              onClick={handleClose}
+              className="px-6 py-2.5 border-2 border-slate-300 text-slate-700 rounded-xl hover:bg-slate-50 transition-colors font-semibold"
+            >
+              Annuleren
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="px-6 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors flex items-center gap-2 font-semibold disabled:bg-slate-300 disabled:cursor-not-allowed"
+            >
+              {saving ? (
+                <>
+                  <Loader className="w-5 h-5 animate-spin" />
+                  Opslaan...
+                </>
+              ) : (
+                <>
+                  <Save className="w-5 h-5" />
+                  Opslaan
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </div>

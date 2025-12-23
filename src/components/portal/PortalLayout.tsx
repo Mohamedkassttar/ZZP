@@ -18,10 +18,10 @@ const navItems = [
 
 export function PortalLayout({ children, currentView, onNavigate }: PortalLayoutProps) {
   return (
-    <div className="h-screen bg-gradient-to-br from-blue-50 via-white to-slate-50 flex flex-col overflow-hidden overflow-x-hidden">
+    <div className="flex h-screen w-full flex-col bg-gradient-to-br from-blue-50 via-white to-slate-50 overflow-hidden">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_30%,rgba(59,130,246,0.06),transparent_60%)] pointer-events-none" />
 
-      <header className="flex-shrink-0 bg-white/80 backdrop-blur-xl border-b border-gray-200 shadow-sm relative z-10">
+      <header className="flex-none z-30 bg-white/80 backdrop-blur-xl border-b border-gray-200 shadow-sm relative">
         <div className="px-4 py-4">
           <div className="flex items-center justify-between">
             <div>
@@ -44,13 +44,13 @@ export function PortalLayout({ children, currentView, onNavigate }: PortalLayout
         </div>
       </header>
 
-      <main className="flex-1 overflow-y-auto overflow-x-hidden relative z-10 pb-20">
-        <div className="px-4 py-6 pr-24 md:pr-4">
+      <main className="flex-1 overflow-y-auto overflow-x-hidden relative z-10 min-h-0">
+        <div className="px-4 py-6 pb-24 pr-4 md:pr-4">
           {children}
         </div>
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-20">
+      <nav className="flex-none z-30 bg-white border-t border-gray-200 shadow-lg">
         <div className="flex items-center justify-around px-2 py-3">
           {navItems.map((item) => {
             const Icon = item.icon;

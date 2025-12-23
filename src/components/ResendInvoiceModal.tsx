@@ -57,9 +57,9 @@ export function ResendInvoiceModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
-        <div className="flex items-center justify-between p-6 border-b border-slate-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="flex max-h-[90vh] w-full max-w-md flex-col rounded-xl bg-white shadow-2xl">
+        <div className="flex-none flex items-center justify-between border-b border-slate-200 px-6 py-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
               <Mail className="w-5 h-5 text-blue-600" />
@@ -80,74 +80,78 @@ export function ResendInvoiceModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6">
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-slate-700 mb-2">
-              Emailadres ontvanger
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="naam@voorbeeld.nl"
-              disabled={isSending}
-              required
-            />
-            <p className="text-xs text-slate-500 mt-2">
-              Dit adres wordt opgeslagen bij de factuur
-            </p>
-          </div>
-
-          {result && (
-            <div
-              className={`mb-4 p-4 rounded-lg flex items-start gap-3 ${
-                result.success
-                  ? 'bg-green-50 border border-green-200'
-                  : 'bg-red-50 border border-red-200'
-              }`}
-            >
-              {result.success ? (
-                <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-              ) : (
-                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-              )}
-              <p
-                className={`text-sm ${
-                  result.success ? 'text-green-800' : 'text-red-800'
-                }`}
-              >
-                {result.message}
+        <form onSubmit={handleSubmit} className="flex flex-col min-h-0 flex-1">
+          <div className="flex-1 overflow-y-auto px-6 py-6">
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Emailadres ontvanger
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="naam@voorbeeld.nl"
+                disabled={isSending}
+                required
+              />
+              <p className="text-xs text-slate-500 mt-2">
+                Dit adres wordt opgeslagen bij de factuur
               </p>
             </div>
-          )}
 
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 font-medium transition-colors"
-              disabled={isSending}
-            >
-              Annuleren
-            </button>
-            <button
-              type="submit"
-              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              disabled={isSending}
-            >
-              {isSending ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  Versturen...
-                </>
-              ) : (
-                <>
-                  <Mail className="w-4 h-4" />
-                  Versturen
-                </>
-              )}
-            </button>
+            {result && (
+              <div
+                className={`mb-4 p-4 rounded-lg flex items-start gap-3 ${
+                  result.success
+                    ? 'bg-green-50 border border-green-200'
+                    : 'bg-red-50 border border-red-200'
+                }`}
+              >
+                {result.success ? (
+                  <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                ) : (
+                  <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                )}
+                <p
+                  className={`text-sm ${
+                    result.success ? 'text-green-800' : 'text-red-800'
+                  }`}
+                >
+                  {result.message}
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="flex-none sticky bottom-0 z-10 border-t bg-gray-50 px-6 py-4">
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 font-medium transition-colors"
+                disabled={isSending}
+              >
+                Annuleren
+              </button>
+              <button
+                type="submit"
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                disabled={isSending}
+              >
+                {isSending ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    Versturen...
+                  </>
+                ) : (
+                  <>
+                    <Mail className="w-4 h-4" />
+                    Versturen
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </form>
       </div>
