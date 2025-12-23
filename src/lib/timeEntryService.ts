@@ -285,6 +285,62 @@ export async function deleteTimeEntry(entryId: string): Promise<{
 }
 
 /**
+ * Mark time entries as billed
+ *
+ * This is a strict, explicit function for marking entries as billed after invoice creation.
+ * Used by TimeTracking.tsx → InvoiceFormModal.tsx flow.
+ */
+export async function markEntriesAsBilled(
+  entryIds: string[],
+  invoiceId: string
+): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  try {
+    if (!entryIds || entryIds.length === 0) {
+      return {
+        success: false,
+        error: 'Geen entries geselecteerd',
+      };
+    }
+
+    if (!invoiceId) {
+      return {
+        success: false,
+        error: 'Geen invoice ID opgegeven',
+      };
+    }
+
+    const { error } = await supabase
+      .from('time_entries')
+      .update({
+        status: 'billed',
+        invoice_id: invoiceId,
+        updated_at: new Date().toISOString(),
+      })
+      .in('id', entryIds)
+      .eq('status', 'open'); // Only update entries that are still open
+
+    if (error) {
+      console.error('Error marking entries as billed:', error);
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error in markEntriesAsBilled:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Onbekende fout',
+    };
+  }
+}
+
+/**
  * Convert time entries to an invoice
  */
 export async function convertHoursToInvoice(
