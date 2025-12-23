@@ -2,6 +2,7 @@ import { supabase } from './supabase';
 import type { Database } from './database.types';
 import { callOpenAIWithRetry, extractJSON } from './openaiRetryHelper';
 import { findActiveAccountsPayable, findActiveSuspenseAccount } from './systemAccountsService';
+import { AI_CONFIG } from './aiConfig';
 
 type Account = Database['public']['Tables']['accounts']['Row'];
 type Contact = Database['public']['Tables']['contacts']['Row'];
@@ -189,7 +190,7 @@ CRITICAL RULE: If you identify a known contact (existing_contact_id is set) that
     console.log('═'.repeat(60));
 
     const requestConfig = {
-      model: 'gpt-4o-mini',
+      model: AI_CONFIG.model,
       messages: [
         { role: 'system', content: systemPrompt },
         {

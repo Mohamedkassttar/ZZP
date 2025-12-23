@@ -9,6 +9,7 @@
 
 import { supabase } from './supabase';
 import { cleanTransactionDescription, matchesWithWordBoundary } from './bankMatchingUtils';
+import { AI_CONFIG } from './aiConfig';
 
 export interface EnrichmentContext {
   name: string;
@@ -788,9 +789,9 @@ async function mapIndustryToLedgerAccount(
         'Authorization': `Bearer ${openaiApiKey}`,
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: AI_CONFIG.model,
         messages: [{ role: 'user', content: prompt }],
-        temperature: 0.3,
+        temperature: AI_CONFIG.temperature,
         max_tokens: 300, // Increased for chain-of-thought response
       }),
     });

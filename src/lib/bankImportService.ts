@@ -2,6 +2,7 @@ import { supabase } from './supabase';
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { callOpenAIWithRetry, extractJSON } from './openaiRetryHelper';
+import { AI_CONFIG } from './aiConfig';
 
 try {
   pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
@@ -295,13 +296,13 @@ BELANGRIJK:
 
       try {
         const data = await callOpenAIWithRetry(OPENAI_API_KEY, {
-          model: 'gpt-4o-mini',
+          model: AI_CONFIG.model,
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userPrompt }
           ],
           max_tokens: 2000,
-          temperature: 0.0,
+          temperature: AI_CONFIG.temperature,
         });
 
         const content = data.choices?.[0]?.message?.content;

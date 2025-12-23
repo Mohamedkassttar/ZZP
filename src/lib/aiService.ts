@@ -1,6 +1,7 @@
 import type { Database, ExtractedInvoiceData } from './database.types';
 import { supabase } from './supabase';
 import { callOpenAIWithRetry, extractJSON } from './openaiRetryHelper';
+import { AI_CONFIG } from './aiConfig';
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
@@ -209,10 +210,10 @@ ${JSON.stringify(accountList, null, 2)}`;
     console.log('📤 [INVOICE AI] Sending request to OpenAI...');
 
     const data = await callOpenAIWithRetry(OPENAI_API_KEY, {
-      model: 'gpt-4o-mini',
+      model: AI_CONFIG.model,
       messages,
       max_tokens: 1000,
-      temperature: 0.1,
+      temperature: AI_CONFIG.temperature,
     });
 
     console.log('📥 [INVOICE AI] Received response from OpenAI');

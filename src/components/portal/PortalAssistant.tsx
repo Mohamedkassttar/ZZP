@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Send, Loader2, TrendingUp, User, Sparkles, X, Minimize2 } from 'lucide-react';
 import { getFinancialContext, formatFinancialContextForAI } from '../../lib/financialReportService';
+import { AI_CONFIG } from '../../lib/aiConfig';
 
 interface Message {
   id: string;
@@ -105,7 +106,7 @@ export function PortalAssistant() {
           Authorization: `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`,
         },
         body: JSON.stringify({
-          model: 'gpt-4o-mini',
+          model: AI_CONFIG.model,
           messages: [
             { role: 'system', content: CFO_SYSTEM_PROMPT },
             {
@@ -113,7 +114,7 @@ export function PortalAssistant() {
               content: `${formattedContext}\n\nVRAAG VAN GEBRUIKER:\n${userMessage.content}\n\nGEEF EEN SCHERPE CFO-ANALYSE MET CONCRETE ADVIEZEN.`,
             },
           ],
-          temperature: 0.7,
+          temperature: AI_CONFIG.temperature,
           max_tokens: 500,
         }),
       });
