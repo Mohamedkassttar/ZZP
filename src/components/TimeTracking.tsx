@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Clock, Plus, Trash2, ChevronLeft, ChevronRight, DollarSign, Save, Loader } from 'lucide-react';
+import { Clock, Plus, Trash2, ChevronLeft, ChevronRight, DollarSign, Save, Loader, AlertCircle } from 'lucide-react';
 import {
   getTimeEntries,
   createTimeEntry,
@@ -9,11 +9,17 @@ import {
   type TimeEntry,
 } from '../lib/timeEntryService';
 import { getAllContacts } from '../lib/invoiceService';
+import { supabase } from '../lib/supabase';
 
 interface Contact {
   id: string;
   company_name: string;
   hourly_rate?: number;
+  address?: string;
+  postal_code?: string;
+  city?: string;
+  email?: string;
+  vat_number?: string;
 }
 
 interface WeekEntry {
@@ -41,6 +47,9 @@ export function TimeTracking() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showBillModal, setShowBillModal] = useState(false);
+  const [showContactEditModal, setShowContactEditModal] = useState(false);
+  const [contactToEdit, setContactToEdit] = useState<Contact | null>(null);
+  const [pendingInvoiceContactId, setPendingInvoiceContactId] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -246,6 +255,34 @@ export function TimeTracking() {
       return;
     }
 
+    const { data: contactData, error: contactError } = await supabase
+      .from('contacts')
+      .select('*')
+      .eq('id', contactId)
+      .maybeSingle();
+
+    if (contactError || !contactData) {
+      alert('Kon klantgegevens niet ophalen');
+      return;
+    }
+
+    const isComplete = contactData.address && contactData.postal_code && contactData.city;
+
+    if (!isComplete) {
+      setContactToEdit(contactData as Contact);
+      setPendingInvoiceContactId(contactId);
+      setShowContactEditModal(true);
+      return;
+    }
+
+    await proceedWithInvoicing(contactId);
+  }
+
+  async function proceedWithInvoicing(contactId: string) {
+    const unbilledEntries = existingEntries.filter(
+      (e) => e.contact_id === contactId && e.status === 'open'
+    );
+
     const entryIds = unbilledEntries.map((e) => e.id);
     const shouldSend = confirm('Factuur direct per email versturen?');
 
@@ -260,6 +297,42 @@ export function TimeTracking() {
     } else {
       alert(result.error || 'Fout bij factureren');
     }
+  }
+
+  async function handleSaveContactDetails() {
+    if (!contactToEdit) return;
+
+    const isComplete = contactToEdit.address && contactToEdit.postal_code && contactToEdit.city;
+
+    if (!isComplete) {
+      alert('Vul alle verplichte velden in (Adres, Postcode, Plaats)');
+      return;
+    }
+
+    const { error } = await supabase
+      .from('contacts')
+      .update({
+        address: contactToEdit.address,
+        postal_code: contactToEdit.postal_code,
+        city: contactToEdit.city,
+        email: contactToEdit.email || null,
+        vat_number: contactToEdit.vat_number || null,
+      })
+      .eq('id', contactToEdit.id);
+
+    if (error) {
+      alert('Fout bij opslaan klantgegevens: ' + error.message);
+      return;
+    }
+
+    setShowContactEditModal(false);
+
+    if (pendingInvoiceContactId) {
+      await proceedWithInvoicing(pendingInvoiceContactId);
+      setPendingInvoiceContactId(null);
+    }
+
+    setContactToEdit(null);
   }
 
   function goToPreviousWeek() {
@@ -535,6 +608,119 @@ export function TimeTracking() {
                   Geen openstaande uren om te factureren
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showContactEditModal && contactToEdit && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex-shrink-0 p-6 border-b border-slate-200">
+              <div className="flex items-start gap-3">
+                <div className="p-2 bg-amber-100 rounded-lg">
+                  <AlertCircle className="w-6 h-6 text-amber-600" />
+                </div>
+                <div className="flex-1">
+                  <h2 className="text-2xl font-black text-slate-800 mb-1">Klantgegevens Incompleet</h2>
+                  <p className="text-sm text-slate-600">
+                    Voor het aanmaken van een factuur zijn volledige klantgegevens vereist. Vul de ontbrekende gegevens aan.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                <p className="font-semibold text-blue-900">Klant: {contactToEdit.company_name}</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Adres <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={contactToEdit.address || ''}
+                  onChange={(e) => setContactToEdit({ ...contactToEdit, address: e.target.value })}
+                  placeholder="Straat + huisnummer"
+                  className="w-full px-4 py-2.5 border-2 border-slate-300 rounded-xl focus:border-blue-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Postcode <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={contactToEdit.postal_code || ''}
+                    onChange={(e) => setContactToEdit({ ...contactToEdit, postal_code: e.target.value })}
+                    placeholder="1234 AB"
+                    className="w-full px-4 py-2.5 border-2 border-slate-300 rounded-xl focus:border-blue-500 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Plaats <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={contactToEdit.city || ''}
+                    onChange={(e) => setContactToEdit({ ...contactToEdit, city: e.target.value })}
+                    placeholder="Amsterdam"
+                    className="w-full px-4 py-2.5 border-2 border-slate-300 rounded-xl focus:border-blue-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Email (optioneel)
+                </label>
+                <input
+                  type="email"
+                  value={contactToEdit.email || ''}
+                  onChange={(e) => setContactToEdit({ ...contactToEdit, email: e.target.value })}
+                  placeholder="info@klant.nl"
+                  className="w-full px-4 py-2.5 border-2 border-slate-300 rounded-xl focus:border-blue-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  BTW-nummer (optioneel)
+                </label>
+                <input
+                  type="text"
+                  value={contactToEdit.vat_number || ''}
+                  onChange={(e) => setContactToEdit({ ...contactToEdit, vat_number: e.target.value })}
+                  placeholder="NL123456789B01"
+                  className="w-full px-4 py-2.5 border-2 border-slate-300 rounded-xl focus:border-blue-500 focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex-shrink-0 flex justify-end gap-3 p-6 border-t border-slate-200 bg-slate-50">
+              <button
+                onClick={() => {
+                  setShowContactEditModal(false);
+                  setContactToEdit(null);
+                  setPendingInvoiceContactId(null);
+                }}
+                className="px-6 py-2.5 border-2 border-slate-300 text-slate-700 rounded-xl hover:bg-white transition-colors font-semibold"
+              >
+                Annuleren
+              </button>
+              <button
+                onClick={handleSaveContactDetails}
+                className="px-6 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors flex items-center gap-2 font-semibold"
+              >
+                <Save className="w-5 h-5" />
+                Opslaan & Doorgaan
+              </button>
             </div>
           </div>
         </div>
