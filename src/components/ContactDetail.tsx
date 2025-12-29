@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, FileText, Clock, Receipt, CreditCard, CheckCircle, Mail, Eye, CreditCard as Edit2 } from 'lucide-react';
+import { ArrowLeft, FileText, Clock, Receipt, CreditCard, CheckCircle, Mail, Eye, Edit2, Trash2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { resendInvoice } from '../lib/salesService';
 import { ResendInvoiceModal } from './ResendInvoiceModal';
@@ -46,11 +46,24 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
     invoiceId: string;
     invoiceNumber: string;
     currentStatus: string;
+    tableName: 'invoices' | 'sales_invoices';
   }>({
     isOpen: false,
     invoiceId: '',
     invoiceNumber: '',
     currentStatus: '',
+    tableName: 'sales_invoices',
+  });
+  const [deleteModal, setDeleteModal] = useState<{
+    isOpen: boolean;
+    invoiceId: string;
+    invoiceNumber: string;
+    tableName: 'invoices' | 'sales_invoices';
+  }>({
+    isOpen: false,
+    invoiceId: '',
+    invoiceNumber: '',
+    tableName: 'sales_invoices',
   });
 
   const isCreditor = contact.relation_type === 'Supplier' || contact.relation_type === 'Both';
@@ -227,6 +240,7 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
       invoiceId: invoice.id,
       invoiceNumber: invoice.invoice_number || 'Onbekend',
       currentStatus: invoice.status,
+      tableName: 'sales_invoices',
     });
   };
 
@@ -236,12 +250,13 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
       invoiceId: invoice.id,
       invoiceNumber: invoice.invoice_number || 'Onbekend',
       currentStatus: invoice.status,
+      tableName: 'invoices',
     });
   };
 
   const handleStatusChange = async (newStatus: string) => {
     const { error } = await supabase
-      .from('sales_invoices')
+      .from(statusModal.tableName)
       .update({ status: newStatus })
       .eq('id', statusModal.invoiceId);
 
@@ -252,8 +267,42 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
 
     await loadSalesInvoices();
     await loadOutstandingInvoices();
-    setStatusModal({ isOpen: false, invoiceId: '', invoiceNumber: '', currentStatus: '' });
+    setStatusModal({ isOpen: false, invoiceId: '', invoiceNumber: '', currentStatus: '', tableName: 'sales_invoices' });
     return true;
+  };
+
+  const handleDeleteClick = (invoice: SalesInvoice) => {
+    setDeleteModal({
+      isOpen: true,
+      invoiceId: invoice.id,
+      invoiceNumber: invoice.invoice_number || 'Onbekend',
+      tableName: 'sales_invoices',
+    });
+  };
+
+  const handleDeleteClickOldInvoice = (invoice: Invoice) => {
+    setDeleteModal({
+      isOpen: true,
+      invoiceId: invoice.id,
+      invoiceNumber: invoice.invoice_number || 'Onbekend',
+      tableName: 'invoices',
+    });
+  };
+
+  const handleDeleteConfirm = async () => {
+    const { error } = await supabase
+      .from(deleteModal.tableName)
+      .delete()
+      .eq('id', deleteModal.invoiceId);
+
+    if (error) {
+      alert('Fout bij verwijderen factuur: ' + error.message);
+      return;
+    }
+
+    await loadSalesInvoices();
+    await loadOutstandingInvoices();
+    setDeleteModal({ isOpen: false, invoiceId: '', invoiceNumber: '', tableName: 'sales_invoices' });
   };
 
   const getStatusColor = (status: string) => {
@@ -435,6 +484,13 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
                               >
                                 <Mail className="w-4 h-4" />
                               </button>
+                              <button
+                                onClick={() => handleDeleteClick(invoice)}
+                                className="p-2 text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                title="Verwijderen"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
                             </div>
                           </td>
                         </tr>
@@ -512,6 +568,13 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
                                 title="Opnieuw mailen"
                               >
                                 <Mail className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteClickOldInvoice(invoice)}
+                                className="p-2 text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                title="Verwijderen"
+                              >
+                                <Trash2 className="w-4 h-4" />
                               </button>
                             </div>
                           </td>
@@ -637,11 +700,43 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
             </div>
 
             <button
-              onClick={() => setStatusModal({ isOpen: false, invoiceId: '', invoiceNumber: '', currentStatus: '' })}
+              onClick={() => setStatusModal({ isOpen: false, invoiceId: '', invoiceNumber: '', currentStatus: '', tableName: 'sales_invoices' })}
               className="w-full px-4 py-2.5 border-2 border-slate-300 text-slate-700 rounded-xl hover:bg-slate-50 transition-colors font-semibold"
             >
               Annuleren
             </button>
+          </div>
+        </div>
+      )}
+
+      {deleteModal.isOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 bg-red-100 rounded-full">
+                <Trash2 className="w-6 h-6 text-red-600" />
+              </div>
+              <h2 className="text-2xl font-black text-slate-800">Factuur Verwijderen</h2>
+            </div>
+
+            <p className="text-slate-600 mb-6">
+              Weet je zeker dat je factuur <span className="font-semibold">{deleteModal.invoiceNumber}</span> wilt verwijderen? Deze actie kan niet ongedaan gemaakt worden.
+            </p>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteModal({ isOpen: false, invoiceId: '', invoiceNumber: '', tableName: 'sales_invoices' })}
+                className="flex-1 px-4 py-2.5 border-2 border-slate-300 text-slate-700 rounded-xl hover:bg-slate-50 transition-colors font-semibold"
+              >
+                Annuleren
+              </button>
+              <button
+                onClick={handleDeleteConfirm}
+                className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors font-semibold"
+              >
+                Verwijderen
+              </button>
+            </div>
           </div>
         </div>
       )}
