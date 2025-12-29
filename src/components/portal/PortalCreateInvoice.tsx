@@ -11,9 +11,11 @@ import {
   FileText,
   Loader,
   Send,
+  Package,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import type { Database } from '../../lib/database.types';
+import { useProducts, type Product } from '../../lib/useProducts';
 
 type Invoice = Database['public']['Tables']['invoices']['Row'];
 type Contact = Database['public']['Tables']['contacts']['Row'];
@@ -55,6 +57,7 @@ interface QuickCreateClientData {
 }
 
 export function PortalCreateInvoice() {
+  const { products, searchProducts } = useProducts();
   const [revenueTransactions, setRevenueTransactions] = useState<RevenueTransaction[]>([]);
   const [invoices, setInvoices] = useState<InvoiceWithContact[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -64,6 +67,8 @@ export function PortalCreateInvoice() {
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [productSearchTerms, setProductSearchTerms] = useState<Record<string, string>>({});
+  const [showProductDropdown, setShowProductDropdown] = useState<Record<string, boolean>>({});
 
   const [searchTerm, setSearchTerm] = useState('');
   const [showClientDropdown, setShowClientDropdown] = useState(false);
@@ -392,6 +397,38 @@ export function PortalCreateInvoice() {
         return line;
       })
     );
+  }
+
+  function selectProduct(lineId: string, product: Product) {
+    setLines(
+      lines.map((line) => {
+        if (line.id === lineId) {
+          const description = product.description
+            ? `${product.name} - ${product.description}`
+            : product.name;
+
+          const updated = {
+            ...line,
+            description,
+            quantity: line.quantity || '1',
+            unit_price: product.price.toString(),
+          };
+
+          const qty = parseFloat(updated.quantity) || 0;
+          const price = parseFloat(updated.unit_price) || 0;
+          const vatRate = parseFloat(updated.vat_rate) || 0;
+
+          updated.amount = qty * price;
+          updated.vat_amount = updated.amount * (vatRate / 100);
+
+          return updated;
+        }
+        return line;
+      })
+    );
+
+    setProductSearchTerms({ ...productSearchTerms, [lineId]: '' });
+    setShowProductDropdown({ ...showProductDropdown, [lineId]: false });
   }
 
   function calculateTotals() {
@@ -1069,6 +1106,51 @@ export function PortalCreateInvoice() {
                       </div>
 
                       <div className="space-y-2 sm:space-y-3">
+                        <div className="relative">
+                          <div className="flex gap-2">
+                            <div className="relative flex-1">
+                              <Package className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                              <input
+                                type="text"
+                                value={productSearchTerms[line.id] || ''}
+                                onChange={(e) => {
+                                  setProductSearchTerms({ ...productSearchTerms, [line.id]: e.target.value });
+                                  setShowProductDropdown({ ...showProductDropdown, [line.id]: e.target.value.length > 0 });
+                                }}
+                                onFocus={() => {
+                                  if (productSearchTerms[line.id]?.length > 0) {
+                                    setShowProductDropdown({ ...showProductDropdown, [line.id]: true });
+                                  }
+                                }}
+                                placeholder="Zoek product/dienst..."
+                                className="w-full pl-10 pr-3 py-2 text-xs sm:text-sm border-2 border-emerald-300 rounded-xl focus:border-emerald-500 focus:outline-none bg-white"
+                              />
+                              {showProductDropdown[line.id] && productSearchTerms[line.id] && (
+                                <div className="absolute z-10 w-full mt-1 bg-white border-2 border-emerald-300 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                                  {searchProducts(productSearchTerms[line.id]).length === 0 ? (
+                                    <div className="px-4 py-3 text-sm text-gray-500">Geen producten gevonden</div>
+                                  ) : (
+                                    searchProducts(productSearchTerms[line.id]).map((product) => (
+                                      <button
+                                        key={product.id}
+                                        type="button"
+                                        onClick={() => selectProduct(line.id, product)}
+                                        className="w-full px-4 py-2 text-left hover:bg-emerald-50 transition-colors border-b border-gray-100 last:border-0"
+                                      >
+                                        <div className="font-semibold text-sm text-gray-900">{product.name}</div>
+                                        <div className="text-xs text-gray-600 flex justify-between">
+                                          <span>{product.description || 'Geen omschrijving'}</span>
+                                          <span className="font-semibold text-emerald-600">€{Number(product.price).toFixed(2)}</span>
+                                        </div>
+                                      </button>
+                                    ))
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
                         <input
                           type="text"
                           value={line.description}

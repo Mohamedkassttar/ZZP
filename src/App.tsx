@@ -16,6 +16,7 @@ import { TaxPreparation } from './components/TaxPreparation';
 import { IBAangifte } from './components/IBAangifte';
 import { SalesInvoices } from './components/SalesInvoices';
 import { TimeTracking } from './components/TimeTracking';
+import Products from './components/Products';
 import { PortalLayout } from './components/portal/PortalLayout';
 import { PortalDashboard } from './components/portal/PortalDashboard';
 import { PortalBank } from './components/portal/PortalBank';
@@ -26,7 +27,7 @@ import { PortalFinance } from './components/portal/PortalFinance';
 import { seedAccounts } from './lib/seedAccounts';
 import { isSupabaseConfigured } from './lib/supabase';
 
-type View = 'dashboard' | 'inbox' | 'boeken' | 'memoriaal-boekingen' | 'bankboekingen' | 'bank' | 'reports' | 'settings' | 'outstanding' | 'account-detail' | 'relations' | 'tax' | 'ib-aangifte' | 'sales' | 'time-tracking' | 'portal-home' | 'portal-scan' | 'portal-invoice' | 'portal-expense' | 'portal-time' | 'portal-relations' | 'portal-finance';
+type View = 'dashboard' | 'inbox' | 'boeken' | 'memoriaal-boekingen' | 'bankboekingen' | 'bank' | 'reports' | 'settings' | 'outstanding' | 'account-detail' | 'relations' | 'tax' | 'ib-aangifte' | 'sales' | 'time-tracking' | 'products' | 'portal-home' | 'portal-scan' | 'portal-invoice' | 'portal-expense' | 'portal-time' | 'portal-relations' | 'portal-finance';
 
 interface ViewState {
   view: View;
@@ -120,6 +121,8 @@ function App() {
           return <SalesInvoices />;
         case 'time-tracking':
           return <TimeTracking />;
+        case 'products':
+          return <Products />;
         case 'boeken':
           return <Boeken />;
         case 'memoriaal-boekingen':

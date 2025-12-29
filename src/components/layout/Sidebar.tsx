@@ -11,6 +11,7 @@ import {
   ChevronRight,
   Smartphone,
   Clock,
+  Package,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -60,6 +61,7 @@ export function Sidebar({ currentView, onNavigate }: SidebarProps) {
       children: [
         { id: 'sales', label: 'Verkoop', view: 'sales' },
         { id: 'inbox', label: 'Inkoop', view: 'inbox' },
+        { id: 'products', label: 'Producten & Diensten', view: 'products', icon: Package },
       ],
     },
     {
