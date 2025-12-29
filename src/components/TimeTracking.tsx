@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Clock, Plus, Trash2, ChevronLeft, ChevronRight, DollarSign, Save, Loader, AlertCircle, Edit2 } from 'lucide-react';
+import { Clock, Plus, Trash2, ChevronLeft, ChevronRight, DollarSign, Save, Loader, AlertCircle, CreditCard as Edit2 } from 'lucide-react';
 import {
   getTimeEntries,
   createTimeEntry,
