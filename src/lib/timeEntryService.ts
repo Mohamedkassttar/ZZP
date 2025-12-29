@@ -13,7 +13,9 @@ export interface TimeEntry {
   user_id: string;
   contact_id: string;
   date: string;
-  hours: number;
+  entry_type: 'hours' | 'mileage';
+  hours: number | null;
+  distance: number | null;
   description: string;
   status: 'open' | 'billed';
   invoice_id?: string;
@@ -22,19 +24,24 @@ export interface TimeEntry {
   contact?: {
     company_name: string;
     hourly_rate?: number;
+    mileage_rate?: number;
   };
 }
 
 export interface CreateTimeEntryInput {
   contactId: string;
   date: string;
-  hours: number;
+  entryType: 'hours' | 'mileage';
+  hours?: number;
+  distance?: number;
   description: string;
 }
 
 export interface UpdateTimeEntryInput {
   date?: string;
+  entryType?: 'hours' | 'mileage';
   hours?: number;
+  distance?: number;
   description?: string;
 }
 
@@ -47,7 +54,7 @@ export async function getTimeEntries(contactId?: string): Promise<TimeEntry[]> {
       .from('time_entries')
       .select(`
         *,
-        contact:contacts(company_name, hourly_rate)
+        contact:contacts(company_name, hourly_rate, mileage_rate)
       `)
       .order('date', { ascending: false });
 
@@ -78,7 +85,7 @@ export async function getUnbilledHours(contactId: string): Promise<TimeEntry[]> 
       .from('time_entries')
       .select(`
         *,
-        contact:contacts(company_name, hourly_rate)
+        contact:contacts(company_name, hourly_rate, mileage_rate)
       `)
       .eq('contact_id', contactId)
       .eq('status', 'open')
@@ -111,8 +118,10 @@ export async function getContactsWithUnbilledHours(): Promise<Array<{
       .from('time_entries')
       .select(`
         contact_id,
+        entry_type,
         hours,
-        contact:contacts(company_name, hourly_rate)
+        distance,
+        contact:contacts(company_name, hourly_rate, mileage_rate)
       `)
       .eq('status', 'open');
 
@@ -130,11 +139,19 @@ export async function getContactsWithUnbilledHours(): Promise<Array<{
           company_name: entry.contact?.company_name || 'Unknown',
           total_hours: 0,
           hourly_rate: entry.contact?.hourly_rate || 0,
+          mileage_rate: entry.contact?.mileage_rate || 0,
           estimated_amount: 0,
         };
       }
-      acc[contactId].total_hours += entry.hours;
-      acc[contactId].estimated_amount = acc[contactId].total_hours * (acc[contactId].hourly_rate || 0);
+
+      // Add hours or mileage to totals
+      if (entry.entry_type === 'hours' && entry.hours) {
+        acc[contactId].total_hours += entry.hours;
+        acc[contactId].estimated_amount += entry.hours * (acc[contactId].hourly_rate || 0);
+      } else if (entry.entry_type === 'mileage' && entry.distance) {
+        acc[contactId].estimated_amount += entry.distance * (acc[contactId].mileage_rate || 0);
+      }
+
       return acc;
     }, {});
 
@@ -164,19 +181,30 @@ export async function createTimeEntry(input: CreateTimeEntryInput): Promise<{
       };
     }
 
+    const insertData: any = {
+      user_id: user.id,
+      contact_id: input.contactId,
+      date: input.date,
+      entry_type: input.entryType,
+      description: input.description,
+      status: 'open',
+    };
+
+    // Add hours or distance based on entry type
+    if (input.entryType === 'hours') {
+      insertData.hours = input.hours || 0;
+      insertData.distance = null;
+    } else {
+      insertData.distance = input.distance || 0;
+      insertData.hours = null;
+    }
+
     const { data, error } = await supabase
       .from('time_entries')
-      .insert({
-        user_id: user.id,
-        contact_id: input.contactId,
-        date: input.date,
-        hours: input.hours,
-        description: input.description,
-        status: 'open',
-      })
+      .insert(insertData)
       .select(`
         *,
-        contact:contacts(company_name, hourly_rate)
+        contact:contacts(company_name, hourly_rate, mileage_rate)
       `)
       .single();
 
@@ -218,8 +246,23 @@ export async function updateTimeEntry(
     };
 
     if (input.date) updates.date = input.date;
-    if (input.hours !== undefined) updates.hours = input.hours;
     if (input.description) updates.description = input.description;
+
+    // Handle entry type changes
+    if (input.entryType) {
+      updates.entry_type = input.entryType;
+      if (input.entryType === 'hours') {
+        updates.hours = input.hours !== undefined ? input.hours : 0;
+        updates.distance = null;
+      } else {
+        updates.distance = input.distance !== undefined ? input.distance : 0;
+        updates.hours = null;
+      }
+    } else {
+      // Update hours or distance based on current type (not changing type)
+      if (input.hours !== undefined) updates.hours = input.hours;
+      if (input.distance !== undefined) updates.distance = input.distance;
+    }
 
     const { data, error } = await supabase
       .from('time_entries')
@@ -227,7 +270,7 @@ export async function updateTimeEntry(
       .eq('id', entryId)
       .select(`
         *,
-        contact:contacts(company_name, hourly_rate)
+        contact:contacts(company_name, hourly_rate, mileage_rate)
       `)
       .single();
 
@@ -368,7 +411,7 @@ export async function convertHoursToInvoice(
       .from('time_entries')
       .select(`
         *,
-        contact:contacts(company_name, hourly_rate)
+        contact:contacts(company_name, hourly_rate, mileage_rate)
       `)
       .in('id', entryIds)
       .eq('contact_id', contactId)
@@ -381,23 +424,33 @@ export async function convertHoursToInvoice(
       };
     }
 
-    // Get hourly rate from contact
+    // Get rates from contact
     const contact = (entries[0] as any).contact;
     const hourlyRate = contact?.hourly_rate || 0;
-
-    if (hourlyRate <= 0) {
-      return {
-        success: false,
-        error: 'Geen uurtarief ingesteld voor deze relatie',
-      };
-    }
+    const mileageRate = contact?.mileage_rate || 0;
 
     // Create invoice lines from time entries
     const lines = entries.map((entry: any) => {
-      const amount = entry.hours * hourlyRate;
+      let amount = 0;
+      let description = '';
+
+      if (entry.entry_type === 'hours') {
+        if (hourlyRate <= 0) {
+          throw new Error('Geen uurtarief ingesteld voor deze relatie');
+        }
+        amount = (entry.hours || 0) * hourlyRate;
+        description = `${entry.description} (${entry.hours} uur @ €${hourlyRate}/uur)`;
+      } else if (entry.entry_type === 'mileage') {
+        if (mileageRate <= 0) {
+          throw new Error('Geen kilometertarief ingesteld voor deze relatie');
+        }
+        amount = (entry.distance || 0) * mileageRate;
+        description = `${entry.description} (${entry.distance} km @ €${mileageRate}/km)`;
+      }
+
       return {
-        description: `${entry.description} (${entry.hours} uur @ €${hourlyRate}/uur)`,
-        amount: amount,
+        description,
+        amount,
         vatRate: 21, // Default VAT rate
       };
     });

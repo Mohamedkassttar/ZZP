@@ -16,6 +16,7 @@ interface Contact {
   id: string;
   company_name: string;
   hourly_rate?: number;
+  mileage_rate?: number;
   address?: string;
   postal_code?: string;
   city?: string;
@@ -27,7 +28,9 @@ interface WeekEntry {
   id: string;
   date: string;
   contactId: string;
+  entryType: 'hours' | 'mileage';
   hours: string;
+  distance: string;
   description: string;
   isExisting?: boolean;
   existingId?: string;
@@ -133,7 +136,9 @@ export function TimeTracking() {
           id: crypto.randomUUID(),
           date: e.date,
           contactId: e.contact_id,
-          hours: e.hours.toString(),
+          entryType: e.entry_type,
+          hours: e.entry_type === 'hours' ? (e.hours?.toString() || '') : '',
+          distance: e.entry_type === 'mileage' ? (e.distance?.toString() || '') : '',
           description: e.description || '',
           isExisting: true,
           existingId: e.id,
@@ -144,7 +149,9 @@ export function TimeTracking() {
             id: crypto.randomUUID(),
             date: day.date,
             contactId: '',
+            entryType: 'hours',
             hours: '',
+            distance: '',
             description: '',
           });
         }
@@ -170,7 +177,9 @@ export function TimeTracking() {
                   id: crypto.randomUUID(),
                   date: dayDate,
                   contactId: '',
+                  entryType: 'hours',
                   hours: '',
+                  distance: '',
                   description: '',
                 },
               ],
@@ -214,7 +223,11 @@ export function TimeTracking() {
       const allNewEntries: WeekEntry[] = [];
       weekData.forEach((day) => {
         day.entries.forEach((entry) => {
-          if (!entry.isExisting && entry.contactId && entry.hours && entry.description) {
+          const hasValidData = entry.entryType === 'hours'
+            ? (entry.hours && parseFloat(entry.hours) > 0)
+            : (entry.distance && parseFloat(entry.distance) > 0);
+
+          if (!entry.isExisting && entry.contactId && hasValidData && entry.description) {
             allNewEntries.push(entry);
           }
         });
@@ -224,16 +237,20 @@ export function TimeTracking() {
         await createTimeEntry({
           contactId: entry.contactId,
           date: entry.date,
-          hours: parseFloat(entry.hours),
+          entryType: entry.entryType,
+          hours: entry.entryType === 'hours' ? parseFloat(entry.hours) : undefined,
+          distance: entry.entryType === 'mileage' ? parseFloat(entry.distance) : undefined,
           description: entry.description,
         });
       }
 
-      alert(`${allNewEntries.length} uren succesvol opgeslagen!`);
+      const entryType = allNewEntries.length === 1 ? allNewEntries[0].entryType : null;
+      const label = entryType === 'mileage' ? 'kilometers' : entryType === 'hours' ? 'uren' : 'regels';
+      alert(`${allNewEntries.length} ${label} succesvol opgeslagen!`);
       await loadData();
     } catch (error) {
       console.error('Error saving week:', error);
-      alert('Fout bij opslaan van uren');
+      alert('Fout bij opslaan');
     } finally {
       setSaving(false);
     }
@@ -274,9 +291,14 @@ export function TimeTracking() {
     }
 
     const isComplete = contactData.address && contactData.postal_code && contactData.city;
-    const hasHourlyRate = contactData.hourly_rate && contactData.hourly_rate > 0;
 
-    if (!isComplete || !hasHourlyRate) {
+    // Check if we have the necessary rates for the unbilled entries
+    const hasHourEntries = unbilledEntries.some(e => e.entry_type === 'hours');
+    const hasMileageEntries = unbilledEntries.some(e => e.entry_type === 'mileage');
+    const hasHourlyRate = !hasHourEntries || (contactData.hourly_rate && contactData.hourly_rate > 0);
+    const hasMileageRate = !hasMileageEntries || (contactData.mileage_rate && contactData.mileage_rate > 0);
+
+    if (!isComplete || !hasHourlyRate || !hasMileageRate) {
       setContactToEdit(contactData as Contact);
       setPendingInvoiceContactId(contactId);
       setShowContactEditModal(true);
@@ -292,13 +314,25 @@ export function TimeTracking() {
     );
 
     const hourlyRate = contactData.hourly_rate || 0;
+    const mileageRate = contactData.mileage_rate || 0;
 
-    const lines: InvoiceLineInput[] = unbilledEntries.map((entry) => ({
-      description: `${entry.description} (${entry.hours} uur${hourlyRate > 0 ? ` @ €${hourlyRate}/uur` : ''})`,
-      quantity: entry.hours,
-      unit_price: hourlyRate,
-      vat_rate: 21,
-    }));
+    const lines: InvoiceLineInput[] = unbilledEntries.map((entry) => {
+      if (entry.entry_type === 'hours') {
+        return {
+          description: `${entry.description} (${entry.hours} uur${hourlyRate > 0 ? ` @ €${hourlyRate}/uur` : ''})`,
+          quantity: entry.hours || 0,
+          unit_price: hourlyRate,
+          vat_rate: 21,
+        };
+      } else {
+        return {
+          description: `${entry.description} (${entry.distance} km${mileageRate > 0 ? ` @ €${mileageRate}/km` : ''})`,
+          quantity: entry.distance || 0,
+          unit_price: mileageRate,
+          vat_rate: 21,
+        };
+      }
+    });
 
     setInvoiceContact(contactData);
     setInvoiceLines(lines);
@@ -317,6 +351,25 @@ export function TimeTracking() {
       return;
     }
 
+    // Check if we need rates based on unbilled entries
+    if (pendingInvoiceContactId) {
+      const unbilledEntries = existingEntries.filter(
+        (e) => e.contact_id === pendingInvoiceContactId && e.status === 'open'
+      );
+      const hasHourEntries = unbilledEntries.some(e => e.entry_type === 'hours');
+      const hasMileageEntries = unbilledEntries.some(e => e.entry_type === 'mileage');
+
+      if (hasHourEntries && (!contactToEdit.hourly_rate || contactToEdit.hourly_rate <= 0)) {
+        alert('Uurtarief is verplicht omdat er uren gefactureerd moeten worden');
+        return;
+      }
+
+      if (hasMileageEntries && (!contactToEdit.mileage_rate || contactToEdit.mileage_rate <= 0)) {
+        alert('Kilometertarief is verplicht omdat er kilometers gefactureerd moeten worden');
+        return;
+      }
+    }
+
     const { error } = await supabase
       .from('contacts')
       .update({
@@ -326,6 +379,7 @@ export function TimeTracking() {
         email: contactToEdit.email || null,
         vat_number: contactToEdit.vat_number || null,
         hourly_rate: contactToEdit.hourly_rate || null,
+        mileage_rate: contactToEdit.mileage_rate || null,
       })
       .eq('id', contactToEdit.id);
 
@@ -371,8 +425,8 @@ export function TimeTracking() {
   }
 
   const totalUnbilledHours = existingEntries
-    .filter((e) => e.status === 'open')
-    .reduce((sum, e) => sum + e.hours, 0);
+    .filter((e) => e.status === 'open' && e.entry_type === 'hours')
+    .reduce((sum, e) => sum + (e.hours || 0), 0);
 
   if (loading) {
     return (
@@ -513,7 +567,7 @@ export function TimeTracking() {
                       entry.isExisting ? 'bg-emerald-50 border border-emerald-200' : 'bg-slate-50'
                     }`}
                   >
-                    <div className="md:col-span-4">
+                    <div className="md:col-span-3">
                       <label className="block text-xs font-semibold text-slate-600 mb-1">Klant</label>
                       <select
                         value={entry.contactId}
@@ -530,6 +584,19 @@ export function TimeTracking() {
                       </select>
                     </div>
 
+                    <div className="md:col-span-1">
+                      <label className="block text-xs font-semibold text-slate-600 mb-1">Type</label>
+                      <select
+                        value={entry.entryType}
+                        onChange={(e) => updateEntry(day.date, entry.id, 'entryType', e.target.value)}
+                        disabled={entry.isExisting}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm disabled:bg-slate-100 disabled:cursor-not-allowed"
+                      >
+                        <option value="hours">Uren</option>
+                        <option value="mileage">Km</option>
+                      </select>
+                    </div>
+
                     <div className="md:col-span-4">
                       <label className="block text-xs font-semibold text-slate-600 mb-1">Omschrijving</label>
                       <input
@@ -543,15 +610,22 @@ export function TimeTracking() {
                     </div>
 
                     <div className="md:col-span-2">
-                      <label className="block text-xs font-semibold text-slate-600 mb-1">Uren</label>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1">
+                        {entry.entryType === 'hours' ? 'Uren' : 'Kilometers'}
+                      </label>
                       <input
                         type="number"
-                        step="0.25"
+                        step={entry.entryType === 'hours' ? '0.25' : '1'}
                         min="0"
-                        value={entry.hours}
-                        onChange={(e) => updateEntry(day.date, entry.id, 'hours', e.target.value)}
+                        value={entry.entryType === 'hours' ? entry.hours : entry.distance}
+                        onChange={(e) => updateEntry(
+                          day.date,
+                          entry.id,
+                          entry.entryType === 'hours' ? 'hours' : 'distance',
+                          e.target.value
+                        )}
                         disabled={entry.isExisting}
-                        placeholder="0.00"
+                        placeholder={entry.entryType === 'hours' ? '0.00' : '0'}
                         className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm disabled:bg-slate-100 disabled:cursor-not-allowed"
                       />
                     </div>
@@ -745,22 +819,42 @@ export function TimeTracking() {
                 />
               </div>
 
-              <div className="p-4 bg-amber-50 border-2 border-amber-300 rounded-xl">
-                <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  Uurtarief (€) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={contactToEdit.hourly_rate || ''}
-                  onChange={(e) => setContactToEdit({ ...contactToEdit, hourly_rate: parseFloat(e.target.value) || null })}
-                  placeholder="85.00"
-                  className="w-full px-4 py-2.5 border-2 border-slate-300 rounded-xl focus:border-blue-500 focus:outline-none"
-                />
-                <p className="text-xs text-slate-600 mt-1">
-                  Dit tarief wordt gebruikt om de factuurregels automatisch te berekenen
-                </p>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 bg-amber-50 border-2 border-amber-300 rounded-xl">
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Uurtarief (€)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={contactToEdit.hourly_rate || ''}
+                    onChange={(e) => setContactToEdit({ ...contactToEdit, hourly_rate: parseFloat(e.target.value) || null })}
+                    placeholder="85.00"
+                    className="w-full px-4 py-2.5 border-2 border-slate-300 rounded-xl focus:border-blue-500 focus:outline-none"
+                  />
+                  <p className="text-xs text-slate-600 mt-1">
+                    Voor uren declaraties
+                  </p>
+                </div>
+
+                <div className="p-4 bg-emerald-50 border-2 border-emerald-300 rounded-xl">
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Kilometertarief (€)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={contactToEdit.mileage_rate || ''}
+                    onChange={(e) => setContactToEdit({ ...contactToEdit, mileage_rate: parseFloat(e.target.value) || null })}
+                    placeholder="0.23"
+                    className="w-full px-4 py-2.5 border-2 border-slate-300 rounded-xl focus:border-blue-500 focus:outline-none"
+                  />
+                  <p className="text-xs text-slate-600 mt-1">
+                    Voor reiskosten declaraties
+                  </p>
+                </div>
               </div>
             </div>
 
