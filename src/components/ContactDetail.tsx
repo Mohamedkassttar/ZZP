@@ -202,6 +202,15 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
     });
   };
 
+  const handleResendClickOldInvoice = (invoice: Invoice) => {
+    setResendModal({
+      isOpen: true,
+      invoiceId: invoice.id,
+      invoiceNumber: invoice.invoice_number || 'Onbekend',
+      defaultEmail: contact.email || '',
+    });
+  };
+
   const handleResend = async (email: string) => {
     const result = await resendInvoice(resendModal.invoiceId, email);
 
@@ -213,6 +222,15 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
   };
 
   const handleStatusClick = (invoice: SalesInvoice) => {
+    setStatusModal({
+      isOpen: true,
+      invoiceId: invoice.id,
+      invoiceNumber: invoice.invoice_number || 'Onbekend',
+      currentStatus: invoice.status,
+    });
+  };
+
+  const handleStatusClickOldInvoice = (invoice: Invoice) => {
     setStatusModal({
       isOpen: true,
       invoiceId: invoice.id,
@@ -482,14 +500,14 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
                           <td className="px-4 py-3">
                             <div className="flex items-center justify-end gap-2">
                               <button
-                                onClick={() => handleStatusClick(invoice)}
+                                onClick={() => handleStatusClickOldInvoice(invoice)}
                                 className="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                                 title="Status wijzigen"
                               >
                                 <Edit2 className="w-4 h-4" />
                               </button>
                               <button
-                                onClick={() => handleResendClick(invoice)}
+                                onClick={() => handleResendClickOldInvoice(invoice)}
                                 className="p-2 text-slate-600 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
                                 title="Opnieuw mailen"
                               >
