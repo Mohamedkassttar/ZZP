@@ -12,6 +12,7 @@ interface Product {
   unit: string;
   sku: string | null;
   is_active: boolean;
+  vat_percentage: number;
 }
 
 export default function Products() {
@@ -28,6 +29,7 @@ export default function Products() {
     price: 0,
     unit: 'stuk',
     sku: '',
+    vat_percentage: 21,
   });
 
   useEffect(() => {
@@ -88,6 +90,7 @@ export default function Products() {
         price: Number(product.price),
         unit: product.unit,
         sku: product.sku || '',
+        vat_percentage: Number(product.vat_percentage),
       });
     } else {
       setEditingProduct(null);
@@ -97,6 +100,7 @@ export default function Products() {
         price: 0,
         unit: 'stuk',
         sku: '',
+        vat_percentage: 21,
       });
     }
     setModalOpen(true);
@@ -111,6 +115,7 @@ export default function Products() {
       price: 0,
       unit: 'stuk',
       sku: '',
+      vat_percentage: 21,
     });
   };
 
@@ -135,6 +140,7 @@ export default function Products() {
             price: formData.price,
             unit: formData.unit,
             sku: formData.sku || null,
+            vat_percentage: formData.vat_percentage,
           })
           .eq('id', editingProduct.id);
 
@@ -149,6 +155,7 @@ export default function Products() {
             price: formData.price,
             unit: formData.unit,
             sku: formData.sku || null,
+            vat_percentage: formData.vat_percentage,
           });
 
         if (error) throw error;
@@ -268,6 +275,9 @@ export default function Products() {
                       Prijs
                     </th>
                     <th className="px-6 py-4 text-center text-xs font-semibold text-slate-900 uppercase tracking-wider">
+                      BTW
+                    </th>
+                    <th className="px-6 py-4 text-center text-xs font-semibold text-slate-900 uppercase tracking-wider">
                       Eenheid
                     </th>
                     <th className="px-6 py-4 text-right text-xs font-semibold text-slate-900 uppercase tracking-wider">
@@ -296,6 +306,11 @@ export default function Products() {
                       <td className="px-6 py-4 text-right">
                         <span className="text-sm font-semibold text-slate-900">
                           €{Number(product.price).toFixed(2)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                          {Number(product.vat_percentage)}%
                         </span>
                       </td>
                       <td className="px-6 py-4 text-center">
@@ -377,7 +392,7 @@ export default function Products() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-2">
-                      Prijs
+                      Prijs (excl. BTW)
                     </label>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">
@@ -400,25 +415,42 @@ export default function Products() {
 
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-2">
-                      Eenheid
+                      BTW %
                     </label>
                     <select
-                      value={formData.unit}
+                      value={formData.vat_percentage}
                       onChange={(e) =>
-                        setFormData({ ...formData, unit: e.target.value })
+                        setFormData({ ...formData, vat_percentage: parseFloat(e.target.value) })
                       }
                       className="w-full px-4 py-2.5 border-2 border-slate-200 rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none transition-all"
                     >
-                      <option value="stuk">Stuk</option>
-                      <option value="uur">Uur</option>
-                      <option value="dag">Dag</option>
-                      <option value="week">Week</option>
-                      <option value="maand">Maand</option>
-                      <option value="project">Project</option>
-                      <option value="kilometer">Kilometer</option>
-                      <option value="pakket">Pakket</option>
+                      <option value="0">0% (geen BTW)</option>
+                      <option value="9">9% (laag tarief)</option>
+                      <option value="21">21% (hoog tarief)</option>
                     </select>
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Eenheid
+                  </label>
+                  <select
+                    value={formData.unit}
+                    onChange={(e) =>
+                      setFormData({ ...formData, unit: e.target.value })
+                    }
+                    className="w-full px-4 py-2.5 border-2 border-slate-200 rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none transition-all"
+                  >
+                    <option value="stuk">Stuk</option>
+                    <option value="uur">Uur</option>
+                    <option value="dag">Dag</option>
+                    <option value="week">Week</option>
+                    <option value="maand">Maand</option>
+                    <option value="project">Project</option>
+                    <option value="kilometer">Kilometer</option>
+                    <option value="pakket">Pakket</option>
+                  </select>
                 </div>
 
                 <div>
