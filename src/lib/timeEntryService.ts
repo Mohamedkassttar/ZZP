@@ -171,10 +171,13 @@ export async function createTimeEntry(input: CreateTimeEntryInput): Promise<{
   error?: string;
 }> {
   try {
+    console.log('[createTimeEntry] Input received:', JSON.stringify(input, null, 2));
+
     // Get current user
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
+      console.error('[createTimeEntry] No user logged in');
       return {
         success: false,
         error: 'Gebruiker niet ingelogd',
@@ -192,7 +195,8 @@ export async function createTimeEntry(input: CreateTimeEntryInput): Promise<{
 
     // Add hours or distance based on entry type
     if (input.entryType === 'hours') {
-      if (!input.hours || input.hours <= 0) {
+      if (input.hours === undefined || input.hours === null || isNaN(input.hours) || input.hours <= 0) {
+        console.error('[createTimeEntry] Invalid hours value:', input.hours);
         return {
           success: false,
           error: 'Aantal uren moet groter dan 0 zijn',
@@ -201,7 +205,8 @@ export async function createTimeEntry(input: CreateTimeEntryInput): Promise<{
       insertData.hours = input.hours;
       insertData.distance = null;
     } else {
-      if (!input.distance || input.distance <= 0) {
+      if (input.distance === undefined || input.distance === null || isNaN(input.distance) || input.distance <= 0) {
+        console.error('[createTimeEntry] Invalid distance value:', input.distance);
         return {
           success: false,
           error: 'Afstand moet groter dan 0 zijn',
@@ -210,6 +215,8 @@ export async function createTimeEntry(input: CreateTimeEntryInput): Promise<{
       insertData.distance = input.distance;
       insertData.hours = null;
     }
+
+    console.log('[createTimeEntry] Data to insert:', JSON.stringify(insertData, null, 2));
 
     const { data, error } = await supabase
       .from('time_entries')

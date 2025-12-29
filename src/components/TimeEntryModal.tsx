@@ -43,22 +43,30 @@ export function TimeEntryModal({
 
     setError(null);
 
-    // Validate based on entry type
-    if (entryType === 'hours') {
-      if (!hours || parseFloat(hours) <= 0) {
-        setError('Vul een geldig aantal uren in');
-        return;
-      }
-    } else {
-      if (!distance || parseFloat(distance) <= 0) {
-        setError('Vul een geldige afstand in kilometers in');
-        return;
-      }
-    }
-
     if (!description.trim()) {
       setError('Vul een omschrijving in');
       return;
+    }
+
+    let validatedHours: number | undefined;
+    let validatedDistance: number | undefined;
+
+    if (entryType === 'hours') {
+      const hoursValue = parseFloat(hours);
+      if (isNaN(hoursValue) || hoursValue <= 0 || !hours.trim()) {
+        setError('Vul een geldig aantal uren in (groter dan 0)');
+        return;
+      }
+      validatedHours = hoursValue;
+      validatedDistance = undefined;
+    } else {
+      const distanceValue = parseFloat(distance);
+      if (isNaN(distanceValue) || distanceValue <= 0 || !distance.trim()) {
+        setError('Vul een geldige afstand in kilometers in (groter dan 0)');
+        return;
+      }
+      validatedDistance = distanceValue;
+      validatedHours = undefined;
     }
 
     setSaving(true);
@@ -67,9 +75,9 @@ export function TimeEntryModal({
       const result = await updateTimeEntry(entry.id, {
         date,
         entryType,
-        hours: entryType === 'hours' ? parseFloat(hours) : undefined,
-        distance: entryType === 'mileage' ? parseFloat(distance) : undefined,
-        description,
+        hours: validatedHours,
+        distance: validatedDistance,
+        description: description.trim(),
       });
 
       if (result.success) {

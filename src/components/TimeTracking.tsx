@@ -643,21 +643,23 @@ export function TimeTracking() {
                                     const fullEntry = existingEntries.find((e) => e.id === entry.existingId);
                                     if (fullEntry) handleEditEntry(fullEntry);
                                   }}
-                                  className="flex-1 p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                  className="flex-1 px-3 py-2 text-sm font-medium text-blue-700 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors flex items-center justify-center gap-1.5 border border-blue-200"
                                   title="Bewerken"
                                 >
-                                  <Edit2 className="w-5 h-5 mx-auto" />
+                                  <Edit2 className="w-4 h-4" />
+                                  <span className="hidden lg:inline">Wijzig</span>
                                 </button>
                                 <button
                                   onClick={() => handleDeleteExistingEntry(entry.existingId!)}
-                                  className="flex-1 p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                  className="flex-1 px-3 py-2 text-sm font-medium text-red-700 hover:text-red-800 bg-red-50 hover:bg-red-100 rounded-lg transition-colors flex items-center justify-center gap-1.5 border border-red-200"
                                   title="Verwijderen"
                                 >
-                                  <Trash2 className="w-5 h-5 mx-auto" />
+                                  <Trash2 className="w-4 h-4" />
+                                  <span className="hidden lg:inline">Verw</span>
                                 </button>
                               </>
                             ) : (
-                              <div className="flex-1 p-2 text-center">
+                              <div className="flex-1 p-2 text-center bg-slate-100 rounded-lg border border-slate-200">
                                 <span className="text-xs text-slate-500 font-semibold">Gefactureerd</span>
                               </div>
                             );
@@ -667,10 +669,11 @@ export function TimeTracking() {
                         day.entries.length > 1 && (
                           <button
                             onClick={() => removeEntryFromDay(day.date, entry.id)}
-                            className="w-full p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            className="w-full px-3 py-2 text-sm font-medium text-slate-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors flex items-center justify-center gap-1.5 border border-slate-200"
                             title="Regel verwijderen"
                           >
-                            <Trash2 className="w-5 h-5 mx-auto" />
+                            <Trash2 className="w-4 h-4" />
+                            <span className="hidden lg:inline">Verwijder</span>
                           </button>
                         )
                       )}
