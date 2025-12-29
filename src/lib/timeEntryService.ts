@@ -192,10 +192,22 @@ export async function createTimeEntry(input: CreateTimeEntryInput): Promise<{
 
     // Add hours or distance based on entry type
     if (input.entryType === 'hours') {
-      insertData.hours = input.hours || 0;
+      if (!input.hours || input.hours <= 0) {
+        return {
+          success: false,
+          error: 'Aantal uren moet groter dan 0 zijn',
+        };
+      }
+      insertData.hours = input.hours;
       insertData.distance = null;
     } else {
-      insertData.distance = input.distance || 0;
+      if (!input.distance || input.distance <= 0) {
+        return {
+          success: false,
+          error: 'Afstand moet groter dan 0 zijn',
+        };
+      }
+      insertData.distance = input.distance;
       insertData.hours = null;
     }
 

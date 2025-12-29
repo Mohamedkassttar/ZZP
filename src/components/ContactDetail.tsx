@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, FileText, Clock, Receipt, CreditCard, CheckCircle, Mail, Eye } from 'lucide-react';
+import { ArrowLeft, FileText, Clock, Receipt, CreditCard, CheckCircle, Mail, Eye, Edit2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { resendInvoice } from '../lib/salesService';
 import { ResendInvoiceModal } from './ResendInvoiceModal';
@@ -40,6 +40,17 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
     invoiceId: '',
     invoiceNumber: '',
     defaultEmail: '',
+  });
+  const [statusModal, setStatusModal] = useState<{
+    isOpen: boolean;
+    invoiceId: string;
+    invoiceNumber: string;
+    currentStatus: string;
+  }>({
+    isOpen: false,
+    invoiceId: '',
+    invoiceNumber: '',
+    currentStatus: '',
   });
 
   const isCreditor = contact.relation_type === 'Supplier' || contact.relation_type === 'Both';
@@ -199,6 +210,32 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
     }
 
     return result;
+  };
+
+  const handleStatusClick = (invoice: SalesInvoice) => {
+    setStatusModal({
+      isOpen: true,
+      invoiceId: invoice.id,
+      invoiceNumber: invoice.invoice_number || 'Onbekend',
+      currentStatus: invoice.status,
+    });
+  };
+
+  const handleStatusChange = async (newStatus: string) => {
+    const { error } = await supabase
+      .from('sales_invoices')
+      .update({ status: newStatus })
+      .eq('id', statusModal.invoiceId);
+
+    if (error) {
+      alert('Fout bij wijzigen status: ' + error.message);
+      return false;
+    }
+
+    await loadSalesInvoices();
+    await loadOutstandingInvoices();
+    setStatusModal({ isOpen: false, invoiceId: '', invoiceNumber: '', currentStatus: '' });
+    return true;
   };
 
   const getStatusColor = (status: string) => {
@@ -367,10 +404,11 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
                           <td className="px-4 py-3">
                             <div className="flex items-center justify-end gap-2">
                               <button
+                                onClick={() => handleStatusClick(invoice)}
                                 className="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                title="Bekijken"
+                                title="Status wijzigen"
                               >
-                                <Eye className="w-4 h-4" />
+                                <Edit2 className="w-4 h-4" />
                               </button>
                               <button
                                 onClick={() => handleResendClick(invoice)}
@@ -529,6 +567,45 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
         defaultEmail={resendModal.defaultEmail}
         onResend={handleResend}
       />
+
+      {statusModal.isOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <h2 className="text-2xl font-black text-slate-800 mb-4">Status Wijzigen</h2>
+            <p className="text-slate-600 mb-6">
+              Wijzig de status van factuur <span className="font-semibold">{statusModal.invoiceNumber}</span>
+            </p>
+
+            <div className="space-y-3 mb-6">
+              {['draft', 'open', 'sent', 'paid', 'overdue'].map((status) => (
+                <button
+                  key={status}
+                  onClick={() => handleStatusChange(status)}
+                  className={`w-full px-4 py-3 rounded-xl text-left font-medium transition-colors ${
+                    statusModal.currentStatus === status
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-slate-100 hover:bg-slate-200 text-slate-800'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="capitalize">{status === 'draft' ? 'Concept' : status === 'open' ? 'Open' : status === 'sent' ? 'Verzonden' : status === 'paid' ? 'Betaald' : 'Verlopen'}</span>
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(status)}`}>
+                      {status}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={() => setStatusModal({ isOpen: false, invoiceId: '', invoiceNumber: '', currentStatus: '' })}
+              className="w-full px-4 py-2.5 border-2 border-slate-300 text-slate-700 rounded-xl hover:bg-slate-50 transition-colors font-semibold"
+            >
+              Annuleren
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
