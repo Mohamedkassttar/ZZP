@@ -78,6 +78,17 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
     totalAmount: 0,
     tableName: 'sales_invoices',
   });
+  const [detailModal, setDetailModal] = useState<{
+    isOpen: boolean;
+    invoice: any;
+    lines: any[];
+    tableName: 'invoices' | 'sales_invoices';
+  }>({
+    isOpen: false,
+    invoice: null,
+    lines: [],
+    tableName: 'sales_invoices',
+  });
 
   const isCreditor = contact.relation_type === 'Supplier' || contact.relation_type === 'Both';
   const isDebtor = contact.relation_type === 'Customer' || contact.relation_type === 'Both';
@@ -359,6 +370,30 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
     setEditModal({ isOpen: false, invoiceId: '', invoiceNumber: '', totalAmount: 0, tableName: 'sales_invoices' });
   };
 
+  const handleInvoiceDetailClick = async (invoice: SalesInvoice) => {
+    setDetailModal({
+      isOpen: true,
+      invoice,
+      lines: [],
+      tableName: 'sales_invoices',
+    });
+  };
+
+  const handleInvoiceDetailClickOld = async (invoice: Invoice) => {
+    const { data: lines } = await supabase
+      .from('invoice_lines')
+      .select('*, accounts:ledger_account_id(account_code, account_name)')
+      .eq('invoice_id', invoice.id)
+      .order('line_order');
+
+    setDetailModal({
+      isOpen: true,
+      invoice,
+      lines: lines || [],
+      tableName: 'invoices',
+    });
+  };
+
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
       case 'draft':
@@ -499,8 +534,13 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
                           <td className="px-4 py-3 text-sm text-slate-700">
                             {new Date(invoice.date).toLocaleDateString('nl-NL')}
                           </td>
-                          <td className="px-4 py-3 text-sm font-medium text-slate-900">
-                            {invoice.invoice_number}
+                          <td className="px-4 py-3 text-sm font-medium">
+                            <button
+                              onClick={() => handleInvoiceDetailClick(invoice)}
+                              className="text-blue-600 hover:text-blue-800 hover:underline font-medium transition-colors"
+                            >
+                              {invoice.invoice_number}
+                            </button>
                           </td>
                           <td className="px-4 py-3 text-sm text-right font-medium text-slate-900">
                             €{Number(invoice.total_amount).toFixed(2)}
@@ -597,8 +637,13 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
                     <tbody className="divide-y divide-slate-200">
                       {outstandingInvoices.map((invoice) => (
                         <tr key={invoice.id} className="hover:bg-slate-50">
-                          <td className="px-4 py-3 text-sm font-medium text-slate-900">
-                            {invoice.invoice_number}
+                          <td className="px-4 py-3 text-sm font-medium">
+                            <button
+                              onClick={() => handleInvoiceDetailClickOld(invoice)}
+                              className="text-blue-600 hover:text-blue-800 hover:underline font-medium transition-colors"
+                            >
+                              {invoice.invoice_number}
+                            </button>
                           </td>
                           <td className="px-4 py-3 text-sm text-slate-700">
                             {new Date(invoice.invoice_date).toLocaleDateString('nl-NL')}
@@ -852,6 +897,211 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
                 className="flex-1 px-4 py-2.5 bg-amber-600 text-white rounded-xl hover:bg-amber-700 transition-colors font-semibold"
               >
                 Opslaan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {detailModal.isOpen && detailModal.invoice && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="p-6 border-b border-slate-200">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-blue-100 rounded-full">
+                    <FileText className="w-6 h-6 text-blue-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-black text-slate-800">
+                      Factuur {detailModal.tableName === 'sales_invoices'
+                        ? detailModal.invoice.invoice_number
+                        : detailModal.invoice.invoice_number}
+                    </h2>
+                    <p className="text-sm text-slate-500">
+                      {detailModal.tableName === 'sales_invoices'
+                        ? new Date(detailModal.invoice.date).toLocaleDateString('nl-NL', { year: 'numeric', month: 'long', day: 'numeric' })
+                        : new Date(detailModal.invoice.invoice_date).toLocaleDateString('nl-NL', { year: 'numeric', month: 'long', day: 'numeric' })}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setDetailModal({ isOpen: false, invoice: null, lines: [], tableName: 'sales_invoices' })}
+                  className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                >
+                  <span className="text-2xl text-slate-400">&times;</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="grid grid-cols-2 gap-6 mb-6">
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                      Factuurnummer
+                    </label>
+                    <p className="text-base font-semibold text-slate-900">
+                      {detailModal.tableName === 'sales_invoices'
+                        ? detailModal.invoice.invoice_number
+                        : detailModal.invoice.invoice_number}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                      Status
+                    </label>
+                    <div className="mt-1">
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(detailModal.invoice.status)}`}>
+                        {detailModal.invoice.status}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                      Factuurdatum
+                    </label>
+                    <p className="text-base text-slate-900">
+                      {detailModal.tableName === 'sales_invoices'
+                        ? new Date(detailModal.invoice.date).toLocaleDateString('nl-NL')
+                        : new Date(detailModal.invoice.invoice_date).toLocaleDateString('nl-NL')}
+                    </p>
+                  </div>
+                  {detailModal.tableName === 'invoices' && (
+                    <div>
+                      <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                        Vervaldatum
+                      </label>
+                      <p className="text-base text-slate-900">
+                        {new Date(detailModal.invoice.due_date).toLocaleDateString('nl-NL')}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {detailModal.tableName === 'invoices' && detailModal.lines.length > 0 && (
+                <div className="mb-6">
+                  <h3 className="text-lg font-bold text-slate-800 mb-3">Factuurregels</h3>
+                  <div className="border border-slate-200 rounded-xl overflow-hidden">
+                    <table className="w-full">
+                      <thead className="bg-slate-50">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-slate-900">Omschrijving</th>
+                          <th className="px-4 py-3 text-center text-xs font-semibold text-slate-900">Aantal</th>
+                          <th className="px-4 py-3 text-right text-xs font-semibold text-slate-900">Prijs</th>
+                          <th className="px-4 py-3 text-right text-xs font-semibold text-slate-900">BTW %</th>
+                          <th className="px-4 py-3 text-right text-xs font-semibold text-slate-900">Totaal</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200">
+                        {detailModal.lines.map((line: any) => (
+                          <tr key={line.id} className="hover:bg-slate-50">
+                            <td className="px-4 py-3">
+                              <div className="text-sm font-medium text-slate-900">{line.description}</div>
+                              {line.accounts && (
+                                <div className="text-xs text-slate-500">{line.accounts.account_code} - {line.accounts.account_name}</div>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-center text-sm text-slate-700">
+                              {Number(line.quantity).toFixed(2)}
+                            </td>
+                            <td className="px-4 py-3 text-right text-sm text-slate-700">
+                              €{Number(line.unit_price).toFixed(2)}
+                            </td>
+                            <td className="px-4 py-3 text-right text-sm text-slate-700">
+                              {Number(line.vat_rate).toFixed(0)}%
+                            </td>
+                            <td className="px-4 py-3 text-right text-sm font-medium text-slate-900">
+                              €{Number(line.amount).toFixed(2)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              <div className="bg-slate-50 rounded-xl p-6">
+                <h3 className="text-lg font-bold text-slate-800 mb-4">Totalen</h3>
+                <div className="space-y-2">
+                  {detailModal.tableName === 'invoices' && (
+                    <>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-slate-600">Subtotaal</span>
+                        <span className="font-medium text-slate-900">
+                          €{Number(detailModal.invoice.subtotal).toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-slate-600">BTW</span>
+                        <span className="font-medium text-slate-900">
+                          €{Number(detailModal.invoice.vat_amount).toFixed(2)}
+                        </span>
+                      </div>
+                    </>
+                  )}
+                  {detailModal.tableName === 'sales_invoices' && detailModal.invoice.vat_amount > 0 && (
+                    <>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-slate-600">Subtotaal</span>
+                        <span className="font-medium text-slate-900">
+                          €{(Number(detailModal.invoice.total_amount) - Number(detailModal.invoice.vat_amount)).toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-slate-600">BTW</span>
+                        <span className="font-medium text-slate-900">
+                          €{Number(detailModal.invoice.vat_amount).toFixed(2)}
+                        </span>
+                      </div>
+                    </>
+                  )}
+                  <div className="pt-2 border-t-2 border-slate-300">
+                    <div className="flex justify-between text-lg font-bold">
+                      <span className="text-slate-900">Totaal</span>
+                      <span className="text-slate-900">
+                        €{Number(detailModal.invoice.total_amount).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {detailModal.invoice.notes && (
+                <div className="mt-6">
+                  <h3 className="text-lg font-bold text-slate-800 mb-2">Opmerkingen</h3>
+                  <p className="text-sm text-slate-600 bg-slate-50 rounded-lg p-4">
+                    {detailModal.invoice.notes}
+                  </p>
+                </div>
+              )}
+
+              {detailModal.tableName === 'sales_invoices' && detailModal.invoice.pdf_url && (
+                <div className="mt-6">
+                  <a
+                    href={detailModal.invoice.pdf_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
+                  >
+                    <Eye className="w-4 h-4" />
+                    Bekijk PDF
+                  </a>
+                </div>
+              )}
+            </div>
+
+            <div className="p-6 border-t border-slate-200">
+              <button
+                onClick={() => setDetailModal({ isOpen: false, invoice: null, lines: [], tableName: 'sales_invoices' })}
+                className="w-full px-4 py-2.5 border-2 border-slate-300 text-slate-700 rounded-xl hover:bg-slate-50 transition-colors font-semibold"
+              >
+                Sluiten
               </button>
             </div>
           </div>
