@@ -71,6 +71,15 @@ export function PortalCreateInvoice() {
   const [showContactEditModal, setShowContactEditModal] = useState(false);
   const [contactToEdit, setContactToEdit] = useState<Contact | null>(null);
   const [pendingFinalize, setPendingFinalize] = useState(false);
+  const [deleteConfirmModal, setDeleteConfirmModal] = useState<{
+    isOpen: boolean;
+    lineId: string;
+    lineDescription: string;
+  }>({
+    isOpen: false,
+    lineId: '',
+    lineDescription: '',
+  });
 
   const [selectedContactId, setSelectedContactId] = useState('');
   const [invoiceNumber, setInvoiceNumber] = useState('');
@@ -347,10 +356,22 @@ export function PortalCreateInvoice() {
     ]);
   }
 
-  function removeLine(id: string) {
-    if (lines.length > 1) {
-      setLines(lines.filter((line) => line.id !== id));
+  function handleRemoveLineClick(lineId: string) {
+    const line = lines.find(l => l.id === lineId);
+    if (line && lines.length > 1) {
+      setDeleteConfirmModal({
+        isOpen: true,
+        lineId: lineId,
+        lineDescription: line.description || 'Onbekende regel',
+      });
     }
+  }
+
+  function confirmRemoveLine() {
+    if (lines.length > 1) {
+      setLines(lines.filter((line) => line.id !== deleteConfirmModal.lineId));
+    }
+    setDeleteConfirmModal({ isOpen: false, lineId: '', lineDescription: '' });
   }
 
   function updateLine(id: string, field: keyof LineItem, value: string) {
@@ -1038,8 +1059,9 @@ export function PortalCreateInvoice() {
                         <span className="text-xs sm:text-sm font-semibold text-gray-700">Regel {index + 1}</span>
                         {lines.length > 1 && (
                           <button
-                            onClick={() => removeLine(line.id)}
+                            onClick={() => handleRemoveLineClick(line.id)}
                             className="text-red-600 hover:text-red-700 p-1 hover:bg-red-50 rounded transition-colors"
+                            title="Factuurregel verwijderen"
                           >
                             <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                           </button>
@@ -1282,6 +1304,46 @@ export function PortalCreateInvoice() {
                 <Save className="w-4 h-4 sm:w-5 sm:h-5" />
                 Opslaan & Doorgaan
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmModal.isOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-xl sm:rounded-2xl shadow-2xl max-w-md w-full mx-4">
+            <div className="p-4 sm:p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 bg-red-100 rounded-full flex items-center justify-center">
+                  <AlertCircle className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-semibold text-slate-900">Factuurregel verwijderen</h3>
+                  <p className="text-xs sm:text-sm text-slate-600">Deze actie kan niet ongedaan worden gemaakt</p>
+                </div>
+              </div>
+
+              <div className="mb-6 p-3 sm:p-4 bg-slate-50 rounded-lg">
+                <p className="text-sm text-slate-700 mb-1 font-medium">Weet je zeker dat je deze regel wilt verwijderen?</p>
+                <p className="text-sm text-slate-600 italic">&quot;{deleteConfirmModal.lineDescription}&quot;</p>
+              </div>
+
+              <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-3">
+                <button
+                  onClick={() => setDeleteConfirmModal({ isOpen: false, lineId: '', lineDescription: '' })}
+                  className="px-4 py-2 text-sm border-2 border-slate-300 text-slate-700 rounded-xl hover:bg-slate-50 transition-colors font-semibold order-2 sm:order-1"
+                >
+                  Annuleren
+                </button>
+                <button
+                  onClick={confirmRemoveLine}
+                  className="px-4 py-2 text-sm bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors font-semibold flex items-center justify-center gap-2 order-1 sm:order-2"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Verwijderen
+                </button>
+              </div>
             </div>
           </div>
         </div>
