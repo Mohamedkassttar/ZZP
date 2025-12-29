@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, FileText, Clock, Receipt, CreditCard, CheckCircle, Mail, Eye, Edit2, Trash2 } from 'lucide-react';
+import { ArrowLeft, FileText, Clock, Receipt, CreditCard, CheckCircle, Mail, Eye, Edit2, Trash2, Euro } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { resendInvoice } from '../lib/salesService';
 import { ResendInvoiceModal } from './ResendInvoiceModal';
@@ -63,6 +63,19 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
     isOpen: false,
     invoiceId: '',
     invoiceNumber: '',
+    tableName: 'sales_invoices',
+  });
+  const [editModal, setEditModal] = useState<{
+    isOpen: boolean;
+    invoiceId: string;
+    invoiceNumber: string;
+    totalAmount: number;
+    tableName: 'invoices' | 'sales_invoices';
+  }>({
+    isOpen: false,
+    invoiceId: '',
+    invoiceNumber: '',
+    totalAmount: 0,
     tableName: 'sales_invoices',
   });
 
@@ -255,9 +268,14 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
   };
 
   const handleStatusChange = async (newStatus: string) => {
+    // Convert status to correct case based on table
+    const statusValue = statusModal.tableName === 'invoices'
+      ? newStatus.charAt(0).toUpperCase() + newStatus.slice(1)  // 'sent' -> 'Sent'
+      : newStatus.toLowerCase();  // Keep lowercase for sales_invoices
+
     const { error } = await supabase
       .from(statusModal.tableName)
-      .update({ status: newStatus })
+      .update({ status: statusValue })
       .eq('id', statusModal.invoiceId);
 
     if (error) {
@@ -303,6 +321,42 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
     await loadSalesInvoices();
     await loadOutstandingInvoices();
     setDeleteModal({ isOpen: false, invoiceId: '', invoiceNumber: '', tableName: 'sales_invoices' });
+  };
+
+  const handleEditClick = (invoice: SalesInvoice) => {
+    setEditModal({
+      isOpen: true,
+      invoiceId: invoice.id,
+      invoiceNumber: invoice.invoice_number || 'Onbekend',
+      totalAmount: invoice.total_amount || 0,
+      tableName: 'sales_invoices',
+    });
+  };
+
+  const handleEditClickOldInvoice = (invoice: Invoice) => {
+    setEditModal({
+      isOpen: true,
+      invoiceId: invoice.id,
+      invoiceNumber: invoice.invoice_number || 'Onbekend',
+      totalAmount: invoice.total_amount || 0,
+      tableName: 'invoices',
+    });
+  };
+
+  const handleEditSave = async () => {
+    const { error } = await supabase
+      .from(editModal.tableName)
+      .update({ total_amount: editModal.totalAmount })
+      .eq('id', editModal.invoiceId);
+
+    if (error) {
+      alert('Fout bij wijzigen bedrag: ' + error.message);
+      return;
+    }
+
+    await loadSalesInvoices();
+    await loadOutstandingInvoices();
+    setEditModal({ isOpen: false, invoiceId: '', invoiceNumber: '', totalAmount: 0, tableName: 'sales_invoices' });
   };
 
   const getStatusColor = (status: string) => {
@@ -471,6 +525,13 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
                           <td className="px-4 py-3">
                             <div className="flex items-center justify-end gap-2">
                               <button
+                                onClick={() => handleEditClick(invoice)}
+                                className="p-2 text-slate-600 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                                title="Bedrag wijzigen"
+                              >
+                                <Euro className="w-4 h-4" />
+                              </button>
+                              <button
                                 onClick={() => handleStatusClick(invoice)}
                                 className="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                                 title="Status wijzigen"
@@ -555,6 +616,13 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex items-center justify-end gap-2">
+                              <button
+                                onClick={() => handleEditClickOldInvoice(invoice)}
+                                className="p-2 text-slate-600 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                                title="Bedrag wijzigen"
+                              >
+                                <Euro className="w-4 h-4" />
+                              </button>
                               <button
                                 onClick={() => handleStatusClickOldInvoice(invoice)}
                                 className="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
@@ -735,6 +803,55 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
                 className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors font-semibold"
               >
                 Verwijderen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editModal.isOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 bg-amber-100 rounded-full">
+                <Euro className="w-6 h-6 text-amber-600" />
+              </div>
+              <h2 className="text-2xl font-black text-slate-800">Bedrag Wijzigen</h2>
+            </div>
+
+            <p className="text-slate-600 mb-4">
+              Wijzig het totale bedrag van factuur <span className="font-semibold">{editModal.invoiceNumber}</span>
+            </p>
+
+            <div className="mb-6">
+              <label className="block text-sm font-semibold text-slate-700 mb-2">
+                Totaal Bedrag
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">€</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={editModal.totalAmount}
+                  onChange={(e) => setEditModal({ ...editModal, totalAmount: parseFloat(e.target.value) || 0 })}
+                  className="w-full pl-8 pr-4 py-2.5 border-2 border-slate-200 rounded-xl focus:border-amber-500 focus:outline-none text-slate-900 font-medium"
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setEditModal({ isOpen: false, invoiceId: '', invoiceNumber: '', totalAmount: 0, tableName: 'sales_invoices' })}
+                className="flex-1 px-4 py-2.5 border-2 border-slate-300 text-slate-700 rounded-xl hover:bg-slate-50 transition-colors font-semibold"
+              >
+                Annuleren
+              </button>
+              <button
+                onClick={handleEditSave}
+                className="flex-1 px-4 py-2.5 bg-amber-600 text-white rounded-xl hover:bg-amber-700 transition-colors font-semibold"
+              >
+                Opslaan
               </button>
             </div>
           </div>
