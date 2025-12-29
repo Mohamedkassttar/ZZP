@@ -454,6 +454,9 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
                         <th className="px-4 py-3 text-left text-xs font-semibold text-slate-900">
                           Status
                         </th>
+                        <th className="px-4 py-3 text-right text-xs font-semibold text-slate-900">
+                          Acties
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200">
@@ -475,6 +478,24 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
                             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
                               {invoice.status}
                             </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                onClick={() => handleStatusClick(invoice)}
+                                className="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                title="Status wijzigen"
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleResendClick(invoice)}
+                                className="p-2 text-slate-600 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                                title="Opnieuw mailen"
+                              >
+                                <Mail className="w-4 h-4" />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
