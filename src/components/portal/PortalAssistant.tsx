@@ -1,60 +1,17 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Loader2, TrendingUp, User, Sparkles, X, Minimize2 } from 'lucide-react';
-import { getFinancialContext, formatFinancialContextForAI } from '../../lib/financialReportService';
-import { AI_CONFIG } from '../../lib/aiConfig';
+import { Send, Loader2, TrendingUp, User, Sparkles, X, Minimize2, ExternalLink } from 'lucide-react';
+import { getFinancialContext } from '../../lib/financialReportService';
+import { generateIntelligentCFOResponse } from '../../lib/intelligentCFOService';
 
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
+  sources?: string[];
+  usedExternalSources?: boolean;
 }
 
-const CFO_SYSTEM_PROMPT = `Je bent de Virtuele CFO en Financial Controller van dit bedrijf.
-Je analyseert de financiële gezondheid op basis van boekjaren, trends en ratio's.
-
-JOUW STIJL:
-• Zakelijk en to-the-point
-• Denk in risico's en kansen
-• Geef concrete, uitvoerbare adviezen
-• Gebruik financiële termen: YoY groei, winstmarge, runway, cashflow
-• Maximaal 5-6 zinnen, tenzij een diepere analyse nodig is
-
-ANALYSE FRAMEWORK:
-1. TRENDS: Vergelijk altijd met vorig jaar (Year-over-Year)
-   - Is de omzet gestegen of gedaald?
-   - Stijgen kosten sneller dan omzet? (= margedruk)
-
-2. LIQUIDITEIT: Check de cashflow positie
-   - Runway < 3 maanden = waarschuwing
-   - Veel debiteuren = creditmanagement issue
-   - Werkkapitaal negatief = gevaar
-
-3. WINSTGEVENDHEID: Analyseer de marges
-   - Winstmarge < 10% = te laag voor gezonde groei
-   - Bruto marge dalend = prijsdruk of kostenstijging
-
-4. ADVIES: Concrete acties
-   - Investeringen? Check of cashflow het toelaat
-   - Groei? Kijk of de marge het kan dragen
-   - Kostenbesparingen? Focus op grootste kostenposten
-
-VOORBEELDEN:
-User: "Kan ik een nieuwe laptop kopen van €2000?"
-Assistent: "Op basis van je cijfers:
-• Banksaldo: €15.400
-• Runway: 2,1 maanden (onder de veilige 3 maanden!)
-• Je hebt €8.500 aan openstaande debiteuren
-
-⚠️ ADVIES: Focus eerst op het innen van je debiteuren. Met 2,1 maanden runway is elke uitgave risicovol. Als je de laptop echt nodig hebt, maak er dan een investering van die je afschrijft."
-
-User: "Hoe gaat het met mijn bedrijf?"
-Assistent: "FINANCIËLE GEZONDHEID:
-• Omzet: +20% YoY - uitstekende groei!
-• Kosten: +5% YoY - goed onder controle
-• Winstmarge: 29% - zeer gezond
-
-⚠️ AANDACHTSPUNT: Je runway is slechts 2,1 maanden. Bij deze groei wil je minimaal 6 maanden buffer. Prioriteer cashflow management."`;
 
 export function PortalAssistant() {
   const [isOpen, setIsOpen] = useState(false);
@@ -62,7 +19,7 @@ export function PortalAssistant() {
     {
       id: crypto.randomUUID(),
       role: 'assistant',
-      content: 'Hoi! Ik ben je Virtuele CFO. Ik analyseer je financiële cijfers en geef advies op basis van trends en ratio\'s. Wat wil je weten?',
+      content: 'Hoi! Ik ben je Virtuele CFO.\n\nIk help je met:\n• Financiële analyses op basis van je cijfers\n• Nederlandse belastingwetgeving\n• Strategisch advies over investeringen en groei\n• Cashflow en liquiditeitsmanagement\n\nWat wil je weten?',
       timestamp: new Date(),
     },
   ]);
@@ -97,38 +54,19 @@ export function PortalAssistant() {
 
     try {
       const financialContext = await getFinancialContext();
-      const formattedContext = formatFinancialContextForAI(financialContext);
 
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: AI_CONFIG.model,
-          messages: [
-            { role: 'system', content: CFO_SYSTEM_PROMPT },
-            {
-              role: 'user',
-              content: `${formattedContext}\n\nVRAAG VAN GEBRUIKER:\n${userMessage.content}\n\nGEEF EEN SCHERPE CFO-ANALYSE MET CONCRETE ADVIEZEN.`,
-            },
-          ],
-          temperature: AI_CONFIG.temperature,
-          max_tokens: 500,
-        }),
+      const cfoResponse = await generateIntelligentCFOResponse({
+        question: userMessage.content,
+        financialData: financialContext,
       });
-
-      if (!response.ok) throw new Error('API request failed');
-
-      const data = await response.json();
-      const assistantContent = data.choices[0]?.message?.content || 'Sorry, ik kon geen antwoord genereren.';
 
       const assistantMessage: Message = {
         id: crypto.randomUUID(),
         role: 'assistant',
-        content: assistantContent,
+        content: cfoResponse.response,
         timestamp: new Date(),
+        sources: cfoResponse.sources,
+        usedExternalSources: cfoResponse.usedExternalSources,
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
@@ -218,6 +156,29 @@ export function PortalAssistant() {
               }`}
             >
               <p className="text-sm whitespace-pre-wrap leading-relaxed">{message.content}</p>
+
+              {message.role === 'assistant' && message.usedExternalSources && message.sources && message.sources.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-gray-200">
+                  <p className="text-xs font-semibold text-gray-600 mb-2 flex items-center gap-1">
+                    <ExternalLink className="w-3 h-3" />
+                    Bronnen:
+                  </p>
+                  <div className="space-y-1">
+                    {message.sources.map((source, idx) => (
+                      <a
+                        key={idx}
+                        href={source}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-emerald-600 hover:text-emerald-700 hover:underline block"
+                      >
+                        {new URL(source).hostname}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <p
                 className={`text-xs mt-2 ${
                   message.role === 'user' ? 'text-gray-300' : 'text-gray-500'
@@ -256,7 +217,7 @@ export function PortalAssistant() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyPress}
-            placeholder="Vraag: 'Hoe gaat het met mijn bedrijf?'"
+            placeholder="Bijv: 'Kan ik een laptop kopen?' of 'Is BTW aftrekbaar?'"
             rows={1}
             className="flex-1 px-4 py-2 border-2 border-gray-200 rounded-xl focus:border-emerald-500 focus:outline-none resize-none text-sm"
             style={{ minHeight: '40px', maxHeight: '80px' }}
@@ -270,7 +231,7 @@ export function PortalAssistant() {
           </button>
         </div>
         <p className="text-xs text-gray-500 mt-2 text-center">
-          Analyse op basis van actuele cijfers met YoY vergelijking
+          Data-gedreven analyses + Nederlandse wet- en regelgeving
         </p>
       </div>
     </div>
