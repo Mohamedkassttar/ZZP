@@ -31,7 +31,6 @@ export function PortalFinance() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
-  const [companyId, setCompanyId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -51,23 +50,11 @@ export function PortalFinance() {
   async function loadFinancialData() {
     setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data: companyUser } = await supabase
-        .from('company_users')
-        .select('company_id')
-        .eq('user_id', user.id)
-        .single();
-
-      if (companyUser?.company_id) {
-        setCompanyId(companyUser.company_id);
-        await Promise.all([
-          loadDebtors(companyUser.company_id),
-          loadCreditors(companyUser.company_id),
-          loadProducts(companyUser.company_id)
-        ]);
-      }
+      await Promise.all([
+        loadDebtors(),
+        loadCreditors(),
+        loadProducts()
+      ]);
     } catch (error) {
       console.error('Error loading financial data:', error);
     } finally {
@@ -75,20 +62,15 @@ export function PortalFinance() {
     }
   }
 
-  async function loadDebtors(cid: string) {
-    if (!cid) return;
-
-    // Get all customer contacts
+  async function loadDebtors() {
     const { data: contacts, error: contactsError } = await supabase
       .from('contacts')
       .select('*')
-      .eq('company_id', cid)
       .or('relation_type.eq.Customer,relation_type.eq.Both')
       .order('company_name');
 
     if (contactsError) throw contactsError;
 
-    // Get outstanding invoices per contact
     const contactsWithBalance = await Promise.all(
       (contacts || []).map(async (contact) => {
         const { data: invoices, error } = await supabase
@@ -112,19 +94,14 @@ export function PortalFinance() {
       })
     );
 
-    // Sort by outstanding amount (highest first)
     contactsWithBalance.sort((a, b) => (b.outstanding_amount || 0) - (a.outstanding_amount || 0));
     setDebtors(contactsWithBalance);
   }
 
-  async function loadCreditors(cid: string) {
-    if (!cid) return;
-
-    // Get all supplier contacts
+  async function loadCreditors() {
     const { data: contacts, error } = await supabase
       .from('contacts')
       .select('*')
-      .eq('company_id', cid)
       .or('relation_type.eq.Supplier,relation_type.eq.Both')
       .order('company_name');
 
@@ -132,13 +109,10 @@ export function PortalFinance() {
     setCreditors(contacts || []);
   }
 
-  async function loadProducts(cid?: string) {
-    if (!cid) return;
-
+  async function loadProducts() {
     const { data, error } = await supabase
       .from('products')
       .select('*')
-      .eq('company_id', cid)
       .eq('is_active', true)
       .order('name');
 
@@ -194,11 +168,6 @@ export function PortalFinance() {
       return;
     }
 
-    if (!companyId) {
-      alert('Geen bedrijf geselecteerd');
-      return;
-    }
-
     try {
       if (editingProduct) {
         const { error } = await supabase
@@ -218,7 +187,6 @@ export function PortalFinance() {
         const { error } = await supabase
           .from('products')
           .insert({
-            company_id: companyId,
             name: formData.name,
             description: formData.description || null,
             price: formData.price,
@@ -230,7 +198,7 @@ export function PortalFinance() {
         if (error) throw error;
       }
 
-      await loadProducts(companyId);
+      await loadProducts();
       handleCloseModal();
     } catch (error: any) {
       console.error('Error saving product:', error);
@@ -251,9 +219,7 @@ export function PortalFinance() {
 
       if (error) throw error;
 
-      if (companyId) {
-        await loadProducts(companyId);
-      }
+      await loadProducts();
     } catch (error: any) {
       console.error('Error deleting product:', error);
       alert('Fout bij verwijderen: ' + error.message);

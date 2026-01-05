@@ -34,56 +34,37 @@ export function PortalDashboard() {
     thisMonth: 0,
   });
   const [loading, setLoading] = useState(true);
-  const [companyId, setCompanyId] = useState<string | null>(null);
   const [fiscalYears, setFiscalYears] = useState<FiscalYear[]>([]);
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
 
   useEffect(() => {
-    loadCompanyAndYears();
+    loadFiscalYears();
+    loadDashboardData();
+    loadRevenueStats();
   }, []);
 
   useEffect(() => {
-    if (companyId) {
-      loadDashboardData();
-      loadRevenueStats();
-    }
-  }, [companyId, selectedYear]);
+    loadDashboardData();
+    loadRevenueStats();
+  }, [selectedYear]);
 
-  async function loadCompanyAndYears() {
+  async function loadFiscalYears() {
     try {
-      setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const { data: years } = await supabase
+        .from('fiscal_years')
+        .select('id, year')
+        .order('year', { ascending: false });
 
-      const { data: companyUser } = await supabase
-        .from('company_users')
-        .select('company_id')
-        .eq('user_id', user.id)
-        .single();
-
-      if (companyUser?.company_id) {
-        setCompanyId(companyUser.company_id);
-
-        const { data: years } = await supabase
-          .from('fiscal_years')
-          .select('id, year')
-          .eq('company_id', companyUser.company_id)
-          .order('year', { ascending: false });
-
-        if (years && years.length > 0) {
-          setFiscalYears(years);
-          setSelectedYear(years[0].year);
-        }
+      if (years && years.length > 0) {
+        setFiscalYears(years);
+        setSelectedYear(years[0].year);
       }
     } catch (error) {
-      console.error('Error loading company and years:', error);
-    } finally {
-      setLoading(false);
+      console.error('Error loading fiscal years:', error);
     }
   }
 
   async function loadRevenueStats() {
-    if (!companyId) return;
     try {
       const stats = await getRevenueStats();
       setRevenueStats(stats);
@@ -93,7 +74,6 @@ export function PortalDashboard() {
   }
 
   async function loadDashboardData() {
-    if (!companyId) return;
     try {
       const yearStart = new Date(selectedYear, 0, 1).toISOString();
       const yearEnd = new Date(selectedYear, 11, 31, 23, 59, 59).toISOString();
@@ -102,28 +82,24 @@ export function PortalDashboard() {
         supabase
           .from('accounts')
           .select('id, code, name')
-          .eq('company_id', companyId)
           .eq('code', '1100')
           .eq('is_active', true)
           .maybeSingle(),
         supabase
           .from('purchase_invoices')
           .select('total_amount')
-          .eq('company_id', companyId)
           .eq('status', 'Pending')
           .gte('invoice_date', yearStart)
           .lte('invoice_date', yearEnd),
         supabase
           .from('sales_invoices')
           .select('total_amount')
-          .eq('company_id', companyId)
           .eq('status', 'open')
           .gte('invoice_date', yearStart)
           .lte('invoice_date', yearEnd),
         supabase
           .from('journal_entries')
           .select('id, entry_date, description, memoriaal_type')
-          .eq('company_id', companyId)
           .gte('entry_date', yearStart)
           .lte('entry_date', yearEnd)
           .order('entry_date', { ascending: false })
@@ -162,6 +138,8 @@ export function PortalDashboard() {
       });
     } catch (error) {
       console.error('Error loading dashboard data:', error);
+    } finally {
+      setLoading(false);
     }
   }
 

@@ -16,45 +16,21 @@ export function PortalRelations() {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
-  const [companyId, setCompanyId] = useState<string | null>(null);
 
   useEffect(() => {
-    loadCompanyAndContacts();
+    loadContacts();
   }, []);
 
   useEffect(() => {
     filterContacts();
   }, [contacts, searchQuery]);
 
-  async function loadCompanyAndContacts() {
+  async function loadContacts() {
     try {
       setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data: companyUser } = await supabase
-        .from('company_users')
-        .select('company_id')
-        .eq('user_id', user.id)
-        .single();
-
-      if (companyUser?.company_id) {
-        setCompanyId(companyUser.company_id);
-        await loadContacts(companyUser.company_id);
-      }
-    } catch (err) {
-      console.error('Error loading company and contacts:', err);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function loadContacts(cid: string) {
-    try {
       const { data: contactsData, error: contactsError } = await supabase
         .from('contacts')
         .select('*')
-        .eq('company_id', cid)
         .or('relation_type.eq.Customer,relation_type.eq.Both')
         .eq('is_active', true)
         .order('company_name');
@@ -63,8 +39,7 @@ export function PortalRelations() {
 
       const { data: invoicesData } = await supabase
         .from('invoices')
-        .select('contact_id, total_amount, status')
-        .eq('company_id', cid);
+        .select('contact_id, total_amount, status');
 
       const contactsWithBalance = (contactsData || []).map((contact) => {
         const contactInvoices = invoicesData?.filter(
@@ -77,6 +52,8 @@ export function PortalRelations() {
       setContacts(contactsWithBalance);
     } catch (err) {
       console.error('Error loading contacts:', err);
+    } finally {
+      setLoading(false);
     }
   }
 
