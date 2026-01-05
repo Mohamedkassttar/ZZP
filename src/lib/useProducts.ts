@@ -4,13 +4,14 @@ import { supabase } from './supabase';
 export interface Product {
   id: string;
   created_at: string;
-  company_id: string;
+  company_id: string | null;
   name: string;
   description: string | null;
   price: number;
   unit: string;
   sku: string | null;
   is_active: boolean;
+  vat_percentage?: number;
 }
 
 export function useProducts() {
@@ -26,27 +27,9 @@ export function useProducts() {
     setLoading(true);
     setError(null);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setLoading(false);
-        return;
-      }
-
-      const { data: companyUser } = await supabase
-        .from('company_users')
-        .select('company_id')
-        .eq('user_id', user.id)
-        .single();
-
-      if (!companyUser?.company_id) {
-        setLoading(false);
-        return;
-      }
-
       const { data, error: fetchError } = await supabase
         .from('products')
         .select('*')
-        .eq('company_id', companyUser.company_id)
         .eq('is_active', true)
         .order('name');
 
