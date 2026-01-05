@@ -27,6 +27,7 @@ export function Relations() {
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [companyId, setCompanyId] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     company_name: '',
@@ -46,15 +47,37 @@ export function Relations() {
   });
 
   useEffect(() => {
-    loadAccounts();
-    loadContacts();
+    loadCompanyAndData();
   }, []);
 
-  async function loadAccounts() {
+  async function loadCompanyAndData() {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: companyUser } = await supabase
+        .from('company_users')
+        .select('company_id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (companyUser?.company_id) {
+        setCompanyId(companyUser.company_id);
+        await loadAccounts(companyUser.company_id);
+        await loadContacts(companyUser.company_id);
+      }
+    } catch (err) {
+      console.error('Error loading company and data:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load data');
+    }
+  }
+
+  async function loadAccounts(cid: string) {
     try {
       const { data, error } = await supabase
         .from('accounts')
         .select('*')
+        .eq('company_id', cid)
         .eq('is_active', true)
         .order('code');
 
@@ -69,19 +92,21 @@ export function Relations() {
     filterContacts();
   }, [contacts, activeTab, searchQuery]);
 
-  async function loadContacts() {
+  async function loadContacts(cid: string) {
     try {
       setLoading(true);
       const { data: contactsData, error: contactsError } = await supabase
         .from('contacts')
         .select('*')
+        .eq('company_id', cid)
         .order('company_name');
 
       if (contactsError) throw contactsError;
 
       const { data: invoicesData } = await supabase
         .from('invoices')
-        .select('contact_id, total_amount, status');
+        .select('contact_id, total_amount, status')
+        .eq('company_id', cid);
 
       const contactsWithBalance = (contactsData || []).map((contact) => {
         const contactInvoices = invoicesData?.filter(
@@ -203,6 +228,11 @@ export function Relations() {
     setError(null);
     setSuccess(null);
 
+    if (!companyId) {
+      setError('No company selected');
+      return;
+    }
+
     const validationError = validateForm();
     if (validationError) {
       setError(validationError);
@@ -239,13 +269,16 @@ export function Relations() {
       } else {
         const { error: insertError } = await supabase
           .from('contacts')
-          .insert(dataToSave);
+          .insert({
+            ...dataToSave,
+            company_id: companyId,
+          });
 
         if (insertError) throw insertError;
         setSuccess('Contact created successfully');
       }
 
-      await loadContacts();
+      await loadContacts(companyId);
       setShowModal(false);
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {

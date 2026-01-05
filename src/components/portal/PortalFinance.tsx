@@ -62,9 +62,12 @@ export function PortalFinance() {
 
       if (companyUser?.company_id) {
         setCompanyId(companyUser.company_id);
+        await Promise.all([
+          loadDebtors(companyUser.company_id),
+          loadCreditors(companyUser.company_id),
+          loadProducts(companyUser.company_id)
+        ]);
       }
-
-      await Promise.all([loadDebtors(), loadCreditors(), loadProducts(companyUser?.company_id)]);
     } catch (error) {
       console.error('Error loading financial data:', error);
     } finally {
@@ -72,11 +75,14 @@ export function PortalFinance() {
     }
   }
 
-  async function loadDebtors() {
+  async function loadDebtors(cid: string) {
+    if (!cid) return;
+
     // Get all customer contacts
     const { data: contacts, error: contactsError } = await supabase
       .from('contacts')
       .select('*')
+      .eq('company_id', cid)
       .or('relation_type.eq.Customer,relation_type.eq.Both')
       .order('company_name');
 
@@ -111,11 +117,14 @@ export function PortalFinance() {
     setDebtors(contactsWithBalance);
   }
 
-  async function loadCreditors() {
+  async function loadCreditors(cid: string) {
+    if (!cid) return;
+
     // Get all supplier contacts
     const { data: contacts, error } = await supabase
       .from('contacts')
       .select('*')
+      .eq('company_id', cid)
       .or('relation_type.eq.Supplier,relation_type.eq.Both')
       .order('company_name');
 
