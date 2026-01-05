@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Wallet, TrendingDown, TrendingUp, Clock, ArrowRight, DollarSign, Calendar } from 'lucide-react';
+import { Wallet, TrendingDown, TrendingUp, Clock, ArrowRight, DollarSign, Calendar, ChevronDown } from 'lucide-react';
 import { getRevenueStats, type RevenueStats } from '../../lib/dashboardService';
 
 interface DashboardData {
@@ -16,6 +16,11 @@ interface DashboardData {
   }>;
 }
 
+interface FiscalYear {
+  id: string;
+  year: number;
+}
+
 export function PortalDashboard() {
   const [data, setData] = useState<DashboardData>({
     bankBalance: 0,
@@ -29,13 +34,56 @@ export function PortalDashboard() {
     thisMonth: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [companyId, setCompanyId] = useState<string | null>(null);
+  const [fiscalYears, setFiscalYears] = useState<FiscalYear[]>([]);
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
 
   useEffect(() => {
-    loadDashboardData();
-    loadRevenueStats();
+    loadCompanyAndYears();
   }, []);
 
+  useEffect(() => {
+    if (companyId) {
+      loadDashboardData();
+      loadRevenueStats();
+    }
+  }, [companyId, selectedYear]);
+
+  async function loadCompanyAndYears() {
+    try {
+      setLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: companyUser } = await supabase
+        .from('company_users')
+        .select('company_id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (companyUser?.company_id) {
+        setCompanyId(companyUser.company_id);
+
+        const { data: years } = await supabase
+          .from('fiscal_years')
+          .select('id, year')
+          .eq('company_id', companyUser.company_id)
+          .order('year', { ascending: false });
+
+        if (years && years.length > 0) {
+          setFiscalYears(years);
+          setSelectedYear(years[0].year);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading company and years:', error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function loadRevenueStats() {
+    if (!companyId) return;
     try {
       const stats = await getRevenueStats();
       setRevenueStats(stats);
@@ -45,14 +93,39 @@ export function PortalDashboard() {
   }
 
   async function loadDashboardData() {
+    if (!companyId) return;
     try {
+      const yearStart = new Date(selectedYear, 0, 1).toISOString();
+      const yearEnd = new Date(selectedYear, 11, 31, 23, 59, 59).toISOString();
+
       const [bankResult, purchasesResult, salesResult, activitiesResult] = await Promise.all([
-        supabase.from('accounts').select('id, code, name').eq('code', '1100').eq('is_active', true).maybeSingle(),
-        supabase.from('purchase_invoices').select('total_amount').eq('status', 'Pending'),
-        supabase.from('sales_invoices').select('total_amount').eq('status', 'open'),
+        supabase
+          .from('accounts')
+          .select('id, code, name')
+          .eq('company_id', companyId)
+          .eq('code', '1100')
+          .eq('is_active', true)
+          .maybeSingle(),
+        supabase
+          .from('purchase_invoices')
+          .select('total_amount')
+          .eq('company_id', companyId)
+          .eq('status', 'Pending')
+          .gte('invoice_date', yearStart)
+          .lte('invoice_date', yearEnd),
+        supabase
+          .from('sales_invoices')
+          .select('total_amount')
+          .eq('company_id', companyId)
+          .eq('status', 'open')
+          .gte('invoice_date', yearStart)
+          .lte('invoice_date', yearEnd),
         supabase
           .from('journal_entries')
           .select('id, entry_date, description, memoriaal_type')
+          .eq('company_id', companyId)
+          .gte('entry_date', yearStart)
+          .lte('entry_date', yearEnd)
           .order('entry_date', { ascending: false })
           .limit(10),
       ]);
@@ -89,8 +162,6 @@ export function PortalDashboard() {
       });
     } catch (error) {
       console.error('Error loading dashboard data:', error);
-    } finally {
-      setLoading(false);
     }
   }
 
@@ -104,6 +175,26 @@ export function PortalDashboard() {
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
+      {fiscalYears.length > 0 && (
+        <div className="bg-white rounded-2xl shadow-md p-4 border border-gray-100">
+          <label className="block text-sm font-medium text-gray-700 mb-2">Boekjaar</label>
+          <div className="relative">
+            <select
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(Number(e.target.value))}
+              className="w-full appearance-none bg-white border-2 border-gray-200 rounded-xl px-4 py-3 pr-10 text-gray-900 font-medium focus:border-blue-500 focus:outline-none transition-colors"
+            >
+              {fiscalYears.map((fy) => (
+                <option key={fy.id} value={fy.year}>
+                  {fy.year}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+          </div>
+        </div>
+      )}
+
       <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-3xl shadow-xl p-5 text-white">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
