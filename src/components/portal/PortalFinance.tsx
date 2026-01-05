@@ -7,7 +7,7 @@ import type { Database } from '../../lib/database.types';
 interface Product {
   id: string;
   created_at: string;
-  company_id: string;
+  company_id: string | null;
   name: string;
   description: string | null;
   price: number;

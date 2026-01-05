@@ -173,19 +173,8 @@ export async function createTimeEntry(input: CreateTimeEntryInput): Promise<{
   try {
     console.log('[createTimeEntry] Input received:', JSON.stringify(input, null, 2));
 
-    // Get current user
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user) {
-      console.error('[createTimeEntry] No user logged in');
-      return {
-        success: false,
-        error: 'Gebruiker niet ingelogd',
-      };
-    }
-
     const insertData: any = {
-      user_id: user.id,
+      user_id: null,
       contact_id: input.contactId,
       date: input.date,
       entry_type: input.entryType,
