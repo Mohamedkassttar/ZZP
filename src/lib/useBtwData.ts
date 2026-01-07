@@ -66,37 +66,60 @@ export function useBtwData(year: number, quarter: number) {
       setError(null);
 
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Niet ingelogd');
+      if (!user) {
+        setError('U moet ingelogd zijn om BTW gegevens te bekijken');
+        return;
+      }
 
-      const { data: companyUsers } = await supabase
+      const { data: companyUsers, error: companyError } = await supabase
         .from('company_users')
         .select('company_id')
         .eq('user_id', user.id)
         .limit(1)
         .maybeSingle();
 
-      if (!companyUsers?.company_id) throw new Error('Geen bedrijf gevonden');
+      if (companyError) {
+        console.error('Company lookup error:', companyError);
+      }
+
+      const companyId = companyUsers?.company_id;
 
       const period = getQuarterPeriod(year, quarter);
 
-      const { data: salesInvoices, error: salesError } = await supabase
+      const salesQuery = supabase
         .from('sales_invoices')
         .select('*')
-        .eq('company_id', companyUsers.company_id)
         .gte('date', period.startDate)
         .lte('date', period.endDate)
         .in('status', ['sent', 'paid', 'overdue']);
 
-      if (salesError) throw salesError;
+      if (companyId) {
+        salesQuery.eq('company_id', companyId);
+      }
 
-      const { data: purchaseInvoices, error: purchaseError } = await supabase
+      const { data: salesInvoices, error: salesError } = await salesQuery;
+
+      if (salesError) {
+        console.error('Sales invoices error:', salesError);
+        throw new Error('Fout bij ophalen verkoop facturen: ' + salesError.message);
+      }
+
+      const purchaseQuery = supabase
         .from('purchase_invoices')
         .select('*')
-        .eq('company_id', companyUsers.company_id)
         .gte('invoice_date', period.startDate)
         .lte('invoice_date', period.endDate);
 
-      if (purchaseError) throw purchaseError;
+      if (companyId) {
+        purchaseQuery.eq('company_id', companyId);
+      }
+
+      const { data: purchaseInvoices, error: purchaseError } = await purchaseQuery;
+
+      if (purchaseError) {
+        console.error('Purchase invoices error:', purchaseError);
+        throw new Error('Fout bij ophalen inkoop facturen: ' + purchaseError.message);
+      }
 
       const calculation = calculateBtw(salesInvoices || [], purchaseInvoices || []);
       setData(calculation);
@@ -120,27 +143,52 @@ export function useBtwData(year: number, quarter: number) {
     salesInvoices.forEach((invoice) => {
       const items = Array.isArray(invoice.items) ? invoice.items : [];
 
-      items.forEach((item: any) => {
-        const quantity = Number(item.quantity || 0);
-        const price = Number(item.price || 0);
-        const vatRate = Number(item.vat_percentage || 21);
+      if (items.length > 0) {
+        items.forEach((item: any) => {
+          const quantity = Number(item.quantity || 0);
+          const price = Number(item.price || 0);
+          const vatRate = Number(item.vat_percentage || 21);
 
-        const subtotal = quantity * price;
-        const vatAmount = subtotal * (vatRate / 100);
+          const subtotal = quantity * price;
+          const vatAmount = subtotal * (vatRate / 100);
 
-        if (vatRate === 21) {
-          omzetHoog.grondslag += subtotal;
-          omzetHoog.btw += vatAmount;
-        } else if (vatRate === 9) {
-          omzetLaag.grondslag += subtotal;
-          omzetLaag.btw += vatAmount;
-        } else if (vatRate === 0) {
-          omzetNul.grondslag += subtotal;
-        } else {
-          omzetHoog.grondslag += subtotal;
-          omzetHoog.btw += vatAmount;
+          if (vatRate === 21) {
+            omzetHoog.grondslag += subtotal;
+            omzetHoog.btw += vatAmount;
+          } else if (vatRate === 9) {
+            omzetLaag.grondslag += subtotal;
+            omzetLaag.btw += vatAmount;
+          } else if (vatRate === 0) {
+            omzetNul.grondslag += subtotal;
+          } else {
+            omzetHoog.grondslag += subtotal;
+            omzetHoog.btw += vatAmount;
+          }
+        });
+      } else {
+        const vatAmount = Number(invoice.vat_amount || 0);
+        const totalAmount = Number(invoice.total_amount || 0);
+        const subtotal = invoice.subtotal ? Number(invoice.subtotal) : totalAmount - vatAmount;
+
+        if (vatAmount > 0 && subtotal > 0) {
+          const vatRate = (vatAmount / subtotal) * 100;
+
+          if (vatRate >= 20 && vatRate <= 22) {
+            omzetHoog.grondslag += subtotal;
+            omzetHoog.btw += vatAmount;
+          } else if (vatRate >= 8 && vatRate <= 10) {
+            omzetLaag.grondslag += subtotal;
+            omzetLaag.btw += vatAmount;
+          } else if (vatRate < 1) {
+            omzetNul.grondslag += subtotal;
+          } else {
+            omzetHoog.grondslag += subtotal;
+            omzetHoog.btw += vatAmount;
+          }
+        } else if (totalAmount > 0) {
+          omzetNul.grondslag += totalAmount;
         }
-      });
+      }
     });
 
     purchaseInvoices.forEach((invoice) => {

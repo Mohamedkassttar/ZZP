@@ -31,7 +31,7 @@ import { PortalFinance } from './components/portal/PortalFinance';
 import { seedAccounts } from './lib/seedAccounts';
 import { isSupabaseConfigured } from './lib/supabase';
 
-type View = 'dashboard' | 'inbox' | 'notifications' | 'quotations' | 'btw-aangifte' | 'boeken' | 'memoriaal-boekingen' | 'bankboekingen' | 'bank' | 'reports' | 'settings' | 'outstanding' | 'account-detail' | 'relations' | 'tax' | 'ib-aangifte' | 'sales' | 'time-tracking' | 'products' | 'portal-home' | 'portal-scan' | 'portal-invoice' | 'portal-expense' | 'portal-time' | 'portal-relations' | 'portal-finance';
+type View = 'dashboard' | 'inbox' | 'notifications' | 'quotations' | 'btw-aangifte' | 'boeken' | 'memoriaal-boekingen' | 'bankboekingen' | 'bank' | 'reports' | 'settings' | 'outstanding' | 'account-detail' | 'relations' | 'tax' | 'ib-aangifte' | 'sales' | 'time-tracking' | 'products' | 'portal-home' | 'portal-scan' | 'portal-invoice' | 'portal-expense' | 'portal-time' | 'portal-relations' | 'portal-finance' | 'portal-btw' | 'portal-quotations';
 
 interface ViewState {
   view: View;
@@ -202,6 +202,10 @@ function App() {
           return <TimeTracking />;
         case 'portal-relations':
           return <PortalRelations />;
+        case 'portal-btw':
+          return <VatReturn />;
+        case 'portal-quotations':
+          return <Quotations />;
         default:
           return <Dashboard onNavigate={navigate} />;
       }
