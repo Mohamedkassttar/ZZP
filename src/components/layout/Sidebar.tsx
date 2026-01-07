@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Home,
   BookOpen,
@@ -12,7 +12,10 @@ import {
   Smartphone,
   Clock,
   Package,
+  Bell,
+  File,
 } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
 
 interface SidebarProps {
   currentView: string;
@@ -26,6 +29,49 @@ export function Sidebar({ currentView, onNavigate }: SidebarProps) {
     rapportage: false,
     fiscaal: false,
   });
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    loadUnreadCount();
+
+    const channel = supabase
+      .channel('notifications_sidebar')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'notifications',
+        },
+        () => {
+          loadUnreadCount();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  async function loadUnreadCount() {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { count, error } = await supabase
+        .from('notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('is_read', false);
+
+      if (!error && count !== null) {
+        setUnreadCount(count);
+      }
+    } catch (error) {
+      console.error('Error loading unread count:', error);
+    }
+  }
 
   const toggleMenu = (menuKey: string) => {
     setExpandedMenus((prev) => ({
@@ -44,6 +90,13 @@ export function Sidebar({ currentView, onNavigate }: SidebarProps) {
       view: 'dashboard',
     },
     {
+      id: 'notifications',
+      label: 'Inbox',
+      icon: Bell,
+      view: 'notifications',
+      badge: unreadCount,
+    },
+    {
       id: 'boekhouding',
       label: 'Boekhouding',
       icon: BookOpen,
@@ -59,6 +112,7 @@ export function Sidebar({ currentView, onNavigate }: SidebarProps) {
       label: 'Facturatie',
       icon: FileText,
       children: [
+        { id: 'quotations', label: 'Offertes', view: 'quotations' },
         { id: 'sales', label: 'Verkoop', view: 'sales' },
         { id: 'inbox', label: 'Inkoop', view: 'inbox' },
         { id: 'products', label: 'Producten & Diensten', view: 'products', icon: Package },
@@ -162,7 +216,16 @@ export function Sidebar({ currentView, onNavigate }: SidebarProps) {
                   }`}
                 >
                   <item.icon className="w-5 h-5 flex-shrink-0" />
-                  <span className="text-sm font-bold">{item.label}</span>
+                  <span className="text-sm font-bold flex-1 text-left">{item.label}</span>
+                  {(item as any).badge > 0 && (
+                    <span className={`flex items-center justify-center min-w-[20px] h-5 px-2 rounded-full text-xs font-bold ${
+                      isActive(item.view!)
+                        ? 'bg-white text-blue-600'
+                        : 'bg-red-500 text-white'
+                    }`}>
+                      {(item as any).badge}
+                    </span>
+                  )}
                 </button>
               )}
             </div>

@@ -17,6 +17,9 @@ import { IBAangifte } from './components/IBAangifte';
 import { SalesInvoices } from './components/SalesInvoices';
 import { TimeTracking } from './components/TimeTracking';
 import Products from './components/Products';
+import { Inbox } from './components/Inbox';
+import { Quotations } from './components/Quotations';
+import { QuoteApproval } from './components/public/QuoteApproval';
 import { PortalLayout } from './components/portal/PortalLayout';
 import { PortalDashboard } from './components/portal/PortalDashboard';
 import { PortalBank } from './components/portal/PortalBank';
@@ -27,7 +30,7 @@ import { PortalFinance } from './components/portal/PortalFinance';
 import { seedAccounts } from './lib/seedAccounts';
 import { isSupabaseConfigured } from './lib/supabase';
 
-type View = 'dashboard' | 'inbox' | 'boeken' | 'memoriaal-boekingen' | 'bankboekingen' | 'bank' | 'reports' | 'settings' | 'outstanding' | 'account-detail' | 'relations' | 'tax' | 'ib-aangifte' | 'sales' | 'time-tracking' | 'products' | 'portal-home' | 'portal-scan' | 'portal-invoice' | 'portal-expense' | 'portal-time' | 'portal-relations' | 'portal-finance';
+type View = 'dashboard' | 'inbox' | 'notifications' | 'quotations' | 'boeken' | 'memoriaal-boekingen' | 'bankboekingen' | 'bank' | 'reports' | 'settings' | 'outstanding' | 'account-detail' | 'relations' | 'tax' | 'ib-aangifte' | 'sales' | 'time-tracking' | 'products' | 'portal-home' | 'portal-scan' | 'portal-invoice' | 'portal-expense' | 'portal-time' | 'portal-relations' | 'portal-finance';
 
 interface ViewState {
   view: View;
@@ -69,6 +72,29 @@ function App() {
       setSeedStatus({ success: false, message: 'Failed to initialize', count: 0 });
       setSeeding(false);
     }
+  }
+
+  const pathname = window.location.pathname;
+  const searchParams = new URLSearchParams(window.location.search);
+  const isPublicQuoteRoute = pathname.match(/^\/quote\/([^\/]+)\/approve$/);
+
+  if (isPublicQuoteRoute) {
+    const quoteId = isPublicQuoteRoute[1];
+    const token = searchParams.get('token');
+
+    if (quoteId && token) {
+      return <QuoteApproval quoteId={quoteId} token={token} />;
+    }
+
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-red-50 to-slate-100 flex items-center justify-center p-6">
+        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
+          <AlertCircle className="w-16 h-16 text-red-600 mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-slate-900 mb-2">Ongeldige Link</h1>
+          <p className="text-slate-600">Deze link is ongeldig of verlopen.</p>
+        </div>
+      </div>
+    );
   }
 
   if (!isSupabaseConfigured) {
@@ -117,6 +143,10 @@ function App() {
           return <Dashboard onNavigate={navigate} />;
         case 'inbox':
           return <FactuurInbox />;
+        case 'notifications':
+          return <Inbox onNavigateToQuote={(quoteId) => navigate('quotations', { quoteId })} />;
+        case 'quotations':
+          return <Quotations />;
         case 'sales':
           return <SalesInvoices />;
         case 'time-tracking':

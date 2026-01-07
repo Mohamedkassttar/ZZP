@@ -1,0 +1,330 @@
+import { useState, useEffect } from 'react';
+import { FileText, Plus, Eye, Mail, CheckCircle, XCircle, Clock, ArrowRight, Copy, Edit2, Trash2 } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { QuotationDetail } from './QuotationDetail';
+import type { Database } from '../lib/database.types';
+
+type Quotation = Database['public']['Tables']['quotations']['Row'];
+type Contact = Database['public']['Tables']['contacts']['Row'];
+
+export function Quotations() {
+  const [quotations, setQuotations] = useState<Quotation[]>([]);
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedQuote, setSelectedQuote] = useState<Quotation | null>(null);
+  const [filter, setFilter] = useState<'all' | 'draft' | 'sent' | 'accepted'>('all');
+
+  useEffect(() => {
+    loadData();
+  }, [filter]);
+
+  async function loadData() {
+    try {
+      setLoading(true);
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: companyUsers } = await supabase
+        .from('company_users')
+        .select('company_id')
+        .eq('user_id', user.id)
+        .limit(1)
+        .maybeSingle();
+
+      if (!companyUsers?.company_id) return;
+
+      let query = supabase
+        .from('quotations')
+        .select('*')
+        .eq('company_id', companyUsers.company_id)
+        .order('date', { ascending: false });
+
+      if (filter !== 'all') {
+        query = query.eq('status', filter);
+      }
+
+      const { data: quotesData, error: quotesError } = await query;
+      if (quotesError) throw quotesError;
+
+      const { data: contactsData } = await supabase
+        .from('contacts')
+        .select('*')
+        .eq('company_id', companyUsers.company_id);
+
+      setQuotations(quotesData || []);
+      setContacts(contactsData || []);
+    } catch (error) {
+      console.error('Error loading quotations:', error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function getContactName(contactId: string | null) {
+    if (!contactId) return 'Onbekend';
+    const contact = contacts.find(c => c.id === contactId);
+    return contact?.company_name || 'Onbekend';
+  }
+
+  function getStatusColor(status: string) {
+    switch (status) {
+      case 'draft':
+        return 'bg-slate-100 text-slate-800';
+      case 'sent':
+        return 'bg-blue-100 text-blue-800';
+      case 'accepted':
+        return 'bg-green-100 text-green-800';
+      case 'rejected':
+        return 'bg-red-100 text-red-800';
+      case 'expired':
+        return 'bg-amber-100 text-amber-800';
+      default:
+        return 'bg-slate-100 text-slate-800';
+    }
+  }
+
+  function getStatusIcon(status: string) {
+    switch (status) {
+      case 'accepted':
+        return <CheckCircle className="w-4 h-4" />;
+      case 'rejected':
+        return <XCircle className="w-4 h-4" />;
+      case 'sent':
+        return <Mail className="w-4 h-4" />;
+      case 'draft':
+        return <Edit2 className="w-4 h-4" />;
+      default:
+        return <Clock className="w-4 h-4" />;
+    }
+  }
+
+  function getStatusText(status: string) {
+    switch (status) {
+      case 'draft':
+        return 'Concept';
+      case 'sent':
+        return 'Verzonden';
+      case 'accepted':
+        return 'Geaccepteerd';
+      case 'rejected':
+        return 'Afgewezen';
+      case 'expired':
+        return 'Verlopen';
+      default:
+        return status;
+    }
+  }
+
+  if (selectedQuote) {
+    return (
+      <QuotationDetail
+        quotation={selectedQuote}
+        onBack={() => {
+          setSelectedQuote(null);
+          loadData();
+        }}
+      />
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="max-w-7xl mx-auto p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-7xl mx-auto p-6">
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-blue-100 rounded-xl">
+              <FileText className="w-6 h-6 text-blue-600" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-slate-900">Offertes</h1>
+              <p className="text-sm text-slate-600">{quotations.length} offertes</p>
+            </div>
+          </div>
+          <button className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium">
+            <Plus className="w-5 h-5" />
+            Nieuwe Offerte
+          </button>
+        </div>
+
+        <div className="flex gap-2 overflow-x-auto">
+          <button
+            onClick={() => setFilter('all')}
+            className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors ${
+              filter === 'all'
+                ? 'bg-blue-600 text-white'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
+          >
+            Alle ({quotations.length})
+          </button>
+          <button
+            onClick={() => setFilter('draft')}
+            className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors ${
+              filter === 'draft'
+                ? 'bg-blue-600 text-white'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
+          >
+            Concept ({quotations.filter(q => q.status === 'draft').length})
+          </button>
+          <button
+            onClick={() => setFilter('sent')}
+            className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors ${
+              filter === 'sent'
+                ? 'bg-blue-600 text-white'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
+          >
+            Verzonden ({quotations.filter(q => q.status === 'sent').length})
+          </button>
+          <button
+            onClick={() => setFilter('accepted')}
+            className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors ${
+              filter === 'accepted'
+                ? 'bg-blue-600 text-white'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
+          >
+            Geaccepteerd ({quotations.filter(q => q.status === 'accepted').length})
+          </button>
+        </div>
+      </div>
+
+      {quotations.length === 0 ? (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-12 text-center">
+          <FileText className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+          <h3 className="text-xl font-semibold text-slate-900 mb-2">Geen offertes</h3>
+          <p className="text-slate-600 mb-6">
+            {filter === 'all'
+              ? 'Je hebt nog geen offertes aangemaakt.'
+              : `Geen offertes met status "${getStatusText(filter)}".`}
+          </p>
+          <button className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium">
+            Eerste Offerte Maken
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="hidden md:block bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <table className="w-full">
+              <thead className="bg-slate-50 border-b border-slate-200">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900">
+                    Datum
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900">
+                    Offertenummer
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900">
+                    Klant
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-semibold text-slate-900">
+                    Bedrag
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900">
+                    Geldig tot
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-semibold text-slate-900">
+                    Acties
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {quotations.map((quote) => (
+                  <tr key={quote.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-6 py-4 text-sm text-slate-700">
+                      {new Date(quote.date).toLocaleDateString('nl-NL')}
+                    </td>
+                    <td className="px-6 py-4">
+                      <button
+                        onClick={() => setSelectedQuote(quote)}
+                        className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                      >
+                        {quote.quote_number}
+                      </button>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-slate-900">
+                      {getContactName(quote.contact_id)}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-right font-medium text-slate-900">
+                      €{Number(quote.total_amount).toFixed(2)}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(quote.status)}`}>
+                        {getStatusIcon(quote.status)}
+                        {getStatusText(quote.status)}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-slate-700">
+                      {new Date(quote.valid_until).toLocaleDateString('nl-NL')}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => setSelectedQuote(quote)}
+                          className="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          title="Bekijken"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="md:hidden space-y-4">
+            {quotations.map((quote) => (
+              <div
+                key={quote.id}
+                className="bg-white rounded-xl border border-slate-200 shadow-sm p-4"
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex-1">
+                    <button
+                      onClick={() => setSelectedQuote(quote)}
+                      className="text-lg font-bold text-blue-600 hover:text-blue-800"
+                    >
+                      {quote.quote_number}
+                    </button>
+                    <p className="text-sm text-slate-600 mt-1">{getContactName(quote.contact_id)}</p>
+                  </div>
+                  <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(quote.status)}`}>
+                    {getStatusIcon(quote.status)}
+                    {getStatusText(quote.status)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-sm text-slate-600 mb-3">
+                  <span>{new Date(quote.date).toLocaleDateString('nl-NL')}</span>
+                  <span className="font-bold text-slate-900">€{Number(quote.total_amount).toFixed(2)}</span>
+                </div>
+                <button
+                  onClick={() => setSelectedQuote(quote)}
+                  className="w-full py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors font-medium"
+                >
+                  Bekijken
+                </button>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
