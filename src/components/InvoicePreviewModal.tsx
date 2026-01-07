@@ -4,12 +4,14 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 
 type Invoice = Database['public']['Tables']['invoices']['Row'];
+type SalesInvoice = Database['public']['Tables']['sales_invoices']['Row'];
 type InvoiceLine = Database['public']['Tables']['invoice_lines']['Row'];
 type Contact = Database['public']['Tables']['contacts']['Row'];
 
 interface InvoicePreviewModalProps {
   invoiceId?: string;
-  invoice?: Invoice;
+  invoice?: Invoice | SalesInvoice;
+  tableName?: 'invoices' | 'sales_invoices';
   isOpen?: boolean;
   onClose: () => void;
 }
@@ -26,8 +28,8 @@ interface CompanySettings {
   bank_account: string;
 }
 
-export function InvoicePreviewModal({ invoiceId, invoice: invoiceProp, isOpen = true, onClose }: InvoicePreviewModalProps) {
-  const [invoice, setInvoice] = useState<Invoice | null>(invoiceProp || null);
+export function InvoicePreviewModal({ invoiceId, invoice: invoiceProp, tableName = 'invoices', isOpen = true, onClose }: InvoicePreviewModalProps) {
+  const [invoice, setInvoice] = useState<Invoice | SalesInvoice | null>(invoiceProp || null);
   const [invoiceLines, setInvoiceLines] = useState<InvoiceLine[]>([]);
   const [contact, setContact] = useState<Contact | null>(null);
   const [companySettings, setCompanySettings] = useState<CompanySettings | null>(null);
@@ -37,7 +39,7 @@ export function InvoicePreviewModal({ invoiceId, invoice: invoiceProp, isOpen = 
     if (isOpen && (invoiceId || invoiceProp)) {
       loadInvoiceData();
     }
-  }, [isOpen, invoiceId, invoiceProp]);
+  }, [isOpen, invoiceId, invoiceProp, tableName]);
 
   async function loadInvoiceData() {
     setLoading(true);
@@ -46,7 +48,7 @@ export function InvoicePreviewModal({ invoiceId, invoice: invoiceProp, isOpen = 
 
       if (invoiceId && !currentInvoice) {
         const { data: invoiceData, error: invoiceError } = await supabase
-          .from('invoices')
+          .from(tableName)
           .select('*')
           .eq('id', invoiceId)
           .maybeSingle();
@@ -66,11 +68,11 @@ export function InvoicePreviewModal({ invoiceId, invoice: invoiceProp, isOpen = 
           .select('*')
           .eq('invoice_id', currentInvoice.id)
           .order('line_order'),
-        supabase
+        currentInvoice.contact_id ? supabase
           .from('contacts')
           .select('*')
           .eq('id', currentInvoice.contact_id)
-          .maybeSingle(),
+          .maybeSingle() : Promise.resolve({ data: null, error: null }),
         supabase
           .from('company_settings')
           .select('*')
@@ -102,10 +104,17 @@ export function InvoicePreviewModal({ invoiceId, invoice: invoiceProp, isOpen = 
   if (!isOpen) return null;
   if (!invoice) return null;
 
-  const subtotal = Number(invoice.subtotal || 0);
+  const isSalesInvoice = tableName === 'sales_invoices';
+  const invoiceDate = isSalesInvoice ? (invoice as SalesInvoice).date : (invoice as Invoice).invoice_date;
+  const dueDate = isSalesInvoice
+    ? (invoiceDate ? new Date(new Date(invoiceDate).getTime() + 30 * 24 * 60 * 60 * 1000) : new Date())
+    : ((invoice as Invoice).due_date ? new Date((invoice as Invoice).due_date) : new Date(invoiceDate));
+
+  const subtotal = isSalesInvoice
+    ? (Number(invoice.total_amount || 0) - Number(invoice.vat_amount || 0))
+    : Number((invoice as Invoice).subtotal || 0);
   const vatAmount = Number(invoice.vat_amount || 0);
   const total = Number(invoice.total_amount || 0);
-  const dueDate = invoice.due_date ? new Date(invoice.due_date) : new Date(invoice.invoice_date);
 
   interface VATBreakdown {
     rate: number;
@@ -224,7 +233,7 @@ export function InvoicePreviewModal({ invoiceId, invoice: invoiceProp, isOpen = 
                     </div>
                     <div>
                       <p className="text-xs text-slate-500">Factuurdatum</p>
-                      <p className="font-semibold text-slate-900">{new Date(invoice.invoice_date).toLocaleDateString('nl-NL')}</p>
+                      <p className="font-semibold text-slate-900">{invoiceDate ? new Date(invoiceDate).toLocaleDateString('nl-NL') : 'N/A'}</p>
                     </div>
                     <div>
                       <p className="text-xs text-slate-500">Vervaldatum</p>
