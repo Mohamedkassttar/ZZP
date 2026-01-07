@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   Upload,
   Camera,
@@ -13,6 +13,9 @@ import {
   ArrowRight,
   Wallet,
   Brain,
+  Clock,
+  Eye,
+  X,
 } from 'lucide-react';
 import {
   uploadAndProcessInvoiceFast,
@@ -21,10 +24,34 @@ import {
 } from '../../lib/invoiceService';
 import type { EnhancedInvoiceData } from '../../lib/intelligentInvoiceProcessor';
 import type { PaymentMethod } from '../../lib/invoiceBookingService';
+import { supabase } from '../../lib/supabase';
 
 type ProcessingState = 'idle' | 'uploading' | 'processing' | 'review' | 'booking' | 'success' | 'error';
+type ViewMode = 'upload' | 'history';
+
+interface PurchaseInvoice {
+  id: string;
+  invoice_number: string;
+  invoice_date: string;
+  description: string;
+  total_amount: number;
+  status: string;
+  document_id: string;
+  created_at: string;
+  contact?: {
+    name: string;
+  };
+}
+
+interface DocumentInbox {
+  id: string;
+  file_name: string;
+  file_url: string;
+  file_type: string;
+}
 
 export function PortalExpense() {
+  const [viewMode, setViewMode] = useState<ViewMode>('upload');
   const [state, setState] = useState<ProcessingState>('idle');
   const [dragActive, setDragActive] = useState(false);
   const [extractedData, setExtractedData] = useState<EnhancedInvoiceData | null>(null);
@@ -36,6 +63,79 @@ export function PortalExpense() {
   const [successMessage, setSuccessMessage] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  const [purchaseInvoices, setPurchaseInvoices] = useState<PurchaseInvoice[]>([]);
+  const [selectedInvoice, setSelectedInvoice] = useState<PurchaseInvoice | null>(null);
+  const [selectedDocument, setSelectedDocument] = useState<DocumentInbox | null>(null);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [showDocumentViewer, setShowDocumentViewer] = useState(false);
+
+  useEffect(() => {
+    if (viewMode === 'history') {
+      loadPurchaseInvoices();
+    }
+  }, [viewMode]);
+
+  async function loadPurchaseInvoices() {
+    setLoadingHistory(true);
+    try {
+      const { data, error } = await supabase
+        .from('purchase_invoices')
+        .select(`
+          id,
+          invoice_number,
+          invoice_date,
+          description,
+          total_amount,
+          status,
+          document_id,
+          created_at,
+          contact:contacts(name)
+        `)
+        .order('invoice_date', { ascending: false });
+
+      if (error) throw error;
+      setPurchaseInvoices(data || []);
+    } catch (err) {
+      console.error('Error loading purchase invoices:', err);
+    } finally {
+      setLoadingHistory(false);
+    }
+  }
+
+  async function viewInvoiceDocument(invoice: PurchaseInvoice) {
+    if (!invoice.document_id) {
+      alert('Geen document beschikbaar voor deze factuur');
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('documents_inbox')
+        .select('id, file_name, file_url, file_type')
+        .eq('id', invoice.document_id)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data) {
+        alert('Document niet gevonden');
+        return;
+      }
+
+      const { data: urlData } = await supabase.storage
+        .from('invoices')
+        .createSignedUrl(data.file_url.replace('invoices/', ''), 3600);
+
+      if (urlData) {
+        setSelectedDocument({ ...data, file_url: urlData.signedUrl });
+        setSelectedInvoice(invoice);
+        setShowDocumentViewer(true);
+      }
+    } catch (err) {
+      console.error('Error loading document:', err);
+      alert('Fout bij laden document');
+    }
+  }
 
   function handleDrag(e: React.DragEvent) {
     e.preventDefault();
@@ -152,6 +252,22 @@ export function PortalExpense() {
     setExpenseAccounts([]);
     setPaymentMethod('none');
     setSuccessMessage('');
+    setViewMode('upload');
+  }
+
+  function getStatusBadge(status: string) {
+    const badges: Record<string, { bg: string; text: string; label: string }> = {
+      Draft: { bg: 'bg-gray-100', text: 'text-gray-700', label: 'Concept' },
+      Pending: { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'Open' },
+      Paid: { bg: 'bg-green-100', text: 'text-green-700', label: 'Betaald' },
+      Overdue: { bg: 'bg-red-100', text: 'text-red-700', label: 'Verlopen' },
+    };
+    const badge = badges[status] || badges.Draft;
+    return (
+      <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${badge.bg} ${badge.text}`}>
+        {badge.label}
+      </span>
+    );
   }
 
   if (state === 'success') {
@@ -396,108 +512,246 @@ export function PortalExpense() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="max-w-4xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Inkoopfactuur</h1>
-        <p className="text-gray-600">Upload een factuur om deze te verwerken</p>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">Inkoopfacturen</h1>
+        <p className="text-gray-600">Beheer je inkoopfacturen</p>
       </div>
 
-      {(state === 'uploading' || state === 'processing') && (
-        <div className="bg-white rounded-3xl shadow-xl p-12 text-center border border-gray-100">
-          <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Loader className="w-10 h-10 text-blue-600 animate-spin" />
-          </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-3">
-            {state === 'uploading' ? 'Uploaden...' : 'Factuur wordt verwerkt'}
-          </h2>
-          <p className="text-gray-600">
-            {state === 'uploading'
-              ? 'Bestand wordt geüpload...'
-              : 'AI analyseert de factuur en extraheert de gegevens...'}
-          </p>
-        </div>
-      )}
-
-      {state === 'error' && (
-        <div className="bg-white rounded-3xl shadow-xl p-12 text-center border border-gray-100">
-          <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
-            <AlertCircle className="w-10 h-10 text-red-600" />
-          </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-3">Fout opgetreden</h2>
-          <p className="text-gray-600 mb-8">{error}</p>
-          <button
-            onClick={reset}
-            className="bg-blue-600 text-white px-8 py-3 rounded-xl font-semibold hover:bg-blue-700 transition-colors"
-          >
-            Opnieuw proberen
-          </button>
-        </div>
-      )}
-
-      {state === 'idle' && (
-        <div
-          onDragEnter={handleDrag}
-          onDragLeave={handleDrag}
-          onDragOver={handleDrag}
-          onDrop={handleDrop}
-          className={`
-            border-3 border-dashed rounded-3xl p-12 text-center transition-all
-            ${
-              dragActive
-                ? 'border-blue-500 bg-blue-50 scale-105'
-                : 'border-gray-300 bg-white hover:border-blue-400 hover:bg-gray-50'
-            }
-          `}
+      <div className="mb-6 bg-white rounded-2xl shadow-sm border border-gray-200 p-1 inline-flex">
+        <button
+          onClick={() => setViewMode('upload')}
+          className={`px-6 py-3 rounded-xl font-semibold transition-all ${
+            viewMode === 'upload'
+              ? 'bg-blue-600 text-white shadow-md'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
         >
-          <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Upload className="w-10 h-10 text-blue-600" />
+          <Upload className="w-5 h-5 inline-block mr-2" />
+          Nieuwe Factuur
+        </button>
+        <button
+          onClick={() => setViewMode('history')}
+          className={`px-6 py-3 rounded-xl font-semibold transition-all ${
+            viewMode === 'history'
+              ? 'bg-blue-600 text-white shadow-md'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          <Clock className="w-5 h-5 inline-block mr-2" />
+          Historie
+        </button>
+      </div>
+
+      {showDocumentViewer && selectedDocument && selectedInvoice && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">
+                  {selectedInvoice.invoice_number}
+                </h3>
+                <p className="text-sm text-gray-600">{selectedInvoice.description}</p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowDocumentViewer(false);
+                  setSelectedDocument(null);
+                  setSelectedInvoice(null);
+                }}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto p-4">
+              {selectedDocument.file_type.startsWith('image/') ? (
+                <img
+                  src={selectedDocument.file_url}
+                  alt={selectedDocument.file_name}
+                  className="max-w-full h-auto mx-auto"
+                />
+              ) : (
+                <iframe
+                  src={selectedDocument.file_url}
+                  className="w-full h-full min-h-[600px]"
+                  title={selectedDocument.file_name}
+                />
+              )}
+            </div>
           </div>
+        </div>
+      )}
 
-          <h3 className="text-xl font-bold text-gray-900 mb-3">
-            Sleep factuur hierheen
-          </h3>
-          <p className="text-gray-600 mb-8">
-            Of kies een bestand van je apparaat
-          </p>
+      {viewMode === 'history' && (
+        <div>
+          {loadingHistory ? (
+            <div className="bg-white rounded-2xl shadow-md p-12 text-center">
+              <Loader className="w-8 h-8 text-blue-600 animate-spin mx-auto mb-4" />
+              <p className="text-gray-600">Historie laden...</p>
+            </div>
+          ) : purchaseInvoices.length === 0 ? (
+            <div className="bg-white rounded-2xl shadow-md p-12 text-center">
+              <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Geen facturen</h3>
+              <p className="text-gray-600 mb-6">Je hebt nog geen inkoopfacturen verwerkt</p>
+              <button
+                onClick={() => setViewMode('upload')}
+                className="bg-blue-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-blue-700"
+              >
+                Eerste factuur uploaden
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {purchaseInvoices.map((invoice) => (
+                <div
+                  key={invoice.id}
+                  className="bg-white rounded-2xl shadow-md p-4 border border-gray-100 hover:shadow-lg transition-shadow"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h3 className="text-lg font-bold text-gray-900">
+                          {invoice.invoice_number}
+                        </h3>
+                        {getStatusBadge(invoice.status)}
+                      </div>
+                      <p className="text-sm text-gray-600 mb-2">{invoice.description}</p>
+                      <div className="flex items-center gap-4 text-sm text-gray-500">
+                        <span className="flex items-center gap-1">
+                          <Building2 className="w-4 h-4" />
+                          {invoice.contact?.name || 'Onbekend'}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Calendar className="w-4 h-4" />
+                          {new Date(invoice.invoice_date).toLocaleDateString('nl-NL')}
+                        </span>
+                        <span className="flex items-center gap-1 font-semibold text-gray-900">
+                          <DollarSign className="w-4 h-4" />
+                          {new Intl.NumberFormat('nl-NL', {
+                            style: 'currency',
+                            currency: 'EUR',
+                          }).format(invoice.total_amount)}
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => viewInvoiceDocument(invoice)}
+                      disabled={!invoice.document_id}
+                      className="ml-4 flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Eye className="w-4 h-4" />
+                      Bekijk
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
-          <div className="flex gap-3 justify-center">
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="bg-blue-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-blue-700 transition-colors flex items-center gap-2"
+      {viewMode === 'upload' && (
+        <div className="max-w-2xl mx-auto">
+          {(state === 'uploading' || state === 'processing') && (
+            <div className="bg-white rounded-3xl shadow-xl p-12 text-center border border-gray-100">
+              <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Loader className="w-10 h-10 text-blue-600 animate-spin" />
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-3">
+                {state === 'uploading' ? 'Uploaden...' : 'Factuur wordt verwerkt'}
+              </h2>
+              <p className="text-gray-600">
+                {state === 'uploading'
+                  ? 'Bestand wordt geüpload...'
+                  : 'AI analyseert de factuur en extraheert de gegevens...'}
+              </p>
+            </div>
+          )}
+
+          {state === 'error' && (
+            <div className="bg-white rounded-3xl shadow-xl p-12 text-center border border-gray-100">
+              <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                <AlertCircle className="w-10 h-10 text-red-600" />
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-3">Fout opgetreden</h2>
+              <p className="text-gray-600 mb-8">{error}</p>
+              <button
+                onClick={reset}
+                className="bg-blue-600 text-white px-8 py-3 rounded-xl font-semibold hover:bg-blue-700 transition-colors"
+              >
+                Opnieuw proberen
+              </button>
+            </div>
+          )}
+
+          {state === 'idle' && (
+            <div
+              onDragEnter={handleDrag}
+              onDragLeave={handleDrag}
+              onDragOver={handleDrag}
+              onDrop={handleDrop}
+              className={`
+                border-3 border-dashed rounded-3xl p-12 text-center transition-all
+                ${
+                  dragActive
+                    ? 'border-blue-500 bg-blue-50 scale-105'
+                    : 'border-gray-300 bg-white hover:border-blue-400 hover:bg-gray-50'
+                }
+              `}
             >
-              <FileText className="w-5 h-5" />
-              Bestand kiezen
-            </button>
+              <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Upload className="w-10 h-10 text-blue-600" />
+              </div>
 
-            <button
-              onClick={() => cameraInputRef.current?.click()}
-              className="bg-gray-700 text-white px-6 py-3 rounded-xl font-semibold hover:bg-gray-800 transition-colors flex items-center gap-2"
-            >
-              <Camera className="w-5 h-5" />
-              Foto maken
-            </button>
-          </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-3">
+                Sleep factuur hierheen
+              </h3>
+              <p className="text-gray-600 mb-8">
+                Of kies een bestand van je apparaat
+              </p>
 
-          <input
-            ref={fileInputRef}
-            type="file"
-            onChange={handleFileInput}
-            accept="image/*,application/pdf"
-            className="hidden"
-          />
+              <div className="flex gap-3 justify-center">
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="bg-blue-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-blue-700 transition-colors flex items-center gap-2"
+                >
+                  <FileText className="w-5 h-5" />
+                  Bestand kiezen
+                </button>
 
-          <input
-            ref={cameraInputRef}
-            type="file"
-            onChange={handleFileInput}
-            accept="image/*"
-            capture="environment"
-            className="hidden"
-          />
+                <button
+                  onClick={() => cameraInputRef.current?.click()}
+                  className="bg-gray-700 text-white px-6 py-3 rounded-xl font-semibold hover:bg-gray-800 transition-colors flex items-center gap-2"
+                >
+                  <Camera className="w-5 h-5" />
+                  Foto maken
+                </button>
+              </div>
 
-          <p className="text-sm text-gray-500 mt-6">
-            Ondersteunt: PDF, JPEG, PNG, WebP (max 10MB)
-          </p>
+              <input
+                ref={fileInputRef}
+                type="file"
+                onChange={handleFileInput}
+                accept="image/*,application/pdf"
+                className="hidden"
+              />
+
+              <input
+                ref={cameraInputRef}
+                type="file"
+                onChange={handleFileInput}
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+              />
+
+              <p className="text-sm text-gray-500 mt-6">
+                Ondersteunt: PDF, JPEG, PNG, WebP (max 10MB)
+              </p>
+            </div>
+          )}
         </div>
       )}
     </div>
