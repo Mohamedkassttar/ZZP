@@ -216,110 +216,111 @@ export function Quotations() {
         </div>
       ) : (
         <>
-          <div className="hidden md:block bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-            <table className="w-full">
-              <thead className="bg-slate-50 border-b border-slate-200">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900">
-                    Datum
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900">
-                    Offertenummer
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900">
-                    Klant
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-semibold text-slate-900">
-                    Bedrag
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900">
-                    Geldig tot
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-semibold text-slate-900">
-                    Acties
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200">
-                {quotations.map((quote) => (
-                  <tr key={quote.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-6 py-4 text-sm text-slate-700">
-                      {new Date(quote.date).toLocaleDateString('nl-NL')}
-                    </td>
-                    <td className="px-6 py-4">
-                      <button
-                        onClick={() => setSelectedQuote(quote)}
-                        className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
-                      >
-                        {quote.quote_number}
-                      </button>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-slate-900">
-                      {getContactName(quote.contact_id)}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-right font-medium text-slate-900">
-                      €{Number(quote.total_amount).toFixed(2)}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(quote.status)}`}>
-                        {getStatusIcon(quote.status)}
-                        {getStatusText(quote.status)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-slate-700">
-                      {new Date(quote.valid_until).toLocaleDateString('nl-NL')}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => setSelectedQuote(quote)}
-                          className="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                          title="Bekijken"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="md:hidden space-y-4">
+          {/* MOBILE VIEW - Cards */}
+          <div className="block md:hidden space-y-3">
             {quotations.map((quote) => (
               <div
                 key={quote.id}
-                className="bg-white rounded-xl border border-slate-200 shadow-sm p-4"
+                className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 hover:shadow-md transition-shadow"
               >
                 <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <button
                       onClick={() => setSelectedQuote(quote)}
-                      className="text-lg font-bold text-blue-600 hover:text-blue-800"
+                      className="text-lg font-bold text-blue-600 hover:text-blue-800 truncate block"
                     >
                       {quote.quote_number}
                     </button>
-                    <p className="text-sm text-slate-600 mt-1">{getContactName(quote.contact_id)}</p>
+                    <p className="text-sm text-slate-600 mt-1 truncate">{getContactName(quote.contact_id)}</p>
                   </div>
-                  <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(quote.status)}`}>
+                  <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(quote.status)} flex-shrink-0 ml-2`}>
                     {getStatusIcon(quote.status)}
                     {getStatusText(quote.status)}
                   </span>
                 </div>
-                <div className="flex items-center justify-between text-sm text-slate-600 mb-3">
-                  <span>{new Date(quote.date).toLocaleDateString('nl-NL')}</span>
-                  <span className="font-bold text-slate-900">€{Number(quote.total_amount).toFixed(2)}</span>
+
+                <div className="space-y-2 mb-3">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-slate-500">Datum:</span>
+                    <span className="text-slate-900 font-medium">{new Date(quote.date).toLocaleDateString('nl-NL')}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-slate-500">Geldig tot:</span>
+                    <span className="text-slate-900 font-medium">{new Date(quote.valid_until).toLocaleDateString('nl-NL')}</span>
+                  </div>
+                  <div className="flex items-center justify-between pt-2 border-t border-slate-200">
+                    <span className="text-slate-500 font-medium">Bedrag:</span>
+                    <span className="text-2xl font-black text-blue-600">€{Number(quote.total_amount).toFixed(2)}</span>
+                  </div>
                 </div>
+
                 <button
                   onClick={() => setSelectedQuote(quote)}
-                  className="w-full py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors font-medium"
+                  className="w-full flex items-center justify-center gap-2 py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors font-medium"
                 >
+                  <Eye className="w-4 h-4" />
                   Bekijken
                 </button>
+              </div>
+            ))}
+          </div>
+
+          {/* DESKTOP VIEW - Cards Grid */}
+          <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {quotations.map((quote) => (
+              <div
+                key={quote.id}
+                className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-lg transition-all duration-200 overflow-hidden group cursor-pointer"
+                onClick={() => setSelectedQuote(quote)}
+              >
+                <div className="p-6">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-xl font-bold text-blue-600 group-hover:text-blue-700 truncate">
+                        {quote.quote_number}
+                      </h3>
+                      <p className="text-sm text-slate-600 mt-1 truncate">{getContactName(quote.contact_id)}</p>
+                    </div>
+                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(quote.status)} flex-shrink-0 ml-2`}>
+                      {getStatusIcon(quote.status)}
+                      {getStatusText(quote.status)}
+                    </span>
+                  </div>
+
+                  <div className="space-y-3 mb-4">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-slate-500">Datum:</span>
+                      <span className="text-slate-900 font-medium">{new Date(quote.date).toLocaleDateString('nl-NL')}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-slate-500">Geldig tot:</span>
+                      <span className="text-slate-900 font-medium">{new Date(quote.valid_until).toLocaleDateString('nl-NL')}</span>
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t border-slate-200">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-semibold text-slate-700">Totaal Bedrag</span>
+                      <span className="text-2xl font-black text-blue-600">
+                        €{Number(quote.total_amount).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 px-6 py-3 flex items-center justify-between border-t border-slate-200">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedQuote(quote);
+                    }}
+                    className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors"
+                  >
+                    <Eye className="w-4 h-4" />
+                    Bekijken
+                  </button>
+                  <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-blue-600 transition-colors" />
+                </div>
               </div>
             ))}
           </div>
