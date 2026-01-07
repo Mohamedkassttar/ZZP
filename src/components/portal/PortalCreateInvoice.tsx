@@ -17,6 +17,7 @@ import {
 import { supabase } from '../../lib/supabase';
 import type { Database } from '../../lib/database.types';
 import { useProducts, type Product } from '../../lib/useProducts';
+import { InvoicePreviewModal } from '../InvoicePreviewModal';
 
 type Invoice = Database['public']['Tables']['invoices']['Row'];
 type Contact = Database['public']['Tables']['contacts']['Row'];
