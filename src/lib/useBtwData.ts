@@ -65,24 +65,24 @@ export function useBtwData(year: number, quarter: number) {
       setLoading(true);
       setError(null);
 
+      let companyId: string | undefined;
+
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setError('U moet ingelogd zijn om BTW gegevens te bekijken');
-        return;
+
+      if (user) {
+        const { data: companyUsers, error: companyError } = await supabase
+          .from('company_users')
+          .select('company_id')
+          .eq('user_id', user.id)
+          .limit(1)
+          .maybeSingle();
+
+        if (companyError) {
+          console.error('Company lookup error:', companyError);
+        }
+
+        companyId = companyUsers?.company_id;
       }
-
-      const { data: companyUsers, error: companyError } = await supabase
-        .from('company_users')
-        .select('company_id')
-        .eq('user_id', user.id)
-        .limit(1)
-        .maybeSingle();
-
-      if (companyError) {
-        console.error('Company lookup error:', companyError);
-      }
-
-      const companyId = companyUsers?.company_id;
 
       const period = getQuarterPeriod(year, quarter);
 
