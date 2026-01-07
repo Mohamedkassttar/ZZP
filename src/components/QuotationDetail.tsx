@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Mail, Copy, CheckCircle, ArrowRight, FileText, Calendar, Eye } from 'lucide-react';
+import { ArrowLeft, Mail, Copy, CheckCircle, ArrowRight, FileText, Calendar, Eye, Loader2, AlertCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { sendQuotationEmail, isSMTPConfigured, getCompanySettings } from '../lib/emailService';
 import type { Database } from '../lib/database.types';
 
 type Quotation = Database['public']['Tables']['quotations']['Row'];
@@ -18,6 +19,8 @@ export function QuotationDetail({ quotation, onBack }: QuotationDetailProps) {
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [converting, setConverting] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [emailMessage, setEmailMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
     loadData();
@@ -127,6 +130,59 @@ export function QuotationDetail({ quotation, onBack }: QuotationDetailProps) {
     }
   }
 
+  async function handleSendEmail() {
+    setSendingEmail(true);
+    setEmailMessage(null);
+
+    try {
+      const settings = await getCompanySettings();
+
+      if (!isSMTPConfigured(settings)) {
+        setEmailMessage({
+          type: 'error',
+          text: 'Email is niet geconfigureerd. Ga naar Instellingen > Email Configuratie om SMTP in te stellen.',
+        });
+        return;
+      }
+
+      if (!contact?.email) {
+        setEmailMessage({
+          type: 'error',
+          text: 'Deze relatie heeft geen email adres. Voeg eerst een email adres toe aan de relatie.',
+        });
+        return;
+      }
+
+      const enrichedQuotation = {
+        ...quotation,
+        contact: contact,
+      };
+
+      const result = await sendQuotationEmail(enrichedQuotation);
+
+      if (result.success) {
+        setEmailMessage({
+          type: 'success',
+          text: `Offerte succesvol verzonden naar ${contact.email}!`,
+        });
+        setTimeout(() => setEmailMessage(null), 5000);
+      } else {
+        setEmailMessage({
+          type: 'error',
+          text: result.error || 'Fout bij versturen van offerte.',
+        });
+      }
+    } catch (error: any) {
+      console.error('Error sending quotation email:', error);
+      setEmailMessage({
+        type: 'error',
+        text: error.message || 'Er is een onverwachte fout opgetreden.',
+      });
+    } finally {
+      setSendingEmail(false);
+    }
+  }
+
   const items = Array.isArray(quotation.items) ? quotation.items : [];
   const validUntilDate = quotation.valid_until ? new Date(quotation.valid_until) : null;
   const isExpired = validUntilDate ? validUntilDate < new Date() : false;
@@ -211,6 +267,23 @@ export function QuotationDetail({ quotation, onBack }: QuotationDetailProps) {
             </div>
           )}
 
+          {emailMessage && (
+            <div
+              className={`mb-4 flex items-center gap-3 px-4 py-3 rounded-lg ${
+                emailMessage.type === 'success'
+                  ? 'bg-green-50 text-green-900 border border-green-200'
+                  : 'bg-red-50 text-red-900 border border-red-200'
+              }`}
+            >
+              {emailMessage.type === 'success' ? (
+                <CheckCircle className="w-5 h-5 flex-shrink-0" />
+              ) : (
+                <AlertCircle className="w-5 h-5 flex-shrink-0" />
+              )}
+              <span>{emailMessage.text}</span>
+            </div>
+          )}
+
           <div className="flex flex-wrap gap-3">
             <button
               onClick={copyPublicLink}
@@ -229,9 +302,22 @@ export function QuotationDetail({ quotation, onBack }: QuotationDetailProps) {
               )}
             </button>
             {contact?.email && (
-              <button className="flex items-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors font-medium">
-                <Mail className="w-4 h-4" />
-                Verstuur per Email
+              <button
+                onClick={handleSendEmail}
+                disabled={sendingEmail}
+                className="flex items-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {sendingEmail ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Versturen...
+                  </>
+                ) : (
+                  <>
+                    <Mail className="w-4 h-4" />
+                    Verstuur per Email
+                  </>
+                )}
               </button>
             )}
           </div>

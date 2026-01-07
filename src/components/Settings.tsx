@@ -1,14 +1,15 @@
 import { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Book, Zap, AlertTriangle, RotateCcw, Download, DollarSign, MapPin, Package } from 'lucide-react';
+import { Settings as SettingsIcon, Book, Zap, AlertTriangle, RotateCcw, Download, DollarSign, MapPin, Package, Mail } from 'lucide-react';
 import { AccountsManager } from './settings/AccountsManager';
 import { BankRulesManager } from './settings/BankRulesManager';
 import { FinancialSettings } from './settings/FinancialSettings';
 import { MileageTracker } from './settings/MileageTracker';
 import { FixedAssetsManager } from './settings/FixedAssetsManager';
+import { EmailSettings } from './settings/EmailSettings';
 import { resetAdministration } from '../lib/adminResetService';
 import { downloadConfigurationBackup, getConfigurationStats } from '../lib/configExportService';
 
-type SettingsTab = 'accounts' | 'bankrules' | 'financial' | 'mileage' | 'assets' | 'system';
+type SettingsTab = 'accounts' | 'bankrules' | 'financial' | 'mileage' | 'assets' | 'email' | 'system';
 
 interface SettingsProps {
   initialTab?: SettingsTab;
@@ -27,6 +28,7 @@ export function Settings({ initialTab }: SettingsProps) {
     { id: 'financial' as SettingsTab, label: 'Financiële Instellingen', icon: DollarSign },
     { id: 'mileage' as SettingsTab, label: 'Kilometerregistratie', icon: MapPin },
     { id: 'assets' as SettingsTab, label: 'Vaste Activa', icon: Package },
+    { id: 'email' as SettingsTab, label: 'Email Configuratie', icon: Mail },
     { id: 'system' as SettingsTab, label: 'Systeem', icon: AlertTriangle },
   ];
 
@@ -119,6 +121,7 @@ export function Settings({ initialTab }: SettingsProps) {
           {activeTab === 'financial' && <FinancialSettings />}
           {activeTab === 'mileage' && <MileageTracker />}
           {activeTab === 'assets' && <FixedAssetsManager />}
+          {activeTab === 'email' && <EmailSettings />}
           {activeTab === 'system' && (
             <div className="space-y-6">
               <div>
