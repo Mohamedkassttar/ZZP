@@ -3,6 +3,7 @@ import { ArrowLeft, FileText, Clock, Receipt, CreditCard, CheckCircle, Mail, Eye
 import { supabase } from '../lib/supabase';
 import { resendInvoice } from '../lib/salesService';
 import { ResendInvoiceModal } from './ResendInvoiceModal';
+import { InvoicePreviewModal } from './InvoicePreviewModal';
 import type { Database } from '../lib/database.types';
 
 type Contact = Database['public']['Tables']['contacts']['Row'];
@@ -88,6 +89,13 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
     invoice: null,
     lines: [],
     tableName: 'sales_invoices',
+  });
+  const [previewModal, setPreviewModal] = useState<{
+    isOpen: boolean;
+    invoice: SalesInvoice | null;
+  }>({
+    isOpen: false,
+    invoice: null,
   });
 
   const isCreditor = contact.relation_type === 'Supplier' || contact.relation_type === 'Both';
@@ -379,6 +387,13 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
     });
   };
 
+  const handlePreviewClick = (invoice: SalesInvoice) => {
+    setPreviewModal({
+      isOpen: true,
+      invoice,
+    });
+  };
+
   const handleInvoiceDetailClickOld = async (invoice: Invoice) => {
     const { data: lines } = await supabase
       .from('invoice_lines')
@@ -565,6 +580,13 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
                           <td className="px-4 py-3">
                             <div className="flex items-center justify-end gap-2">
                               <button
+                                onClick={() => handlePreviewClick(invoice)}
+                                className="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                title="Preview factuur"
+                              >
+                                <Eye className="w-4 h-4" />
+                              </button>
+                              <button
                                 onClick={() => handleEditClick(invoice)}
                                 className="p-2 text-slate-600 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
                                 title="Bedrag wijzigen"
@@ -573,7 +595,7 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
                               </button>
                               <button
                                 onClick={() => handleStatusClick(invoice)}
-                                className="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                className="p-2 text-slate-600 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
                                 title="Status wijzigen"
                               >
                                 <Edit2 className="w-4 h-4" />
@@ -1106,6 +1128,14 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
             </div>
           </div>
         </div>
+      )}
+
+      {previewModal.invoice && (
+        <InvoicePreviewModal
+          isOpen={previewModal.isOpen}
+          onClose={() => setPreviewModal({ isOpen: false, invoice: null })}
+          invoice={previewModal.invoice}
+        />
       )}
     </div>
   );
