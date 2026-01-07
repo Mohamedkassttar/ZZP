@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, FileText, Clock, Receipt, CreditCard, CheckCircle, Mail, Eye, Edit2, Trash2, Euro } from 'lucide-react';
+import { ArrowLeft, FileText, Clock, Receipt, CreditCard, CheckCircle, Mail, Eye, Edit2, Trash2, Euro, Calendar } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { resendInvoice } from '../lib/salesService';
 import { ResendInvoiceModal } from './ResendInvoiceModal';
