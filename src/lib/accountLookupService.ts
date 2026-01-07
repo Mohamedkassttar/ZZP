@@ -189,7 +189,9 @@ export async function findVatLiabilityAccount(
     const isPayable = lower.includes('betalen') ||
                      lower.includes('schuld') ||
                      lower.includes('te betalen') ||
-                     lower.includes('verschuldigd');
+                     lower.includes('verschuldigd') ||
+                     lower.includes('af te dragen') ||
+                     lower.includes('afdragen');
 
     if (!isPayable) return false;
 
@@ -204,10 +206,14 @@ export async function findVatLiabilityAccount(
     return { account: vatMatch, confidence: 'high', method: 'vat_pattern' };
   }
 
-  // Fallback 1: General "BTW te betalen" account (without specific rate)
+  // Fallback 1: General "BTW te betalen" or "af te dragen" account (without specific rate)
   const generalVatAccount = accounts.find(acc => {
     const lower = acc.name.toLowerCase();
-    return (lower.includes('btw te betalen') || lower.includes('te betalen btw') || acc.code === '1400');
+    return (lower.includes('btw te betalen') ||
+            lower.includes('te betalen btw') ||
+            lower.includes('btw af te dragen') ||
+            lower.includes('af te dragen btw') ||
+            acc.code === '1400');
   });
 
   if (generalVatAccount) {
@@ -219,7 +225,7 @@ export async function findVatLiabilityAccount(
   const anyVatAccount = accounts.find(acc => {
     const lower = acc.name.toLowerCase();
     return (lower.includes('btw') || lower.includes('vat')) &&
-           (lower.includes('betalen') || lower.includes('schuld') || lower.includes('verschuldigd'));
+           (lower.includes('betalen') || lower.includes('schuld') || lower.includes('verschuldigd') || lower.includes('af te dragen') || lower.includes('afdragen'));
   });
 
   if (anyVatAccount) {

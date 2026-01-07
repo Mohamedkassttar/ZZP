@@ -180,7 +180,7 @@ export async function createAndBookInvoice(
             .select('*')
             .eq('type', 'Liability')
             .eq('is_active', true)
-            .or('name.ilike.%btw te betalen%,name.ilike.%te betalen btw%,code.eq.1400')
+            .or('name.ilike.%btw te betalen%,name.ilike.%te betalen btw%,name.ilike.%btw af te dragen%,name.ilike.%af te dragen btw%,code.eq.1400,code.eq.1602')
             .limit(1)
             .maybeSingle();
 
