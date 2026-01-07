@@ -144,6 +144,7 @@ export function Sidebar({ currentView, onNavigate }: SidebarProps) {
       label: 'Fiscaal',
       icon: Calculator,
       children: [
+        { id: 'btw-aangifte', label: 'BTW Aangifte', view: 'btw-aangifte' },
         { id: 'ib-aangifte', label: 'IB Aangifte', view: 'ib-aangifte' },
         { id: 'tax', label: 'Belasting Wizard', view: 'tax' },
       ],

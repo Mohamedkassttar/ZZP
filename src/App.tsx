@@ -20,6 +20,7 @@ import Products from './components/Products';
 import { Inbox } from './components/Inbox';
 import { Quotations } from './components/Quotations';
 import { QuoteApproval } from './components/public/QuoteApproval';
+import { VatReturn } from './components/VatReturn';
 import { PortalLayout } from './components/portal/PortalLayout';
 import { PortalDashboard } from './components/portal/PortalDashboard';
 import { PortalBank } from './components/portal/PortalBank';
@@ -30,7 +31,7 @@ import { PortalFinance } from './components/portal/PortalFinance';
 import { seedAccounts } from './lib/seedAccounts';
 import { isSupabaseConfigured } from './lib/supabase';
 
-type View = 'dashboard' | 'inbox' | 'notifications' | 'quotations' | 'boeken' | 'memoriaal-boekingen' | 'bankboekingen' | 'bank' | 'reports' | 'settings' | 'outstanding' | 'account-detail' | 'relations' | 'tax' | 'ib-aangifte' | 'sales' | 'time-tracking' | 'products' | 'portal-home' | 'portal-scan' | 'portal-invoice' | 'portal-expense' | 'portal-time' | 'portal-relations' | 'portal-finance';
+type View = 'dashboard' | 'inbox' | 'notifications' | 'quotations' | 'btw-aangifte' | 'boeken' | 'memoriaal-boekingen' | 'bankboekingen' | 'bank' | 'reports' | 'settings' | 'outstanding' | 'account-detail' | 'relations' | 'tax' | 'ib-aangifte' | 'sales' | 'time-tracking' | 'products' | 'portal-home' | 'portal-scan' | 'portal-invoice' | 'portal-expense' | 'portal-time' | 'portal-relations' | 'portal-finance';
 
 interface ViewState {
   view: View;
@@ -147,6 +148,8 @@ function App() {
           return <Inbox onNavigateToQuote={(quoteId) => navigate('quotations', { quoteId })} />;
         case 'quotations':
           return <Quotations />;
+        case 'btw-aangifte':
+          return <VatReturn />;
         case 'sales':
           return <SalesInvoices />;
         case 'time-tracking':
