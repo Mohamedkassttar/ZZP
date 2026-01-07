@@ -24,6 +24,7 @@ import type { EnhancedInvoiceData } from './intelligentInvoiceProcessor';
 import { findActiveAccountsPayable, findActiveVATReceivable } from './systemAccountsService';
 import { getAccountIdByCode } from './bankService';
 import { getCashAccount, getPrivateAccount } from './financialSettingsService';
+import { findVatReceivableAccount } from './accountLookupService';
 
 type Contact = Database['public']['Tables']['contacts']['Row'];
 type Account = Database['public']['Tables']['accounts']['Row'];
@@ -141,11 +142,26 @@ export async function bookInvoice(params: BookInvoiceParams): Promise<BookInvoic
       console.log(`  ✓ Using contact's default ledger account: ${creditorAccountId}`);
     }
 
-    // STEP 3: Fetch VAT account (only used if VAT amount > 0)
-    console.log('\n📋 STEP 3: VAT Account (Te vorderen BTW)');
+    // STEP 3: Dynamic VAT Account Lookup (only used if VAT amount > 0)
+    console.log('\n📋 STEP 3: VAT Account (Te vorderen BTW) - Dynamic Lookup');
     console.log('─'.repeat(70));
 
-    const vatAccount = await findActiveVATReceivable();
+    const totalAmount = invoiceData.total_amount || 0;
+    const vatAmount = invoiceData.vat_amount || 0;
+    const netAmount = invoiceData.net_amount || (totalAmount - vatAmount);
+    const vatPercentage = invoiceData.vat_percentage || (vatAmount > 0 && netAmount > 0 ? (vatAmount / netAmount) * 100 : 21);
+
+    console.log(`  VAT Rate: ${vatPercentage}%`);
+
+    // Use dynamic lookup based on VAT percentage
+    const vatResult = await findVatReceivableAccount(vatPercentage);
+    let vatAccount = vatResult.account;
+
+    if (!vatAccount) {
+      // Fallback to system service
+      console.log('  ⚠ Dynamic lookup failed, trying fallback...');
+      vatAccount = await findActiveVATReceivable();
+    }
 
     if (!vatAccount) {
       throw new Error(
@@ -155,16 +171,11 @@ export async function bookInvoice(params: BookInvoiceParams): Promise<BookInvoic
       );
     }
 
-    console.log(`  ✓ VAT Account gevonden: ${vatAccount.code} - ${vatAccount.name}`);
+    console.log(`  ✓ VAT Account: ${vatAccount.code} - ${vatAccount.name} (${vatResult.confidence || 'fallback'} confidence)`);
 
-    // STEP 4: Calculate amounts
-    console.log('\n📋 STEP 4: Amount Calculation');
+    // STEP 4: Validate amounts (already calculated in STEP 3)
+    console.log('\n📋 STEP 4: Amount Validation');
     console.log('─'.repeat(70));
-
-    const totalAmount = invoiceData.total_amount || 0;
-    const vatAmount = invoiceData.vat_amount || 0;
-    const netAmount = invoiceData.net_amount || (totalAmount - vatAmount);
-    const vatPercentage = invoiceData.vat_percentage || (vatAmount > 0 && netAmount > 0 ? (vatAmount / netAmount) * 100 : 21);
 
     console.log(`  Total (incl. VAT): €${totalAmount.toFixed(2)}`);
     console.log(`  Net Amount:        €${netAmount.toFixed(2)}`);

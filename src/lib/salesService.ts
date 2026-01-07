@@ -1,7 +1,12 @@
 import { supabase } from './supabase';
 import type { Database } from './database.types';
-import { findActiveAccountsReceivable, findActiveVATPayable } from './systemAccountsService';
+import { findActiveAccountsReceivable } from './systemAccountsService';
 import { sendInvoiceEmail, sendInvoiceReminder, isValidEmail } from './emailService';
+import {
+  findRevenueAccount,
+  findVatLiabilityAccount,
+  groupInvoiceLinesByVatRate
+} from './accountLookupService';
 
 type Account = Database['public']['Tables']['accounts']['Row'];
 
@@ -53,57 +58,15 @@ async function generateNextInvoiceNumber(): Promise<string> {
   return `INV-${currentYear}-${nextNumber.toString().padStart(4, '0')}`;
 }
 
-async function getSystemAccounts(): Promise<{
-  debtorAccount: Account;
-  revenueAccount: Account;
-  vatPayableAccount: Account;
-} | null> {
-  console.log('[SALES_SERVICE] Fetching system accounts for sales invoice...');
-
-  // Use smart search functions instead of hardcoded account codes
-  const [debtorAccount, vatPayableAccount, revenueRes] = await Promise.all([
-    findActiveAccountsReceivable(),
-    findActiveVATPayable(),
-    supabase
-      .from('accounts')
-      .select('*')
-      .eq('type', 'Revenue')
-      .eq('is_active', true)
-      .order('code')
-      .limit(1)
-      .maybeSingle(),
-  ]);
-
-  if (!debtorAccount) {
-    console.error('[SALES_SERVICE] Geen Debiteuren rekening gevonden');
-    return null;
-  }
-  console.log(`[SALES_SERVICE] ✓ Debiteuren: ${debtorAccount.code} - ${debtorAccount.name}`);
-
-  if (!vatPayableAccount) {
-    console.error('[SALES_SERVICE] Geen BTW te betalen rekening gevonden');
-    return null;
-  }
-  console.log(`[SALES_SERVICE] ✓ BTW te betalen: ${vatPayableAccount.code} - ${vatPayableAccount.name}`);
-
-  if (!revenueRes.data) {
-    console.error('[SALES_SERVICE] Geen Omzet rekening gevonden');
-    return null;
-  }
-  console.log(`[SALES_SERVICE] ✓ Omzet: ${revenueRes.data.code} - ${revenueRes.data.name}`);
-
-  return {
-    debtorAccount,
-    revenueAccount: revenueRes.data,
-    vatPayableAccount,
-  };
-}
-
 export async function createAndBookInvoice(
   input: CreateInvoiceInput
 ): Promise<CreateInvoiceResult> {
   try {
     const { contactId, lines } = input;
+
+    console.log('\n' + '═'.repeat(70));
+    console.log('📘 [SALES_SERVICE] Creating sales invoice with dynamic account mapping');
+    console.log('═'.repeat(70));
 
     if (!contactId || lines.length === 0) {
       return { success: false, error: 'Contact ID en minimaal één regel zijn verplicht' };
@@ -114,15 +77,19 @@ export async function createAndBookInvoice(
       return { success: false, error: 'Geen geldige factuurregels' };
     }
 
-    const accounts = await getSystemAccounts();
-    if (!accounts) {
+    // Get debtor account (static, same for all invoices)
+    const debtorAccount = await findActiveAccountsReceivable();
+    if (!debtorAccount) {
       return {
         success: false,
-        error: 'Vereiste grootboekrekeningen niet gevonden (Debiteuren, Omzet, BTW Te Betalen)',
+        error: 'Debiteuren rekening niet gevonden',
       };
     }
+    console.log(`✓ Debiteuren: ${debtorAccount.code} - ${debtorAccount.name}`);
 
-    const { debtorAccount, revenueAccount, vatPayableAccount } = accounts;
+    // Group lines by VAT rate for dynamic account lookup
+    const groupedByVat = await groupInvoiceLinesByVatRate(validLines);
+    console.log(`✓ Grouped into ${groupedByVat.size} VAT rate group(s)`);
 
     const invoiceNumber = await generateNextInvoiceNumber();
     const invoiceDate = input.invoiceDate || new Date().toISOString().split('T')[0];
@@ -137,6 +104,9 @@ export async function createAndBookInvoice(
     );
     const total = subtotal + vatAmount;
 
+    console.log(`Invoice totals: Net €${subtotal.toFixed(2)} + VAT €${vatAmount.toFixed(2)} = €${total.toFixed(2)}`);
+
+    // Create journal entry
     const { data: journalEntry, error: journalError } = await supabase
       .from('journal_entries')
       .insert({
@@ -157,31 +127,95 @@ export async function createAndBookInvoice(
       };
     }
 
-    const journalLines = [
-      {
-        journal_entry_id: journalEntry.id,
-        account_id: debtorAccount.id,
-        debit: total,
-        credit: 0,
-        description: `Debiteur ${invoiceNumber}`,
-      },
-      {
-        journal_entry_id: journalEntry.id,
-        account_id: revenueAccount.id,
-        debit: 0,
-        credit: subtotal,
-        description: `Omzet ${invoiceNumber}`,
-      },
-    ];
+    console.log(`✓ Journal entry created: ${journalEntry.id}`);
 
-    if (vatAmount > 0.01) {
+    // Build journal lines with dynamic account lookup
+    const journalLines = [];
+
+    // DEBIT: Debtor (Total amount)
+    journalLines.push({
+      journal_entry_id: journalEntry.id,
+      account_id: debtorAccount.id,
+      debit: total,
+      credit: 0,
+      description: `Debiteur ${invoiceNumber}`,
+    });
+
+    // CREDIT: Revenue accounts per VAT rate
+    for (const [vatRate, group] of groupedByVat.entries()) {
+      console.log(`\n📊 Processing VAT group ${vatRate}%: €${group.netAmount.toFixed(2)}`);
+
+      // Find appropriate revenue account for this VAT rate
+      const revenueResult = await findRevenueAccount(vatRate);
+
+      if (!revenueResult.account) {
+        return {
+          success: false,
+          error: `Geen omzet rekening gevonden voor ${vatRate}% BTW`,
+        };
+      }
+
+      console.log(`  → Revenue: ${revenueResult.account.code} - ${revenueResult.account.name} (${revenueResult.confidence} confidence)`);
+
       journalLines.push({
         journal_entry_id: journalEntry.id,
-        account_id: vatPayableAccount.id,
+        account_id: revenueResult.account.id,
         debit: 0,
-        credit: vatAmount,
-        description: `BTW ${invoiceNumber}`,
+        credit: group.netAmount,
+        description: `Omzet ${invoiceNumber} (${vatRate}% BTW)`,
       });
+
+      // CREDIT: VAT liability account (if VAT > 0)
+      if (group.vatAmount > 0.01) {
+        const vatResult = await findVatLiabilityAccount(vatRate);
+
+        if (!vatResult.account) {
+          console.warn(`  ⚠ No VAT liability account found for ${vatRate}%, using fallback`);
+          // Try to find any VAT payable account as fallback
+          const { data: fallbackVat } = await supabase
+            .from('accounts')
+            .select('*')
+            .eq('type', 'Liability')
+            .eq('is_active', true)
+            .ilike('name', '%btw%')
+            .ilike('name', '%betalen%')
+            .limit(1)
+            .maybeSingle();
+
+          if (fallbackVat) {
+            console.log(`  → Using fallback VAT: ${fallbackVat.code} - ${fallbackVat.name}`);
+            journalLines.push({
+              journal_entry_id: journalEntry.id,
+              account_id: fallbackVat.id,
+              debit: 0,
+              credit: group.vatAmount,
+              description: `BTW ${vatRate}% ${invoiceNumber}`,
+            });
+          }
+        } else {
+          console.log(`  → VAT Liability: ${vatResult.account.code} - ${vatResult.account.name} (${vatResult.confidence} confidence)`);
+          journalLines.push({
+            journal_entry_id: journalEntry.id,
+            account_id: vatResult.account.id,
+            debit: 0,
+            credit: group.vatAmount,
+            description: `BTW ${vatRate}% ${invoiceNumber}`,
+          });
+        }
+      }
+    }
+
+    // Validate double entry
+    const totalDebit = journalLines.reduce((sum, line) => sum + (line.debit || 0), 0);
+    const totalCredit = journalLines.reduce((sum, line) => sum + (line.credit || 0), 0);
+
+    console.log(`\nDouble entry validation: DEBIT €${totalDebit.toFixed(2)} = CREDIT €${totalCredit.toFixed(2)}`);
+
+    if (Math.abs(totalDebit - totalCredit) > 0.01) {
+      return {
+        success: false,
+        error: `Double entry validation failed: DEBIT (€${totalDebit.toFixed(2)}) ≠ CREDIT (€${totalCredit.toFixed(2)})`,
+      };
     }
 
     const { error: linesError } = await supabase.from('journal_lines').insert(journalLines);
@@ -192,6 +226,8 @@ export async function createAndBookInvoice(
         error: `Fout bij aanmaken journaalregels: ${linesError.message}`,
       };
     }
+
+    console.log(`✓ ${journalLines.length} journal lines created`);
 
     const { data: invoiceData, error: invoiceError } = await supabase
       .from('sales_invoices')
@@ -213,12 +249,14 @@ export async function createAndBookInvoice(
       };
     }
 
+    console.log(`✓ Sales invoice created: ${invoiceData.id}`);
+    console.log('═'.repeat(70) + '\n');
+
     // Handle email sending if requested
     let emailSent = false;
     let emailMessage = '';
 
     if (input.shouldSendEmail) {
-      // Get contact email
       const { data: contact } = await supabase
         .from('contacts')
         .select('email, company_name')
@@ -237,7 +275,6 @@ export async function createAndBookInvoice(
           });
 
           if (emailResult.success) {
-            // Update invoice with email tracking
             await supabase
               .from('sales_invoices')
               .update({
