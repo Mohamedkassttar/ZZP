@@ -9,6 +9,7 @@ import type { Database } from '../lib/database.types';
 type Contact = Database['public']['Tables']['contacts']['Row'];
 type Invoice = Database['public']['Tables']['invoices']['Row'];
 type SalesInvoice = Database['public']['Tables']['sales_invoices']['Row'];
+type PurchaseInvoice = Database['public']['Tables']['purchase_invoices']['Row'];
 
 interface JournalEntry {
   id: string;
@@ -29,6 +30,7 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
   const [activeTab, setActiveTab] = useState<'outstanding' | 'history' | 'invoices'>('outstanding');
   const [outstandingInvoices, setOutstandingInvoices] = useState<Invoice[]>([]);
   const [salesInvoices, setSalesInvoices] = useState<SalesInvoice[]>([]);
+  const [purchaseInvoices, setPurchaseInvoices] = useState<PurchaseInvoice[]>([]);
   const [history, setHistory] = useState<JournalEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [resendModal, setResendModal] = useState<{
@@ -81,8 +83,8 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
   });
   const [previewModal, setPreviewModal] = useState<{
     isOpen: boolean;
-    invoice: Invoice | SalesInvoice | null;
-    tableName: 'invoices' | 'sales_invoices';
+    invoice: Invoice | SalesInvoice | PurchaseInvoice | null;
+    tableName: 'invoices' | 'sales_invoices' | 'purchase_invoices';
   }>({
     isOpen: false,
     invoice: null,
@@ -99,7 +101,12 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
   async function loadData() {
     setLoading(true);
     try {
-      await Promise.all([loadOutstandingInvoices(), loadSalesInvoices(), loadHistory()]);
+      await Promise.all([
+        loadOutstandingInvoices(),
+        loadSalesInvoices(),
+        loadPurchaseInvoices(),
+        loadHistory()
+      ]);
     } catch (error) {
       console.error('Error loading contact data:', error);
     } finally {
@@ -116,6 +123,17 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
 
     if (error) throw error;
     setSalesInvoices(data || []);
+  }
+
+  async function loadPurchaseInvoices() {
+    const { data, error } = await supabase
+      .from('purchase_invoices')
+      .select('*')
+      .eq('contact_id', contact.id)
+      .order('invoice_date', { ascending: false });
+
+    if (error) throw error;
+    setPurchaseInvoices(data || []);
   }
 
   async function loadOutstandingInvoices() {
@@ -414,6 +432,14 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
     });
   };
 
+  const handlePurchaseInvoiceClick = async (invoice: PurchaseInvoice) => {
+    setPreviewModal({
+      isOpen: true,
+      invoice: invoice as any,
+      tableName: 'purchase_invoices' as any,
+    });
+  };
+
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
       case 'draft':
@@ -517,8 +543,10 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
         <div className="p-6">
           {activeTab === 'invoices' ? (
             <div>
-              <h2 className="text-lg font-semibold text-slate-900 mb-4">Factuurhistorie</h2>
-              {salesInvoices.length === 0 ? (
+              <h2 className="text-lg font-semibold text-slate-900 mb-4">
+                {isCreditor && !isDebtor ? 'Inkoopfacturen' : isDebtor && !isCreditor ? 'Verkoopfacturen' : 'Factuurhistorie'}
+              </h2>
+              {(isCreditor ? purchaseInvoices.length === 0 : salesInvoices.length === 0) ? (
                 <div className="text-center py-12 text-slate-500">
                   <Receipt className="w-12 h-12 mx-auto mb-3 text-slate-400" />
                   <p>Geen facturen gevonden</p>
@@ -540,16 +568,51 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
                         <th className="px-4 py-3 text-left text-xs font-semibold text-slate-900">
                           Status
                         </th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-900">
-                          Laatst verzonden
-                        </th>
+                        {isDebtor && !isCreditor && (
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-slate-900">
+                            Laatst verzonden
+                          </th>
+                        )}
                         <th className="px-4 py-3 text-right text-xs font-semibold text-slate-900">
                           Acties
                         </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200">
-                      {salesInvoices.map((invoice) => (
+                      {isCreditor && !isDebtor ? purchaseInvoices.map((invoice) => (
+                        <tr key={invoice.id} className="hover:bg-slate-50">
+                          <td className="px-4 py-3 text-sm text-slate-700">
+                            {new Date(invoice.invoice_date).toLocaleDateString('nl-NL')}
+                          </td>
+                          <td className="px-4 py-3 text-sm font-medium">
+                            <button
+                              onClick={() => handlePurchaseInvoiceClick(invoice)}
+                              className="text-blue-600 hover:text-blue-800 hover:underline font-medium transition-colors"
+                            >
+                              {invoice.invoice_number}
+                            </button>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-right font-medium text-slate-900">
+                            €{Number(invoice.total_amount).toFixed(2)}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(invoice.status)}`}>
+                              {invoice.status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                onClick={() => handlePurchaseInvoiceClick(invoice)}
+                                className="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                title="Bekijk factuur"
+                              >
+                                <Eye className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )) : salesInvoices.map((invoice) => (
                         <tr key={invoice.id} className="hover:bg-slate-50">
                           <td className="px-4 py-3 text-sm text-slate-700">
                             {new Date(invoice.date).toLocaleDateString('nl-NL')}

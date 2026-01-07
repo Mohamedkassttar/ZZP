@@ -1,17 +1,19 @@
-import { X, Printer } from 'lucide-react';
+import { X, Printer, Eye } from 'lucide-react';
 import type { Database } from '../lib/database.types';
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 
 type Invoice = Database['public']['Tables']['invoices']['Row'];
 type SalesInvoice = Database['public']['Tables']['sales_invoices']['Row'];
+type PurchaseInvoice = Database['public']['Tables']['purchase_invoices']['Row'];
 type InvoiceLine = Database['public']['Tables']['invoice_lines']['Row'];
 type Contact = Database['public']['Tables']['contacts']['Row'];
+type Document = Database['public']['Tables']['documents_inbox']['Row'];
 
 interface InvoicePreviewModalProps {
   invoiceId?: string;
-  invoice?: Invoice | SalesInvoice;
-  tableName?: 'invoices' | 'sales_invoices';
+  invoice?: Invoice | SalesInvoice | PurchaseInvoice;
+  tableName?: 'invoices' | 'sales_invoices' | 'purchase_invoices';
   isOpen?: boolean;
   onClose: () => void;
 }
@@ -29,10 +31,11 @@ interface CompanySettings {
 }
 
 export function InvoicePreviewModal({ invoiceId, invoice: invoiceProp, tableName = 'invoices', isOpen = true, onClose }: InvoicePreviewModalProps) {
-  const [invoice, setInvoice] = useState<Invoice | SalesInvoice | null>(invoiceProp || null);
+  const [invoice, setInvoice] = useState<Invoice | SalesInvoice | PurchaseInvoice | null>(invoiceProp || null);
   const [invoiceLines, setInvoiceLines] = useState<InvoiceLine[]>([]);
   const [contact, setContact] = useState<Contact | null>(null);
   const [companySettings, setCompanySettings] = useState<CompanySettings | null>(null);
+  const [document, setDocument] = useState<Document | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -62,7 +65,10 @@ export function InvoicePreviewModal({ invoiceId, invoice: invoiceProp, tableName
         throw new Error('No invoice found');
       }
 
-      const [linesRes, contactRes, settingsRes] = await Promise.all([
+      const isPurchaseInvoice = tableName === 'purchase_invoices';
+      const documentId = isPurchaseInvoice ? (currentInvoice as PurchaseInvoice).document_id : null;
+
+      const [linesRes, contactRes, settingsRes, documentRes] = await Promise.all([
         supabase
           .from('invoice_lines')
           .select('*')
@@ -76,7 +82,12 @@ export function InvoicePreviewModal({ invoiceId, invoice: invoiceProp, tableName
         supabase
           .from('company_settings')
           .select('*')
-          .maybeSingle()
+          .maybeSingle(),
+        documentId ? supabase
+          .from('documents_inbox')
+          .select('*')
+          .eq('id', documentId)
+          .maybeSingle() : Promise.resolve({ data: null, error: null })
       ]);
 
       if (linesRes.data) {
@@ -89,6 +100,10 @@ export function InvoicePreviewModal({ invoiceId, invoice: invoiceProp, tableName
 
       if (settingsRes.data) {
         setCompanySettings(settingsRes.data as CompanySettings);
+      }
+
+      if (documentRes.data) {
+        setDocument(documentRes.data);
       }
     } catch (error) {
       console.error('Error loading invoice data:', error);
@@ -104,15 +119,21 @@ export function InvoicePreviewModal({ invoiceId, invoice: invoiceProp, tableName
   if (!isOpen) return null;
   if (!invoice) return null;
 
+  const isPurchaseInvoice = tableName === 'purchase_invoices';
   const isSalesInvoice = tableName === 'sales_invoices';
-  const invoiceDate = isSalesInvoice ? (invoice as SalesInvoice).date : (invoice as Invoice).invoice_date;
-  const dueDate = isSalesInvoice
-    ? (invoiceDate ? new Date(new Date(invoiceDate).getTime() + 30 * 24 * 60 * 60 * 1000) : new Date())
-    : ((invoice as Invoice).due_date ? new Date((invoice as Invoice).due_date) : new Date(invoiceDate));
+  const isOldInvoice = tableName === 'invoices';
+
+  const invoiceDate = isPurchaseInvoice || isOldInvoice
+    ? (invoice as Invoice | PurchaseInvoice).invoice_date
+    : (invoice as SalesInvoice).date;
+
+  const dueDate = isPurchaseInvoice || isOldInvoice
+    ? ((invoice as Invoice | PurchaseInvoice).due_date ? new Date((invoice as Invoice | PurchaseInvoice).due_date) : new Date(invoiceDate))
+    : (invoiceDate ? new Date(new Date(invoiceDate).getTime() + 30 * 24 * 60 * 60 * 1000) : new Date());
 
   const subtotal = isSalesInvoice
     ? (Number(invoice.total_amount || 0) - Number(invoice.vat_amount || 0))
-    : Number((invoice as Invoice).subtotal || 0);
+    : Number((invoice as Invoice | PurchaseInvoice).subtotal || 0);
   const vatAmount = Number(invoice.vat_amount || 0);
   const total = Number(invoice.total_amount || 0);
 
@@ -167,6 +188,91 @@ export function InvoicePreviewModal({ invoiceId, invoice: invoiceProp, tableName
           {loading ? (
             <div className="flex items-center justify-center h-64">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            </div>
+          ) : isPurchaseInvoice && document ? (
+            <div className="max-w-6xl mx-auto bg-white print:max-w-none">
+              <div className="mb-8">
+                <h1 className="text-3xl font-bold text-slate-900 mb-4">Inkoopfactuur {invoice.invoice_number}</h1>
+
+                <div className="grid grid-cols-2 gap-6 mb-6 bg-slate-50 p-6 rounded-lg">
+                  <div>
+                    <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Leverancier</h3>
+                    {contact ? (
+                      <div className="text-slate-900">
+                        <p className="font-bold text-lg mb-1">{contact.company_name}</p>
+                        {contact.contact_person && (
+                          <p className="text-slate-700">{contact.contact_person}</p>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-slate-500 italic">Contactgegevens niet beschikbaar</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Factuurgegevens</h3>
+                    <div className="space-y-2">
+                      <div>
+                        <p className="text-xs text-slate-500">Factuurnummer</p>
+                        <p className="font-bold text-slate-900">{invoice.invoice_number}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500">Factuurdatum</p>
+                        <p className="font-semibold text-slate-900">{invoiceDate ? new Date(invoiceDate).toLocaleDateString('nl-NL') : 'N/A'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500">Vervaldatum</p>
+                        <p className="font-semibold text-slate-900">{dueDate.toLocaleDateString('nl-NL')}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 rounded-lg p-6 mb-6">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="text-sm text-slate-600">Totaalbedrag</p>
+                      <p className="text-3xl font-bold text-slate-900">€{total.toFixed(2)}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm text-slate-600">Subtotaal: €{subtotal.toFixed(2)}</p>
+                      <p className="text-sm text-slate-600">BTW: €{vatAmount.toFixed(2)}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {(invoice as PurchaseInvoice).description && (
+                  <div className="mb-6">
+                    <h3 className="text-sm font-bold text-slate-900 mb-2">Omschrijving</h3>
+                    <p className="text-slate-700">{(invoice as PurchaseInvoice).description}</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="border-t border-slate-200 pt-6">
+                <h3 className="text-lg font-bold text-slate-900 mb-4">Geüploade Factuur</h3>
+                {document.file_url && (
+                  <div className="bg-slate-50 rounded-lg p-4">
+                    <img
+                      src={document.file_url}
+                      alt={`Factuur ${invoice.invoice_number}`}
+                      className="w-full h-auto rounded-lg shadow-lg"
+                      style={{ maxHeight: '800px', objectFit: 'contain' }}
+                    />
+                    <div className="mt-4 text-center">
+                      <a
+                        href={document.file_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                      >
+                        <Eye className="w-4 h-4" />
+                        Open in nieuw tabblad
+                      </a>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           ) : (
             <div className="max-w-4xl mx-auto bg-white print:max-w-none">
