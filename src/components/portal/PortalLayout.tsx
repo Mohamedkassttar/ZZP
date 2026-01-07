@@ -19,7 +19,7 @@ const navItems = [
 
 export function PortalLayout({ children, currentView, onNavigate }: PortalLayoutProps) {
   return (
-    <div className="flex min-h-[100dvh] w-full flex-col bg-gradient-to-br from-blue-50 via-white to-slate-50 overflow-hidden">
+    <div className="flex min-h-[100dvh] w-full flex-col bg-gradient-to-br from-blue-50 via-white to-slate-50">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_30%,rgba(59,130,246,0.06),transparent_60%)] pointer-events-none" />
 
       <header className="flex-none z-30 bg-white/80 backdrop-blur-xl border-b border-gray-200 shadow-sm relative">
@@ -45,37 +45,39 @@ export function PortalLayout({ children, currentView, onNavigate }: PortalLayout
         </div>
       </header>
 
-      <main className="flex-1 overflow-y-auto overflow-x-hidden relative z-10 min-h-0">
-        <div className="px-4 py-6 pb-36 pr-4 md:pr-4">
+      <nav className="sticky top-0 z-40 bg-white border-b border-gray-200 shadow-sm">
+        <div className="overflow-x-auto scrollbar-hide">
+          <div className="flex items-center justify-start md:justify-center gap-1 px-4 py-3 min-w-max md:min-w-0">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = currentView === item.id;
+
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => onNavigate(item.id)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all whitespace-nowrap ${
+                    isActive
+                      ? 'bg-blue-600 text-white shadow-md'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                  }`}
+                >
+                  <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'stroke-[2.5]' : 'stroke-[2]'}`} />
+                  <span className={`text-sm font-medium ${isActive ? 'font-semibold' : ''}`}>
+                    {item.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </nav>
+
+      <main className="flex-1 overflow-y-auto overflow-x-hidden relative z-10">
+        <div className="px-4 py-6">
           {children}
         </div>
       </main>
-
-      <nav className="flex-none z-30 bg-white border-t border-gray-200 shadow-lg">
-        <div className="flex items-center justify-around px-1 py-2.5">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = currentView === item.id;
-
-            return (
-              <button
-                key={item.id}
-                onClick={() => onNavigate(item.id)}
-                className={`flex flex-col items-center justify-center min-w-[56px] py-1.5 px-2 rounded-xl transition-all ${
-                  isActive
-                    ? 'bg-blue-50 text-blue-600'
-                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                <Icon className={`w-5 h-5 mb-0.5 ${isActive ? 'stroke-[2.5]' : 'stroke-[2]'}`} />
-                <span className={`text-[10px] font-medium leading-tight ${isActive ? 'font-semibold' : ''}`}>
-                  {item.label}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </nav>
 
       <PortalAssistant />
     </div>
