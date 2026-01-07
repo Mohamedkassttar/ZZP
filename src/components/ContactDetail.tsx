@@ -504,39 +504,39 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
-        <div className="flex border-b border-slate-200">
+        <div className="flex border-b border-slate-200 overflow-x-auto">
           <button
             onClick={() => setActiveTab('outstanding')}
-            className={`flex items-center gap-2 px-6 py-4 font-semibold transition-colors ${
+            className={`flex items-center gap-2 px-4 md:px-6 py-4 font-semibold transition-colors whitespace-nowrap flex-shrink-0 ${
               activeTab === 'outstanding'
                 ? 'text-blue-700 border-b-2 border-blue-600 bg-blue-50/50'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
             }`}
           >
             <Clock className="w-5 h-5" />
-            Openstaand
+            <span className="text-sm md:text-base">Openstaand</span>
           </button>
           <button
             onClick={() => setActiveTab('invoices')}
-            className={`flex items-center gap-2 px-6 py-4 font-semibold transition-colors ${
+            className={`flex items-center gap-2 px-4 md:px-6 py-4 font-semibold transition-colors whitespace-nowrap flex-shrink-0 ${
               activeTab === 'invoices'
                 ? 'text-blue-700 border-b-2 border-blue-600 bg-blue-50/50'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
             }`}
           >
             <Receipt className="w-5 h-5" />
-            Factuurhistorie
+            <span className="text-sm md:text-base">Factuurhistorie</span>
           </button>
           <button
             onClick={() => setActiveTab('history')}
-            className={`flex items-center gap-2 px-6 py-4 font-semibold transition-colors ${
+            className={`flex items-center gap-2 px-4 md:px-6 py-4 font-semibold transition-colors whitespace-nowrap flex-shrink-0 ${
               activeTab === 'history'
                 ? 'text-blue-700 border-b-2 border-blue-600 bg-blue-50/50'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
             }`}
           >
             <FileText className="w-5 h-5" />
-            Transactie Historie
+            <span className="text-sm md:text-base">Transactie Historie</span>
           </button>
         </div>
 
