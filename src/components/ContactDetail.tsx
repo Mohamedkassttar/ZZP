@@ -400,11 +400,9 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
   };
 
   const handleInvoiceDetailClick = async (invoice: SalesInvoice) => {
-    setDetailModal({
+    setPreviewModal({
       isOpen: true,
       invoice,
-      lines: [],
-      tableName: 'sales_invoices',
     });
   };
 
@@ -603,16 +601,9 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
                               <button
                                 onClick={() => handlePreviewClick(invoice)}
                                 className="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                title="Preview factuur"
+                                title="Bekijk factuur"
                               >
                                 <Eye className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() => handleEditClick(invoice)}
-                                className="p-2 text-slate-600 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
-                                title="Bedrag wijzigen"
-                              >
-                                <Euro className="w-4 h-4" />
                               </button>
                               <button
                                 onClick={() => handleStatusClick(invoice)}

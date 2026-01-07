@@ -90,12 +90,19 @@ export function PortalExpense() {
           status,
           document_id,
           created_at,
-          contact:contacts(name)
+          contact_id,
+          contacts!left(name)
         `)
         .order('invoice_date', { ascending: false });
 
       if (error) throw error;
-      setPurchaseInvoices(data || []);
+
+      const formattedData = (data || []).map(invoice => ({
+        ...invoice,
+        contact: invoice.contacts ? { name: invoice.contacts.name } : undefined
+      }));
+
+      setPurchaseInvoices(formattedData as any);
     } catch (err) {
       console.error('Error loading purchase invoices:', err);
     } finally {
