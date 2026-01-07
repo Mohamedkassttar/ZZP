@@ -95,8 +95,8 @@ export function PortalDashboard() {
           .from('sales_invoices')
           .select('total_amount')
           .eq('status', 'open')
-          .gte('invoice_date', yearStart)
-          .lte('invoice_date', yearEnd),
+          .gte('date', yearStart)
+          .lte('date', yearEnd),
         supabase
           .from('journal_entries')
           .select('id, entry_date, description, memoriaal_type')
