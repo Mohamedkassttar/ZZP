@@ -12,6 +12,7 @@ import {
   Loader,
   Send,
   Package,
+  Eye,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import type { Database } from '../../lib/database.types';
@@ -85,6 +86,7 @@ export function PortalCreateInvoice() {
     lineId: '',
     lineDescription: '',
   });
+  const [previewInvoiceId, setPreviewInvoiceId] = useState<string | null>(null);
 
   const [selectedContactId, setSelectedContactId] = useState('');
   const [invoiceNumber, setInvoiceNumber] = useState('');
@@ -819,16 +821,25 @@ export function PortalCreateInvoice() {
                     </td>
                     <td className="px-6 py-2 text-right">
                       {transaction.source === 'Invoice' && transaction.invoice_id && (
-                        <button
-                          onClick={() => {
-                            const invoice = invoices.find(inv => inv.id === transaction.invoice_id);
-                            if (invoice) openEditor(invoice);
-                          }}
-                          className="text-blue-600 hover:text-blue-800 p-2 hover:bg-blue-50 rounded-lg transition-colors"
-                          title="Bewerken"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => setPreviewInvoiceId(transaction.invoice_id!)}
+                            className="text-gray-600 hover:text-gray-800 p-2 hover:bg-gray-50 rounded-lg transition-colors"
+                            title="Bekijken"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              const invoice = invoices.find(inv => inv.id === transaction.invoice_id);
+                              if (invoice) openEditor(invoice);
+                            }}
+                            className="text-blue-600 hover:text-blue-800 p-2 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Bewerken"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                        </div>
                       )}
                     </td>
                   </tr>
@@ -870,16 +881,25 @@ export function PortalCreateInvoice() {
                     </p>
                   </div>
                   {transaction.source === 'Invoice' && transaction.invoice_id && (
-                    <button
-                      onClick={() => {
-                        const invoice = invoices.find(inv => inv.id === transaction.invoice_id);
-                        if (invoice) openEditor(invoice);
-                      }}
-                      className="text-blue-600 hover:text-blue-800 p-2 hover:bg-blue-50 rounded-lg transition-colors flex-shrink-0"
-                      title="Bewerken"
-                    >
-                      <Edit className="w-5 h-5" />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => setPreviewInvoiceId(transaction.invoice_id!)}
+                        className="text-gray-600 hover:text-gray-800 p-2 hover:bg-gray-50 rounded-lg transition-colors flex-shrink-0"
+                        title="Bekijken"
+                      >
+                        <Eye className="w-5 h-5" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          const invoice = invoices.find(inv => inv.id === transaction.invoice_id);
+                          if (invoice) openEditor(invoice);
+                        }}
+                        className="text-blue-600 hover:text-blue-800 p-2 hover:bg-blue-50 rounded-lg transition-colors flex-shrink-0"
+                        title="Bewerken"
+                      >
+                        <Edit className="w-5 h-5" />
+                      </button>
+                    </div>
                   )}
                 </div>
 
@@ -1494,6 +1514,13 @@ export function PortalCreateInvoice() {
             </div>
           </div>
         </div>
+      )}
+
+      {previewInvoiceId && (
+        <InvoicePreviewModal
+          invoiceId={previewInvoiceId}
+          onClose={() => setPreviewInvoiceId(null)}
+        />
       )}
     </div>
   );
