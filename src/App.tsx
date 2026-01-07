@@ -35,7 +35,7 @@ interface ViewState {
 }
 
 function App() {
-  const [viewState, setViewState] = useState<ViewState>({ view: 'dashboard' });
+  const [viewState, setViewState] = useState<ViewState>({ view: 'portal-home' });
   const [fiscalYear, setFiscalYear] = useState(new Date().getFullYear() - 1);
   const [seeding, setSeeding] = useState(true);
   const [seedStatus, setSeedStatus] = useState<{
