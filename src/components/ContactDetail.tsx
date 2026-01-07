@@ -504,43 +504,68 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
-        <div className="flex border-b border-slate-200 overflow-x-auto">
-          <button
-            onClick={() => setActiveTab('outstanding')}
-            className={`flex items-center gap-2 px-4 md:px-6 py-4 font-semibold transition-colors whitespace-nowrap flex-shrink-0 ${
-              activeTab === 'outstanding'
-                ? 'text-blue-700 border-b-2 border-blue-600 bg-blue-50/50'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-            }`}
-          >
-            <Clock className="w-5 h-5" />
-            <span className="text-sm md:text-base">Openstaand</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('invoices')}
-            className={`flex items-center gap-2 px-4 md:px-6 py-4 font-semibold transition-colors whitespace-nowrap flex-shrink-0 ${
-              activeTab === 'invoices'
-                ? 'text-blue-700 border-b-2 border-blue-600 bg-blue-50/50'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-            }`}
-          >
-            <Receipt className="w-5 h-5" />
-            <span className="text-sm md:text-base">Factuurhistorie</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('history')}
-            className={`flex items-center gap-2 px-4 md:px-6 py-4 font-semibold transition-colors whitespace-nowrap flex-shrink-0 ${
-              activeTab === 'history'
-                ? 'text-blue-700 border-b-2 border-blue-600 bg-blue-50/50'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-            }`}
-          >
-            <FileText className="w-5 h-5" />
-            <span className="text-sm md:text-base">Transactie Historie</span>
-          </button>
+        <div className="p-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <button
+              onClick={() => setActiveTab('outstanding')}
+              className={`p-6 rounded-lg border-2 transition-all ${
+                activeTab === 'outstanding'
+                  ? 'border-blue-600 bg-blue-50 shadow-md'
+                  : 'border-gray-200 bg-white hover:border-blue-300 hover:shadow-sm'
+              }`}
+            >
+              <div className="flex items-center justify-center mb-3">
+                <Clock className={`w-8 h-8 ${activeTab === 'outstanding' ? 'text-blue-600' : 'text-gray-400'}`} />
+              </div>
+              <h3 className={`text-center font-semibold ${activeTab === 'outstanding' ? 'text-blue-900' : 'text-gray-900'}`}>
+                Openstaand
+              </h3>
+              <p className="text-center text-sm text-gray-500 mt-1">
+                {outstandingInvoices.length} facturen
+              </p>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('invoices')}
+              className={`p-6 rounded-lg border-2 transition-all ${
+                activeTab === 'invoices'
+                  ? 'border-blue-600 bg-blue-50 shadow-md'
+                  : 'border-gray-200 bg-white hover:border-blue-300 hover:shadow-sm'
+              }`}
+            >
+              <div className="flex items-center justify-center mb-3">
+                <Receipt className={`w-8 h-8 ${activeTab === 'invoices' ? 'text-blue-600' : 'text-gray-400'}`} />
+              </div>
+              <h3 className={`text-center font-semibold ${activeTab === 'invoices' ? 'text-blue-900' : 'text-gray-900'}`}>
+                Factuurhistorie
+              </h3>
+              <p className="text-center text-sm text-gray-500 mt-1">
+                {isCreditor && !isDebtor ? purchaseInvoices.length : salesInvoices.length} facturen
+              </p>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('history')}
+              className={`p-6 rounded-lg border-2 transition-all ${
+                activeTab === 'history'
+                  ? 'border-blue-600 bg-blue-50 shadow-md'
+                  : 'border-gray-200 bg-white hover:border-blue-300 hover:shadow-sm'
+              }`}
+            >
+              <div className="flex items-center justify-center mb-3">
+                <FileText className={`w-8 h-8 ${activeTab === 'history' ? 'text-blue-600' : 'text-gray-400'}`} />
+              </div>
+              <h3 className={`text-center font-semibold ${activeTab === 'history' ? 'text-blue-900' : 'text-gray-900'}`}>
+                Transactie Historie
+              </h3>
+              <p className="text-center text-sm text-gray-500 mt-1">
+                {history.length} transacties
+              </p>
+            </button>
+          </div>
         </div>
 
-        <div className="p-6">
+        <div className="px-6 pb-6">
           {activeTab === 'invoices' ? (
             <div>
               <h2 className="text-lg font-semibold text-slate-900 mb-4">
