@@ -169,38 +169,57 @@ export async function createAndBookInvoice(
       if (group.vatAmount > 0.01) {
         const vatResult = await findVatLiabilityAccount(vatRate);
 
-        if (!vatResult.account) {
-          console.warn(`  ⚠ No VAT liability account found for ${vatRate}%, using fallback`);
-          // Try to find any VAT payable account as fallback
-          const { data: fallbackVat } = await supabase
+        let vatAccountToUse = vatResult.account;
+
+        // If no specific VAT account found, try general "BTW te betalen" account
+        if (!vatAccountToUse) {
+          console.warn(`  ⚠ No specific VAT liability account found for ${vatRate}%, trying general BTW account`);
+
+          const { data: generalBtwAccount } = await supabase
             .from('accounts')
             .select('*')
             .eq('type', 'Liability')
             .eq('is_active', true)
-            .ilike('name', '%btw%')
-            .ilike('name', '%betalen%')
+            .or('name.ilike.%btw te betalen%,name.ilike.%te betalen btw%,code.eq.1400')
             .limit(1)
             .maybeSingle();
 
-          if (fallbackVat) {
-            console.log(`  → Using fallback VAT: ${fallbackVat.code} - ${fallbackVat.name}`);
-            journalLines.push({
-              journal_entry_id: journalEntry.id,
-              account_id: fallbackVat.id,
-              debit: 0,
-              credit: group.vatAmount,
-              description: `BTW ${vatRate}% ${invoiceNumber}`,
-            });
+          if (generalBtwAccount) {
+            vatAccountToUse = generalBtwAccount;
+            console.log(`  → Using general BTW account: ${generalBtwAccount.code} - ${generalBtwAccount.name}`);
+          } else {
+            // Final fallback: any BTW liability account
+            const { data: fallbackVat } = await supabase
+              .from('accounts')
+              .select('*')
+              .eq('type', 'Liability')
+              .eq('is_active', true)
+              .ilike('name', '%btw%')
+              .limit(1)
+              .maybeSingle();
+
+            if (fallbackVat) {
+              vatAccountToUse = fallbackVat;
+              console.log(`  → Using fallback VAT: ${fallbackVat.code} - ${fallbackVat.name}`);
+            }
           }
-        } else {
-          console.log(`  → VAT Liability: ${vatResult.account.code} - ${vatResult.account.name} (${vatResult.confidence} confidence)`);
+        }
+
+        if (vatAccountToUse) {
+          console.log(`  → VAT Liability: ${vatAccountToUse.code} - ${vatAccountToUse.name}`);
           journalLines.push({
             journal_entry_id: journalEntry.id,
-            account_id: vatResult.account.id,
+            account_id: vatAccountToUse.id,
             debit: 0,
             credit: group.vatAmount,
             description: `BTW ${vatRate}% ${invoiceNumber}`,
           });
+        } else {
+          console.error(`  ❌ No VAT liability account found at all`);
+          return {
+            success: false,
+            error: `Geen BTW te betalen rekening gevonden. Maak een rekening aan (type: Liability) met "BTW te betalen" in de naam, bijvoorbeeld met code 1400.`,
+          };
         }
       }
     }

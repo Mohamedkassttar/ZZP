@@ -204,19 +204,30 @@ export async function findVatLiabilityAccount(
     return { account: vatMatch, confidence: 'high', method: 'vat_pattern' };
   }
 
-  // Fallback: Any VAT liability account
+  // Fallback 1: General "BTW te betalen" account (without specific rate)
   const generalVatAccount = accounts.find(acc => {
     const lower = acc.name.toLowerCase();
-    return (lower.includes('btw') || lower.includes('vat')) &&
-           (lower.includes('betalen') || lower.includes('schuld'));
+    return (lower.includes('btw te betalen') || lower.includes('te betalen btw') || acc.code === '1400');
   });
 
   if (generalVatAccount) {
-    console.log(`[ACCOUNT_LOOKUP] ⚠ Using general VAT liability: ${generalVatAccount.code} - ${generalVatAccount.name}`);
+    console.log(`[ACCOUNT_LOOKUP] ✓ Using general VAT liability: ${generalVatAccount.code} - ${generalVatAccount.name}`);
     return { account: generalVatAccount, confidence: 'medium', method: 'general_vat' };
   }
 
-  console.log('[ACCOUNT_LOOKUP] ⚠ No suitable VAT liability account found');
+  // Fallback 2: Any VAT liability account
+  const anyVatAccount = accounts.find(acc => {
+    const lower = acc.name.toLowerCase();
+    return (lower.includes('btw') || lower.includes('vat')) &&
+           (lower.includes('betalen') || lower.includes('schuld') || lower.includes('verschuldigd'));
+  });
+
+  if (anyVatAccount) {
+    console.log(`[ACCOUNT_LOOKUP] ⚠ Using any VAT liability: ${anyVatAccount.code} - ${anyVatAccount.name}`);
+    return { account: anyVatAccount, confidence: 'low', method: 'any_vat' };
+  }
+
+  console.log('[ACCOUNT_LOOKUP] ❌ No suitable VAT liability account found');
   return { account: null, confidence: 'low', method: 'none' };
 }
 
