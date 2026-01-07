@@ -758,45 +758,47 @@ export function PortalCreateInvoice() {
           </button>
         </div>
       ) : (
-        <div className="bg-white rounded-3xl shadow-md overflow-hidden border border-gray-100">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    Datum
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    Referentie
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    Klant
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    Omschrijving
-                  </th>
-                  <th className="px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    Bedrag
-                  </th>
-                  <th className="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    Type
-                  </th>
-                  <th className="px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    Acties
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {revenueTransactions.map((transaction) => (
-                  <tr key={transaction.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-2 text-sm text-gray-900 whitespace-nowrap">
-                      {new Date(transaction.date).toLocaleDateString('nl-NL')}
-                    </td>
-                    <td className="px-6 py-2 text-sm text-gray-900 whitespace-nowrap font-medium">
-                      {transaction.reference}
-                    </td>
-                    <td className="px-6 py-2 text-sm text-gray-900">
-                      {transaction.contact_name || '-'}
+        <>
+          {/* Desktop Table */}
+          <div className="hidden md:block bg-white rounded-3xl shadow-md overflow-hidden border border-gray-100">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                      Datum
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                      Referentie
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                      Klant
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                      Omschrijving
+                    </th>
+                    <th className="px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                      Bedrag
+                    </th>
+                    <th className="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                      Type
+                    </th>
+                    <th className="px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                      Acties
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {revenueTransactions.map((transaction) => (
+                    <tr key={transaction.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-6 py-2 text-sm text-gray-900 whitespace-nowrap">
+                        {new Date(transaction.date).toLocaleDateString('nl-NL')}
+                      </td>
+                      <td className="px-6 py-2 text-sm text-gray-900 whitespace-nowrap font-medium">
+                        {transaction.reference}
+                      </td>
+                      <td className="px-6 py-2 text-sm text-gray-900">
+                        {transaction.contact_name || '-'}
                     </td>
                     <td className="px-6 py-2 text-sm text-gray-600">
                       {transaction.description}
@@ -831,10 +833,80 @@ export function PortalCreateInvoice() {
                     </td>
                   </tr>
                 ))}
-              </tbody>
-            </table>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          {/* Mobile Card Layout */}
+          <div className="md:hidden space-y-3">
+            {revenueTransactions.map((transaction) => (
+              <div
+                key={transaction.id}
+                className="bg-white rounded-2xl shadow-md border border-gray-100 p-4"
+              >
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-sm font-bold text-gray-900">
+                        {transaction.reference}
+                      </span>
+                      <span
+                        className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${
+                          transaction.source === 'Invoice'
+                            ? 'bg-blue-100 text-blue-700'
+                            : 'bg-green-100 text-green-700'
+                        }`}
+                      >
+                        {transaction.source === 'Invoice' ? 'Factuur' : 'Boeking'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      {new Date(transaction.date).toLocaleDateString('nl-NL', {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric',
+                      })}
+                    </p>
+                  </div>
+                  {transaction.source === 'Invoice' && transaction.invoice_id && (
+                    <button
+                      onClick={() => {
+                        const invoice = invoices.find(inv => inv.id === transaction.invoice_id);
+                        if (invoice) openEditor(invoice);
+                      }}
+                      className="text-blue-600 hover:text-blue-800 p-2 hover:bg-blue-50 rounded-lg transition-colors flex-shrink-0"
+                      title="Bewerken"
+                    >
+                      <Edit className="w-5 h-5" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  {transaction.contact_name && (
+                    <div>
+                      <span className="text-xs font-medium text-gray-500">Klant:</span>
+                      <p className="text-sm text-gray-900 mt-0.5">{transaction.contact_name}</p>
+                    </div>
+                  )}
+
+                  <div>
+                    <span className="text-xs font-medium text-gray-500">Omschrijving:</span>
+                    <p className="text-sm text-gray-700 mt-0.5 break-words">{transaction.description}</p>
+                  </div>
+
+                  <div className="pt-2 border-t border-gray-100">
+                    <span className="text-xs font-medium text-gray-500">Bedrag:</span>
+                    <p className="text-lg font-bold text-gray-900 mt-0.5">
+                      {new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR' }).format(transaction.amount)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
-        </div>
+        </>
       )}
 
       {showEditor && (
@@ -1249,23 +1321,16 @@ export function PortalCreateInvoice() {
             </div>
 
             {/* FOOTER (Fixed at bottom) */}
-            <div className="flex-none bg-white border-t-2 border-gray-200 px-4 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row justify-end gap-2 sm:gap-3">
+            <div className="flex-none bg-white border-t-2 border-gray-200 px-4 sm:px-6 py-3 sm:py-4 flex flex-row justify-end gap-2 sm:gap-3">
               <button
                 onClick={closeEditor}
-                className="px-4 sm:px-6 py-2.5 sm:py-3 text-sm font-semibold border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors order-3 sm:order-1"
+                className="px-4 sm:px-6 py-2.5 sm:py-3 text-sm font-semibold border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors"
               >
                 Annuleren
               </button>
               <button
-                onClick={() => handleSaveInvoice(false)}
-                className="px-4 sm:px-6 py-2.5 sm:py-3 text-sm font-semibold bg-gray-600 text-white rounded-xl hover:bg-gray-700 transition-colors flex items-center justify-center gap-2 order-2"
-              >
-                <Save className="w-4 h-4" />
-                Concept Opslaan
-              </button>
-              <button
                 onClick={() => handleSaveInvoice(true)}
-                className="px-4 sm:px-6 py-2.5 sm:py-3 text-sm font-semibold bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors flex items-center justify-center gap-2 order-1 sm:order-3"
+                className="px-4 sm:px-6 py-2.5 sm:py-3 text-sm font-semibold bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
               >
                 <Send className="w-4 h-4" />
                 Boeken & Versturen
