@@ -86,6 +86,7 @@ export function useBtwData(year: number, quarter: number) {
 
       const period = getQuarterPeriod(year, quarter);
 
+      // Haal sales_invoices op (nieuwe tabel)
       const salesQuery = supabase
         .from('sales_invoices')
         .select('*')
@@ -104,6 +105,38 @@ export function useBtwData(year: number, quarter: number) {
         throw new Error('Fout bij ophalen verkoop facturen: ' + salesError.message);
       }
 
+      // Haal ook oude invoices tabel op voor backward compatibility
+      const legacyInvoicesQuery = supabase
+        .from('invoices')
+        .select('*')
+        .gte('invoice_date', period.startDate)
+        .lte('invoice_date', period.endDate)
+        .in('status', ['Sent', 'Paid', 'Overdue']);
+
+      if (companyId) {
+        legacyInvoicesQuery.eq('company_id', companyId);
+      }
+
+      const { data: legacyInvoices, error: legacyError } = await legacyInvoicesQuery;
+
+      if (legacyError) {
+        console.error('Legacy invoices error:', legacyError);
+      }
+
+      // Combineer beide invoice bronnen
+      const allSalesInvoices = [
+        ...(salesInvoices || []),
+        ...(legacyInvoices || []).map(inv => ({
+          id: inv.id,
+          date: inv.invoice_date,
+          total_amount: inv.total_amount,
+          vat_amount: inv.vat_amount,
+          subtotal: inv.subtotal,
+          status: inv.status?.toLowerCase() || 'open',
+          items: null,
+        }))
+      ];
+
       const purchaseQuery = supabase
         .from('purchase_invoices')
         .select('*')
@@ -121,7 +154,7 @@ export function useBtwData(year: number, quarter: number) {
         throw new Error('Fout bij ophalen inkoop facturen: ' + purchaseError.message);
       }
 
-      const calculation = calculateBtw(salesInvoices || [], purchaseInvoices || []);
+      const calculation = calculateBtw(allSalesInvoices || [], purchaseInvoices || []);
       setData(calculation);
     } catch (err: any) {
       console.error('Error loading BTW data:', err);
@@ -132,7 +165,7 @@ export function useBtwData(year: number, quarter: number) {
   }
 
   function calculateBtw(
-    salesInvoices: SalesInvoice[],
+    salesInvoices: any[],
     purchaseInvoices: PurchaseInvoice[]
   ): BtwCalculation {
     let omzetHoog = { grondslag: 0, btw: 0 };
