@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { Home, ScanLine, FileText, MessageCircle, Settings, Receipt, Clock, Wallet } from 'lucide-react';
+import { Home, ScanLine, FileText, MessageCircle, Settings, Receipt, Clock, Wallet, Calculator, FileCheck } from 'lucide-react';
 import { PortalAssistant } from './PortalAssistant';
 
 interface PortalLayoutProps {
@@ -13,7 +13,9 @@ const navItems = [
   { id: 'portal-expense', label: 'Inkoop', icon: Receipt },
   { id: 'portal-finance', label: 'Financieel', icon: Wallet },
   { id: 'portal-invoice', label: 'Factureren', icon: FileText },
+  { id: 'portal-quotations', label: 'Offertes', icon: FileCheck },
   { id: 'portal-time', label: 'Uren', icon: Clock },
+  { id: 'portal-btw', label: 'BTW', icon: Calculator },
   { id: 'portal-scan', label: 'Bank', icon: ScanLine },
 ];
 
