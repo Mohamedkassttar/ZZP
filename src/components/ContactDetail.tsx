@@ -128,15 +128,36 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
   }
 
   async function loadOutstandingInvoices() {
-    const { data, error } = await supabase
+    // Load from both old invoices and new sales_invoices tables
+    const { data: oldInvoices, error: oldError } = await supabase
       .from('invoices')
       .select('*')
       .eq('contact_id', contact.id)
       .neq('status', 'Paid')
       .order('invoice_date', { ascending: false });
 
-    if (error) throw error;
-    setOutstandingInvoices(data || []);
+    const { data: newInvoices, error: newError } = await supabase
+      .from('sales_invoices')
+      .select('*')
+      .eq('contact_id', contact.id)
+      .neq('status', 'paid')
+      .order('date', { ascending: false });
+
+    if (oldError) throw oldError;
+    if (newError) throw newError;
+
+    // Convert to common format
+    const combined = [
+      ...(oldInvoices || []),
+      ...(newInvoices || []).map(inv => ({
+        ...inv,
+        invoice_date: inv.date,
+        invoice_number: inv.invoice_number || '',
+        __isNewInvoice: true, // marker to identify sales_invoices
+      }))
+    ];
+
+    setOutstandingInvoices(combined as any);
   }
 
   async function loadHistory() {
@@ -632,91 +653,91 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
                   <p>Geen openstaande facturen</p>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-slate-50 border-b border-slate-200">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-900">
-                          Factuurnummer
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-900">
-                          Datum
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-900">
-                          Vervaldatum
-                        </th>
-                        <th className="px-4 py-3 text-right text-xs font-semibold text-slate-900">
-                          Bedrag
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-900">
-                          Status
-                        </th>
-                        <th className="px-4 py-3 text-right text-xs font-semibold text-slate-900">
-                          Acties
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-200">
-                      {outstandingInvoices.map((invoice) => (
-                        <tr key={invoice.id} className="hover:bg-slate-50">
-                          <td className="px-4 py-3 text-sm font-medium">
-                            <button
-                              onClick={() => handleInvoiceDetailClickOld(invoice)}
-                              className="text-blue-600 hover:text-blue-800 hover:underline font-medium transition-colors"
-                            >
-                              {invoice.invoice_number}
-                            </button>
-                          </td>
-                          <td className="px-4 py-3 text-sm text-slate-700">
-                            {new Date(invoice.invoice_date).toLocaleDateString('nl-NL')}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-slate-700">
-                            {new Date(invoice.due_date).toLocaleDateString('nl-NL')}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-right font-medium text-slate-900">
-                            €{Number(invoice.total_amount).toFixed(2)}
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
-                              {invoice.status}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center justify-end gap-2">
-                              <button
-                                onClick={() => handleEditClickOldInvoice(invoice)}
-                                className="p-2 text-slate-600 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
-                                title="Bedrag wijzigen"
-                              >
-                                <Euro className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() => handleStatusClickOldInvoice(invoice)}
-                                className="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                title="Status wijzigen"
-                              >
-                                <Edit2 className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() => handleResendClickOldInvoice(invoice)}
-                                className="p-2 text-slate-600 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
-                                title="Opnieuw mailen"
-                              >
-                                <Mail className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteClickOldInvoice(invoice)}
-                                className="p-2 text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                title="Verwijderen"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
+                <div className="grid grid-cols-1 gap-4">
+                  {outstandingInvoices.map((invoice) => (
+                    <div key={invoice.id} className="bg-white rounded-lg border border-slate-200 shadow-sm p-4 hover:shadow-md transition-shadow">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1">
+                          <button
+                            onClick={() => handleInvoiceDetailClickOld(invoice)}
+                            className="text-base font-semibold text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+                          >
+                            {invoice.invoice_number}
+                          </button>
+                          <div className="mt-1 space-y-1">
+                            <div className="flex items-center gap-2 text-sm text-slate-600">
+                              <Calendar className="w-4 h-4" />
+                              <span>Datum: {new Date(invoice.invoice_date).toLocaleDateString('nl-NL')}</span>
                             </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                            <div className="flex items-center gap-2 text-sm text-slate-600">
+                              <Clock className="w-4 h-4" />
+                              <span>Vervaldatum: {new Date(invoice.due_date).toLocaleDateString('nl-NL')}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-xl font-bold text-slate-900">
+                            €{Number(invoice.total_amount).toFixed(2)}
+                          </div>
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 mt-1">
+                            {invoice.status}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 pt-3 border-t border-slate-200">
+                        {(invoice as any).__isNewInvoice ? (
+                          <button
+                            onClick={() => handlePreviewClick(invoice as any)}
+                            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Preview factuur"
+                          >
+                            <Eye className="w-4 h-4" />
+                            <span>Preview</span>
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleInvoiceDetailClickOld(invoice)}
+                            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Bekijk factuur"
+                          >
+                            <Eye className="w-4 h-4" />
+                            <span>Bekijken</span>
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleEditClickOldInvoice(invoice)}
+                          className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm text-slate-600 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                          title="Bedrag wijzigen"
+                        >
+                          <Euro className="w-4 h-4" />
+                          <span>Bedrag</span>
+                        </button>
+                        <button
+                          onClick={() => handleStatusClickOldInvoice(invoice)}
+                          className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          title="Status wijzigen"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                          <span>Status</span>
+                        </button>
+                        <button
+                          onClick={() => handleResendClickOldInvoice(invoice)}
+                          className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm text-slate-600 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                          title="Opnieuw mailen"
+                        >
+                          <Mail className="w-4 h-4" />
+                          <span>Mail</span>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteClickOldInvoice(invoice)}
+                          className="px-3 py-2 text-sm text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Verwijderen"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
