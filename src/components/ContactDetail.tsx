@@ -416,7 +416,7 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
   const handleInvoiceDetailClickOld = async (invoice: Invoice) => {
     const { data: lines } = await supabase
       .from('invoice_lines')
-      .select('*, accounts:ledger_account_id(account_code, account_name)')
+      .select('*, accounts:ledger_account_id(code, name)')
       .eq('invoice_id', invoice.id)
       .order('line_order');
 
@@ -1037,7 +1037,7 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
                             <td className="px-4 py-3">
                               <div className="text-sm font-medium text-slate-900">{line.description}</div>
                               {line.accounts && (
-                                <div className="text-xs text-slate-500">{line.accounts.account_code} - {line.accounts.account_name}</div>
+                                <div className="text-xs text-slate-500">{line.accounts.code} - {line.accounts.name}</div>
                               )}
                             </td>
                             <td className="px-4 py-3 text-center text-sm text-slate-700">
