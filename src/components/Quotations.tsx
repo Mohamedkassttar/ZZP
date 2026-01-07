@@ -157,46 +157,81 @@ export function Quotations() {
           </button>
         </div>
 
-        <div className="flex gap-2 overflow-x-auto">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <button
             onClick={() => setFilter('all')}
-            className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors ${
+            className={`p-6 rounded-lg border-2 transition-all ${
               filter === 'all'
-                ? 'bg-blue-600 text-white'
-                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                ? 'border-blue-600 bg-blue-50 shadow-md'
+                : 'border-slate-200 bg-white hover:border-blue-300 hover:shadow-sm'
             }`}
           >
-            Alle ({quotations.length})
+            <div className="flex items-center justify-center mb-3">
+              <FileText className={`w-8 h-8 ${filter === 'all' ? 'text-blue-600' : 'text-slate-400'}`} />
+            </div>
+            <h3 className={`text-center font-semibold ${filter === 'all' ? 'text-blue-900' : 'text-slate-900'}`}>
+              Alle
+            </h3>
+            <p className="text-center text-sm text-slate-500 mt-1">
+              {quotations.length} offertes
+            </p>
           </button>
+
           <button
             onClick={() => setFilter('draft')}
-            className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors ${
+            className={`p-6 rounded-lg border-2 transition-all ${
               filter === 'draft'
-                ? 'bg-blue-600 text-white'
-                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                ? 'border-blue-600 bg-blue-50 shadow-md'
+                : 'border-slate-200 bg-white hover:border-blue-300 hover:shadow-sm'
             }`}
           >
-            Concept ({quotations.filter(q => q.status === 'draft').length})
+            <div className="flex items-center justify-center mb-3">
+              <Edit2 className={`w-8 h-8 ${filter === 'draft' ? 'text-blue-600' : 'text-slate-400'}`} />
+            </div>
+            <h3 className={`text-center font-semibold ${filter === 'draft' ? 'text-blue-900' : 'text-slate-900'}`}>
+              Concept
+            </h3>
+            <p className="text-center text-sm text-slate-500 mt-1">
+              {quotations.filter(q => q.status === 'draft').length} offertes
+            </p>
           </button>
+
           <button
             onClick={() => setFilter('sent')}
-            className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors ${
+            className={`p-6 rounded-lg border-2 transition-all ${
               filter === 'sent'
-                ? 'bg-blue-600 text-white'
-                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                ? 'border-blue-600 bg-blue-50 shadow-md'
+                : 'border-slate-200 bg-white hover:border-blue-300 hover:shadow-sm'
             }`}
           >
-            Verzonden ({quotations.filter(q => q.status === 'sent').length})
+            <div className="flex items-center justify-center mb-3">
+              <Mail className={`w-8 h-8 ${filter === 'sent' ? 'text-blue-600' : 'text-slate-400'}`} />
+            </div>
+            <h3 className={`text-center font-semibold ${filter === 'sent' ? 'text-blue-900' : 'text-slate-900'}`}>
+              Verzonden
+            </h3>
+            <p className="text-center text-sm text-slate-500 mt-1">
+              {quotations.filter(q => q.status === 'sent').length} offertes
+            </p>
           </button>
+
           <button
             onClick={() => setFilter('accepted')}
-            className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors ${
+            className={`p-6 rounded-lg border-2 transition-all ${
               filter === 'accepted'
-                ? 'bg-blue-600 text-white'
-                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                ? 'border-blue-600 bg-blue-50 shadow-md'
+                : 'border-slate-200 bg-white hover:border-blue-300 hover:shadow-sm'
             }`}
           >
-            Geaccepteerd ({quotations.filter(q => q.status === 'accepted').length})
+            <div className="flex items-center justify-center mb-3">
+              <CheckCircle className={`w-8 h-8 ${filter === 'accepted' ? 'text-blue-600' : 'text-slate-400'}`} />
+            </div>
+            <h3 className={`text-center font-semibold ${filter === 'accepted' ? 'text-blue-900' : 'text-slate-900'}`}>
+              Geaccepteerd
+            </h3>
+            <p className="text-center text-sm text-slate-500 mt-1">
+              {quotations.filter(q => q.status === 'accepted').length} offertes
+            </p>
           </button>
         </div>
       </div>
