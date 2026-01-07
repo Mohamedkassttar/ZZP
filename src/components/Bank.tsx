@@ -622,8 +622,92 @@ export function Bank() {
             <p className="text-xs text-gray-500 mt-1">Er zijn geen openstaande transacties.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <>
+            {/* MOBILE VIEW - Cards */}
+            <div className="block md:hidden divide-y divide-gray-200">
+              {unmatchedTransactions.map((txn) => (
+                <div key={txn.id} className="p-4 hover:bg-gray-50 transition-colors">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <input
+                          type="checkbox"
+                          checked={selectedPrivateIds.has(txn.id)}
+                          onChange={(e) => {
+                            const newSet = new Set(selectedPrivateIds);
+                            if (e.target.checked) {
+                              newSet.add(txn.id);
+                            } else {
+                              newSet.delete(txn.id);
+                            }
+                            setSelectedPrivateIds(newSet);
+                          }}
+                          className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <h3 className="font-semibold text-gray-900 truncate">{txn.description}</h3>
+                      </div>
+                      <p className="text-xs text-gray-500">
+                        {new Date(txn.transaction_date).toLocaleDateString('nl-NL')}
+                      </p>
+                    </div>
+                    <div className="ml-3 text-right flex-shrink-0">
+                      <p className={`text-lg font-bold ${txn.amount > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        €{Math.abs(txn.amount).toFixed(2)}
+                      </p>
+                      <span className={`text-xs font-medium ${getStatusColor(txn.status)}`}>
+                        {txn.status}
+                      </span>
+                    </div>
+                  </div>
+
+                  {txn.contra_name && (
+                    <p className="text-sm text-gray-700 mb-2">
+                      <span className="text-gray-500">Tegenpartij:</span> {txn.contra_name}
+                    </p>
+                  )}
+
+                  {txn.ledgerAccount && (
+                    <div className="mb-3">
+                      <p className="text-xs text-gray-500 mb-1">Grootboek:</p>
+                      <select
+                        value={txn.ledgerAccount.id}
+                        onChange={(e) => handleReclassify(txn.id, e.target.value)}
+                        disabled={reclassifyingTxnId === txn.id}
+                        className="w-full h-10 text-sm px-3 border border-gray-300 rounded bg-blue-50 text-blue-800 hover:bg-blue-100 disabled:opacity-50"
+                      >
+                        {accounts.map((acc) => (
+                          <option key={acc.id} value={acc.id}>
+                            {acc.code} - {acc.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {txn.status === 'Unmatched' && (
+                    <button
+                      onClick={() => {
+                        setSelectedTransaction(txn);
+                        setBookingDescription(txn.description);
+                        setAiLoading(false);
+                        setAiSuccess(false);
+                        setError(null);
+                        setCreateRule(false);
+                        setRuleKeyword('');
+                        setBookingMode('direct');
+                      }}
+                      className="w-full mt-3 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                    >
+                      Verwerk →
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* DESKTOP VIEW - Table */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full">
               <thead className="h-10 bg-gray-50 border-b border-gray-200">
                 <tr>
                   <th className="px-3 py-2 text-center text-xs uppercase tracking-wide whitespace-nowrap">Privé</th>
@@ -745,6 +829,7 @@ export function Bank() {
               </tbody>
             </table>
           </div>
+          </>
         )}
       </div>
 

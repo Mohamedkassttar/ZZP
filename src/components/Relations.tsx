@@ -381,76 +381,129 @@ export function Relations() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="h-10 bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="px-6 py-2 text-left text-xs uppercase tracking-wide">
-                  Name
-                </th>
-                <th className="px-6 py-2 text-left text-xs uppercase tracking-wide">
-                  City
-                </th>
-                <th className="px-6 py-2 text-left text-xs uppercase tracking-wide">
-                  Email
-                </th>
-                <th className="px-6 py-2 text-right text-xs uppercase tracking-wide">
-                  Open Balance
-                </th>
-                <th className="px-6 py-2 text-right text-xs uppercase tracking-wide">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {filteredContacts.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
-                    No {activeTab === 'customers' ? 'customers' : 'suppliers'} found
-                  </td>
-                </tr>
-              ) : (
-                filteredContacts.map((contact) => (
-                  <tr
+        {filteredContacts.length === 0 ? (
+          <div className="px-6 py-8 text-center text-gray-500">
+            No {activeTab === 'customers' ? 'customers' : 'suppliers'} found
+          </div>
+        ) : (
+          <>
+            {/* MOBILE VIEW - Cards */}
+            <div className="block md:hidden">
+              <div className="divide-y divide-gray-200">
+                {filteredContacts.map((contact) => (
+                  <div
                     key={contact.id}
-                    className="h-10 border-b border-gray-100 hover:bg-blue-50 transition-colors cursor-pointer"
+                    className="p-4 hover:bg-blue-50 transition-colors cursor-pointer"
                     onClick={() => setSelectedContact(contact)}
                   >
-                    <td className="px-6 py-2">
-                      <div className="font-medium text-sm text-gray-900">{contact.company_name}</div>
-                      {contact.contact_person && (
-                        <div className="text-xs text-gray-500">{contact.contact_person}</div>
-                      )}
-                    </td>
-                    <td className="px-6 py-2 text-sm text-gray-700">{contact.city || '-'}</td>
-                    <td className="px-6 py-2 text-sm text-gray-700">{contact.email || '-'}</td>
-                    <td className="px-6 py-2 text-right">
-                      <span
-                        className={`text-sm font-medium ${
-                          (contact.open_balance || 0) > 0 ? 'text-amber-600' : 'text-gray-900'
-                        }`}
-                      >
-                        €{(contact.open_balance || 0).toFixed(2)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-2 text-right">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-gray-900 truncate">{contact.company_name}</h3>
+                        {contact.contact_person && (
+                          <p className="text-sm text-gray-600 truncate">{contact.contact_person}</p>
+                        )}
+                      </div>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           openEditModal(contact);
                         }}
-                        className="h-9 inline-flex items-center gap-1 px-4 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        className="ml-2 p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors flex-shrink-0"
+                        aria-label="Edit contact"
                       >
-                        <Edit2 className="w-4 h-4" />
-                        Edit
+                        <Edit2 className="w-5 h-5" />
                       </button>
-                    </td>
+                    </div>
+                    <div className="space-y-2">
+                      {contact.city && (
+                        <div className="flex items-center text-sm">
+                          <span className="text-gray-500 w-20">City:</span>
+                          <span className="text-gray-900">{contact.city}</span>
+                        </div>
+                      )}
+                      {contact.email && (
+                        <div className="flex items-center text-sm">
+                          <span className="text-gray-500 w-20">Email:</span>
+                          <span className="text-gray-900 truncate">{contact.email}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center text-sm pt-2 border-t border-gray-200">
+                        <span className="text-gray-500 w-20">Balance:</span>
+                        <span className={`font-semibold ${(contact.open_balance || 0) > 0 ? 'text-amber-600' : 'text-gray-900'}`}>
+                          €{(contact.open_balance || 0).toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* DESKTOP VIEW - Table */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full">
+                <thead className="h-10 bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-6 py-2 text-left text-xs uppercase tracking-wide">
+                      Name
+                    </th>
+                    <th className="px-6 py-2 text-left text-xs uppercase tracking-wide">
+                      City
+                    </th>
+                    <th className="px-6 py-2 text-left text-xs uppercase tracking-wide">
+                      Email
+                    </th>
+                    <th className="px-6 py-2 text-right text-xs uppercase tracking-wide">
+                      Open Balance
+                    </th>
+                    <th className="px-6 py-2 text-right text-xs uppercase tracking-wide">
+                      Actions
+                    </th>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {filteredContacts.map((contact) => (
+                    <tr
+                      key={contact.id}
+                      className="h-10 border-b border-gray-100 hover:bg-blue-50 transition-colors cursor-pointer"
+                      onClick={() => setSelectedContact(contact)}
+                    >
+                      <td className="px-6 py-2">
+                        <div className="font-medium text-sm text-gray-900">{contact.company_name}</div>
+                        {contact.contact_person && (
+                          <div className="text-xs text-gray-500">{contact.contact_person}</div>
+                        )}
+                      </td>
+                      <td className="px-6 py-2 text-sm text-gray-700">{contact.city || '-'}</td>
+                      <td className="px-6 py-2 text-sm text-gray-700">{contact.email || '-'}</td>
+                      <td className="px-6 py-2 text-right">
+                        <span
+                          className={`text-sm font-medium ${
+                            (contact.open_balance || 0) > 0 ? 'text-amber-600' : 'text-gray-900'
+                          }`}
+                        >
+                          €{(contact.open_balance || 0).toFixed(2)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-2 text-right">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openEditModal(contact);
+                          }}
+                          className="h-9 inline-flex items-center gap-1 px-4 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                          Edit
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
       </div>
 
       {showModal && (

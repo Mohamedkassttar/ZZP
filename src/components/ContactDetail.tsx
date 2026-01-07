@@ -552,34 +552,116 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
                   <p>Geen facturen gevonden</p>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-slate-50 border-b border-slate-200">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-900">
-                          Datum
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-900">
-                          Factuurnummer
-                        </th>
-                        <th className="px-4 py-3 text-right text-xs font-semibold text-slate-900">
-                          Bedrag
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-900">
-                          Status
-                        </th>
-                        {isDebtor && !isCreditor && (
+                <>
+                  {/* MOBILE VIEW - Cards */}
+                  <div className="block md:hidden divide-y divide-slate-200">
+                    {isCreditor && !isDebtor ? purchaseInvoices.map((invoice) => (
+                      <div key={invoice.id} className="p-4 hover:bg-slate-50 transition-colors">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex-1 min-w-0">
+                            <button
+                              onClick={() => handlePurchaseInvoiceClick(invoice)}
+                              className="text-blue-600 hover:text-blue-800 font-bold text-lg"
+                            >
+                              {invoice.invoice_number}
+                            </button>
+                            <p className="text-xs text-slate-500 mt-1">
+                              {new Date(invoice.invoice_date).toLocaleDateString('nl-NL')}
+                            </p>
+                          </div>
+                          <div className="ml-3 text-right flex-shrink-0">
+                            <p className="text-xl font-bold text-slate-900">
+                              €{Number(invoice.total_amount).toFixed(2)}
+                            </p>
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium mt-1 ${getStatusColor(invoice.status)}`}>
+                              {invoice.status}
+                            </span>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handlePurchaseInvoiceClick(invoice)}
+                          className="w-full mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                        >
+                          Bekijk factuur
+                        </button>
+                      </div>
+                    )) : salesInvoices.map((invoice) => (
+                      <div key={invoice.id} className="p-4 hover:bg-slate-50 transition-colors">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex-1 min-w-0">
+                            <button
+                              onClick={() => handleInvoiceDetailClick(invoice)}
+                              className="text-blue-600 hover:text-blue-800 font-bold text-lg"
+                            >
+                              {invoice.invoice_number}
+                            </button>
+                            <p className="text-xs text-slate-500 mt-1">
+                              {new Date(invoice.date).toLocaleDateString('nl-NL')}
+                            </p>
+                            {invoice.last_sent_at && (
+                              <p className="text-xs text-slate-600 mt-1">
+                                Verzonden: {new Date(invoice.last_sent_at).toLocaleDateString('nl-NL')}
+                              </p>
+                            )}
+                          </div>
+                          <div className="ml-3 text-right flex-shrink-0">
+                            <p className="text-xl font-bold text-slate-900">
+                              €{Number(invoice.total_amount).toFixed(2)}
+                            </p>
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium mt-1 ${getStatusColor(invoice.status)}`}>
+                              {invoice.status}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 mt-3">
+                          <button
+                            onClick={() => handlePreviewClick(invoice)}
+                            className="px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors font-medium border border-blue-200"
+                          >
+                            <Eye className="w-4 h-4 inline mr-1" />
+                            Preview
+                          </button>
+                          <button
+                            onClick={() => handleResendClick(invoice)}
+                            className="px-3 py-2 text-sm text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors font-medium border border-emerald-200"
+                          >
+                            <Mail className="w-4 h-4 inline mr-1" />
+                            Mail
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* DESKTOP VIEW - Table */}
+                  <div className="hidden md:block overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-slate-50 border-b border-slate-200">
+                        <tr>
                           <th className="px-4 py-3 text-left text-xs font-semibold text-slate-900">
-                            Laatst verzonden
+                            Datum
                           </th>
-                        )}
-                        <th className="px-4 py-3 text-right text-xs font-semibold text-slate-900">
-                          Acties
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-200">
-                      {isCreditor && !isDebtor ? purchaseInvoices.map((invoice) => (
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-slate-900">
+                            Factuurnummer
+                          </th>
+                          <th className="px-4 py-3 text-right text-xs font-semibold text-slate-900">
+                            Bedrag
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-slate-900">
+                            Status
+                          </th>
+                          {isDebtor && !isCreditor && (
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-slate-900">
+                              Laatst verzonden
+                            </th>
+                          )}
+                          <th className="px-4 py-3 text-right text-xs font-semibold text-slate-900">
+                            Acties
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200">
+                        {isCreditor && !isDebtor ? purchaseInvoices.map((invoice) => (
                         <tr key={invoice.id} className="hover:bg-slate-50">
                           <td className="px-4 py-3 text-sm text-slate-700">
                             {new Date(invoice.invoice_date).toLocaleDateString('nl-NL')}
@@ -682,6 +764,7 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
                     </tbody>
                   </table>
                 </div>
+                </>
               )}
             </div>
           ) : activeTab === 'outstanding' ? (
@@ -790,29 +873,68 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
                   <p>Geen transacties gevonden</p>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-slate-50 border-b border-slate-200">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-900">
-                          Datum
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-900">
-                          Type
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-900">
-                          Omschrijving
-                        </th>
-                        <th className="px-4 py-3 text-right text-xs font-semibold text-slate-900">
-                          Bedrag
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-900">
-                          Status
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-200">
-                      {history.map((item) => (
+                <>
+                  {/* MOBILE VIEW - Cards */}
+                  <div className="block md:hidden divide-y divide-slate-200">
+                    {history.map((item) => (
+                      <div key={item.id} className="p-4 hover:bg-slate-50 transition-colors">
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex-1 min-w-0">
+                            {item.entry_type === 'Factuur' ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 mb-1">
+                                <Receipt className="w-3 h-3" />
+                                Factuur
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 mb-1">
+                                <CreditCard className="w-3 h-3" />
+                                Betaling
+                              </span>
+                            )}
+                            <p className="text-sm text-slate-900 font-medium mt-1">{item.description}</p>
+                            <p className="text-xs text-slate-500 mt-1">
+                              {new Date(item.entry_date).toLocaleDateString('nl-NL')}
+                            </p>
+                          </div>
+                          <div className="ml-3 text-right flex-shrink-0">
+                            {item.amount !== 0 && (
+                              <p className="text-lg font-bold text-slate-900">
+                                €{item.amount.toFixed(2)}
+                              </p>
+                            )}
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 mt-1">
+                              {item.status}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* DESKTOP VIEW - Table */}
+                  <div className="hidden md:block overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-slate-50 border-b border-slate-200">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-slate-900">
+                            Datum
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-slate-900">
+                            Type
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-slate-900">
+                            Omschrijving
+                          </th>
+                          <th className="px-4 py-3 text-right text-xs font-semibold text-slate-900">
+                            Bedrag
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-slate-900">
+                            Status
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200">
+                        {history.map((item) => (
                         <tr key={item.id} className="hover:bg-slate-50">
                           <td className="px-4 py-3 text-sm text-slate-700">
                             {new Date(item.entry_date).toLocaleDateString('nl-NL')}
@@ -852,6 +974,7 @@ export function ContactDetail({ contact, onBack }: ContactDetailProps) {
                     </tbody>
                   </table>
                 </div>
+                </>
               )}
             </div>
           )}

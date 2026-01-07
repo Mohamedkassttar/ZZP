@@ -258,89 +258,138 @@ export default function Products() {
               )}
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-slate-50 border-b-2 border-slate-200">
-                  <tr>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-900 uppercase tracking-wider">
-                      SKU
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-900 uppercase tracking-wider">
-                      Naam
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-900 uppercase tracking-wider">
-                      Omschrijving
-                    </th>
-                    <th className="px-6 py-4 text-right text-xs font-semibold text-slate-900 uppercase tracking-wider">
-                      Prijs
-                    </th>
-                    <th className="px-6 py-4 text-center text-xs font-semibold text-slate-900 uppercase tracking-wider">
-                      BTW
-                    </th>
-                    <th className="px-6 py-4 text-center text-xs font-semibold text-slate-900 uppercase tracking-wider">
-                      Eenheid
-                    </th>
-                    <th className="px-6 py-4 text-right text-xs font-semibold text-slate-900 uppercase tracking-wider">
-                      Acties
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200">
-                  {filteredProducts.map((product) => (
-                    <tr key={product.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="px-6 py-4">
-                        <span className="text-sm text-slate-500 font-mono">
-                          {product.sku || '-'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-sm font-semibold text-slate-900">
-                          {product.name}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-sm text-slate-600">
-                          {product.description || '-'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <span className="text-sm font-semibold text-slate-900">
+            <>
+              {/* MOBILE VIEW - Cards */}
+              <div className="block md:hidden divide-y divide-slate-200">
+                {filteredProducts.map((product) => (
+                  <div key={product.id} className="p-4 hover:bg-slate-50 transition-colors">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-bold text-lg text-slate-900">{product.name}</h3>
+                        {product.sku && (
+                          <p className="text-xs font-mono text-slate-500 mt-1">SKU: {product.sku}</p>
+                        )}
+                      </div>
+                      <div className="ml-3 text-right flex-shrink-0">
+                        <p className="text-2xl font-black text-emerald-600">
                           €{Number(product.price).toFixed(2)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
-                          {Number(product.vat_percentage)}%
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
-                          {product.unit}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => handleOpenModal(product)}
-                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                            title="Bewerken"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(product.id)}
-                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                            title="Verwijderen"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
+                        </p>
+                        <p className="text-xs text-slate-500 mt-1">{product.unit}</p>
+                      </div>
+                    </div>
+                    {product.description && (
+                      <p className="text-sm text-slate-600 mb-3">{product.description}</p>
+                    )}
+                    <div className="flex items-center justify-between pt-3 border-t border-slate-200">
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                        BTW {Number(product.vat_percentage)}%
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleOpenModal(product)}
+                          className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
+                          aria-label="Bewerken"
+                        >
+                          <Edit2 className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(product.id)}
+                          className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors"
+                          aria-label="Verwijderen"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* DESKTOP VIEW - Table */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-slate-50 border-b-2 border-slate-200">
+                    <tr>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-slate-900 uppercase tracking-wider">
+                        SKU
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-slate-900 uppercase tracking-wider">
+                        Naam
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-slate-900 uppercase tracking-wider">
+                        Omschrijving
+                      </th>
+                      <th className="px-6 py-4 text-right text-xs font-semibold text-slate-900 uppercase tracking-wider">
+                        Prijs
+                      </th>
+                      <th className="px-6 py-4 text-center text-xs font-semibold text-slate-900 uppercase tracking-wider">
+                        BTW
+                      </th>
+                      <th className="px-6 py-4 text-center text-xs font-semibold text-slate-900 uppercase tracking-wider">
+                        Eenheid
+                      </th>
+                      <th className="px-6 py-4 text-right text-xs font-semibold text-slate-900 uppercase tracking-wider">
+                        Acties
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {filteredProducts.map((product) => (
+                      <tr key={product.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-6 py-4">
+                          <span className="text-sm text-slate-500 font-mono">
+                            {product.sku || '-'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="text-sm font-semibold text-slate-900">
+                            {product.name}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="text-sm text-slate-600">
+                            {product.description || '-'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <span className="text-sm font-semibold text-slate-900">
+                            €{Number(product.price).toFixed(2)}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                            {Number(product.vat_percentage)}%
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
+                            {product.unit}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => handleOpenModal(product)}
+                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                              title="Bewerken"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(product.id)}
+                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              title="Verwijderen"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </div>
       </div>
