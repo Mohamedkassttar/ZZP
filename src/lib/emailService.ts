@@ -38,22 +38,10 @@ export interface CompanySettings {
 
 export async function getCompanySettings(): Promise<CompanySettings | null> {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Not authenticated');
-
-    const { data: companyUser } = await supabase
-      .from('company_users')
-      .select('company_id')
-      .eq('user_id', user.id)
-      .limit(1)
-      .maybeSingle();
-
-    if (!companyUser?.company_id) return null;
-
     const { data: settings, error } = await supabase
       .from('company_settings')
       .select('*')
-      .eq('company_id', companyUser.company_id)
+      .limit(1)
       .maybeSingle();
 
     if (error) throw error;
@@ -67,24 +55,10 @@ export async function getCompanySettings(): Promise<CompanySettings | null> {
 
 export async function updateCompanySettings(settings: Partial<CompanySettings>): Promise<boolean> {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Not authenticated');
-
-    const { data: companyUser } = await supabase
-      .from('company_users')
-      .select('company_id')
-      .eq('user_id', user.id)
-      .limit(1)
-      .maybeSingle();
-
-    if (!companyUser?.company_id) {
-      throw new Error('No company found');
-    }
-
     const { data: existingSettings } = await supabase
       .from('company_settings')
       .select('id')
-      .eq('company_id', companyUser.company_id)
+      .limit(1)
       .maybeSingle();
 
     if (existingSettings) {
@@ -94,14 +68,13 @@ export async function updateCompanySettings(settings: Partial<CompanySettings>):
           ...settings,
           updated_at: new Date().toISOString(),
         })
-        .eq('company_id', companyUser.company_id);
+        .eq('id', existingSettings.id);
 
       if (error) throw error;
     } else {
       const { error } = await supabase
         .from('company_settings')
         .insert({
-          company_id: companyUser.company_id,
           ...settings,
         });
 
@@ -379,27 +352,14 @@ export async function sendInvoiceEmail(invoice: any, toEmail?: string): Promise<
     });
 
     if (result.success) {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: companyUser } = await supabase
-          .from('company_users')
-          .select('company_id')
-          .eq('user_id', user.id)
-          .limit(1)
-          .maybeSingle();
-
-        if (companyUser?.company_id) {
-          await supabase
-            .from('sales_invoices')
-            .update({
-              sent_to_email: recipientEmail,
-              last_sent_at: new Date().toISOString(),
-              status: 'sent',
-            })
-            .eq('id', invoice.id)
-            .eq('company_id', companyUser.company_id);
-        }
-      }
+      await supabase
+        .from('sales_invoices')
+        .update({
+          sent_to_email: recipientEmail,
+          last_sent_at: new Date().toISOString(),
+          status: 'sent',
+        })
+        .eq('id', invoice.id);
     }
 
     return result;
@@ -570,26 +530,13 @@ export async function sendQuotationEmail(quotation: any, toEmail?: string): Prom
     });
 
     if (result.success) {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: companyUser } = await supabase
-          .from('company_users')
-          .select('company_id')
-          .eq('user_id', user.id)
-          .limit(1)
-          .maybeSingle();
-
-        if (companyUser?.company_id) {
-          await supabase
-            .from('quotations')
-            .update({
-              sent_at: new Date().toISOString(),
-              status: 'sent',
-            })
-            .eq('id', quotation.id)
-            .eq('company_id', companyUser.company_id);
-        }
-      }
+      await supabase
+        .from('quotations')
+        .update({
+          sent_at: new Date().toISOString(),
+          status: 'sent',
+        })
+        .eq('id', quotation.id);
     }
 
     return result;
