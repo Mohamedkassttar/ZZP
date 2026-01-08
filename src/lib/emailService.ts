@@ -98,6 +98,14 @@ export function isEmailJSConfigured(settings: CompanySettings | null): boolean {
 
 export async function sendEmail(options: EmailOptions, config?: EmailJSConfig): Promise<{ success: boolean; error?: string }> {
   try {
+    if (!options.to || !options.to.trim()) {
+      console.error('Email validation failed: recipient email is empty');
+      return {
+        success: false,
+        error: 'Email adres van ontvanger is leeg.',
+      };
+    }
+
     if (!config) {
       const settings = await getCompanySettings();
 
@@ -118,8 +126,8 @@ export async function sendEmail(options: EmailOptions, config?: EmailJSConfig): 
     }
 
     const templateParams = {
-      to_email: options.to,
-      to_name: options.to,
+      to_email: options.to.trim(),
+      to_name: options.to.trim(),
       from_name: config.senderName,
       from_email: config.senderEmail,
       subject: options.subject,
@@ -127,12 +135,22 @@ export async function sendEmail(options: EmailOptions, config?: EmailJSConfig): 
       html_content: options.html,
     };
 
+    console.log('📧 Sending email via EmailJS with params:', {
+      to_email: templateParams.to_email,
+      from_name: templateParams.from_name,
+      subject: templateParams.subject,
+      serviceId: config.serviceId,
+      templateId: config.templateId,
+    });
+
     const response = await emailjs.send(
       config.serviceId,
       config.templateId,
       templateParams,
       config.publicKey
     );
+
+    console.log('✅ EmailJS response:', response);
 
     if (response.status === 200) {
       return { success: true };
@@ -143,7 +161,7 @@ export async function sendEmail(options: EmailOptions, config?: EmailJSConfig): 
       };
     }
   } catch (error: any) {
-    console.error('Error sending email:', error);
+    console.error('❌ Error sending email:', error);
     return {
       success: false,
       error: error.message || 'Er is een fout opgetreden bij het versturen van de email.',
@@ -152,6 +170,16 @@ export async function sendEmail(options: EmailOptions, config?: EmailJSConfig): 
 }
 
 export async function sendTestEmail(toEmail: string): Promise<{ success: boolean; error?: string }> {
+  if (!toEmail || !toEmail.trim()) {
+    console.error('❌ Test email validation failed: email is empty');
+    return {
+      success: false,
+      error: 'Email adres is verplicht voor de test.',
+    };
+  }
+
+  console.log('🧪 Preparing test email to:', toEmail);
+
   const html = `
     <!DOCTYPE html>
     <html>
@@ -172,7 +200,7 @@ export async function sendTestEmail(toEmail: string): Promise<{ success: boolean
           </div>
           <div class="content">
             <div class="success-badge">Email configuratie succesvol!</div>
-            <p>Gefeliciteerd! Je SMTP-instellingen zijn correct geconfigureerd.</p>
+            <p>Gefeliciteerd! Je EmailJS instellingen zijn correct geconfigureerd.</p>
             <p>Je kunt nu facturen en offertes versturen vanuit de applicatie.</p>
             <p>Deze test-email werd succesvol verzonden op: <strong>${new Date().toLocaleString('nl-NL')}</strong></p>
           </div>
@@ -185,8 +213,8 @@ export async function sendTestEmail(toEmail: string): Promise<{ success: boolean
   `;
 
   return sendEmail({
-    to: toEmail,
-    subject: 'Test Email - SMTP Configuratie',
+    to: toEmail.trim(),
+    subject: 'Test Email - EmailJS Configuratie',
     html,
   });
 }
@@ -320,21 +348,24 @@ export async function sendInvoiceEmail(invoice: any, toEmail?: string): Promise<
   try {
     const settings = await getCompanySettings();
 
-    if (!settings || !isSMTPConfigured(settings)) {
+    if (!settings || !isEmailJSConfigured(settings)) {
       return {
         success: false,
-        error: 'SMTP niet geconfigureerd. Stel eerst je email instellingen in.',
+        error: 'EmailJS niet geconfigureerd. Stel eerst je email instellingen in.',
       };
     }
 
     const recipientEmail = toEmail || invoice.contact?.email;
 
-    if (!recipientEmail) {
+    if (!recipientEmail || !recipientEmail.trim()) {
+      console.error('❌ Invoice email validation failed: no recipient email');
       return {
         success: false,
         error: 'Geen email adres gevonden voor deze klant.',
       };
     }
+
+    console.log('📄 Sending invoice email to:', recipientEmail, 'for invoice:', invoice.invoice_number);
 
     const html = generateInvoiceHTML(invoice, settings);
 
@@ -357,7 +388,7 @@ export async function sendInvoiceEmail(invoice: any, toEmail?: string): Promise<
 
     return result;
   } catch (error: any) {
-    console.error('Error sending invoice email:', error);
+    console.error('❌ Error sending invoice email:', error);
     return {
       success: false,
       error: error.message || 'Er is een fout opgetreden bij het versturen van de factuur.',
@@ -498,21 +529,24 @@ export async function sendQuotationEmail(quotation: any, toEmail?: string): Prom
   try {
     const settings = await getCompanySettings();
 
-    if (!settings || !isSMTPConfigured(settings)) {
+    if (!settings || !isEmailJSConfigured(settings)) {
       return {
         success: false,
-        error: 'SMTP niet geconfigureerd. Stel eerst je email instellingen in.',
+        error: 'EmailJS niet geconfigureerd. Stel eerst je email instellingen in.',
       };
     }
 
     const recipientEmail = toEmail || quotation.contact?.email;
 
-    if (!recipientEmail) {
+    if (!recipientEmail || !recipientEmail.trim()) {
+      console.error('❌ Quotation email validation failed: no recipient email');
       return {
         success: false,
         error: 'Geen email adres gevonden voor deze klant.',
       };
     }
+
+    console.log('📋 Sending quotation email to:', recipientEmail, 'for quotation:', quotation.quote_number);
 
     const html = generateQuotationHTML(quotation, settings);
 
@@ -534,7 +568,7 @@ export async function sendQuotationEmail(quotation: any, toEmail?: string): Prom
 
     return result;
   } catch (error: any) {
-    console.error('Error sending quotation email:', error);
+    console.error('❌ Error sending quotation email:', error);
     return {
       success: false,
       error: error.message || 'Er is een fout opgetreden bij het versturen van de offerte.',
@@ -551,21 +585,24 @@ export async function sendInvoiceReminder(invoice: any, toEmail?: string): Promi
   try {
     const settings = await getCompanySettings();
 
-    if (!settings || !isSMTPConfigured(settings)) {
+    if (!settings || !isEmailJSConfigured(settings)) {
       return {
         success: false,
-        error: 'SMTP niet geconfigureerd. Stel eerst je email instellingen in.',
+        error: 'EmailJS niet geconfigureerd. Stel eerst je email instellingen in.',
       };
     }
 
     const recipientEmail = toEmail || invoice.contact?.email;
 
-    if (!recipientEmail) {
+    if (!recipientEmail || !recipientEmail.trim()) {
+      console.error('❌ Invoice reminder validation failed: no recipient email');
       return {
         success: false,
         error: 'Geen email adres gevonden voor deze klant.',
       };
     }
+
+    console.log('⏰ Sending invoice reminder to:', recipientEmail, 'for invoice:', invoice.invoice_number);
 
     const html = `
       <!DOCTYPE html>
