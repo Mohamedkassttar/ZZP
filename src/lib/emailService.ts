@@ -1,11 +1,10 @@
 import { supabase } from './supabase';
+import emailjs from '@emailjs/browser';
 
-export interface SMTPConfig {
-  host: string;
-  port: number;
-  secure: boolean;
-  user: string;
-  password: string;
+export interface EmailJSConfig {
+  serviceId: string;
+  templateId: string;
+  publicKey: string;
   senderName: string;
   senderEmail: string;
 }
@@ -18,11 +17,9 @@ export interface EmailOptions {
 }
 
 export interface CompanySettings {
-  smtp_host?: string;
-  smtp_port?: number;
-  smtp_secure?: boolean;
-  smtp_user?: string;
-  smtp_password?: string;
+  emailjs_service_id?: string;
+  emailjs_template_id?: string;
+  emailjs_public_key?: string;
   sender_name?: string;
   sender_email?: string;
   company_name?: string;
@@ -88,67 +85,63 @@ export async function updateCompanySettings(settings: Partial<CompanySettings>):
   }
 }
 
-export function isSMTPConfigured(settings: CompanySettings | null): boolean {
+export function isEmailJSConfigured(settings: CompanySettings | null): boolean {
   if (!settings) return false;
 
   return !!(
-    settings.smtp_host &&
-    settings.smtp_user &&
-    settings.smtp_password &&
+    settings.emailjs_service_id &&
+    settings.emailjs_template_id &&
+    settings.emailjs_public_key &&
     settings.sender_email
   );
 }
 
-export async function sendEmail(options: EmailOptions, smtpConfig?: SMTPConfig): Promise<{ success: boolean; error?: string }> {
+export async function sendEmail(options: EmailOptions, config?: EmailJSConfig): Promise<{ success: boolean; error?: string }> {
   try {
-    if (!smtpConfig) {
+    if (!config) {
       const settings = await getCompanySettings();
 
-      if (!isSMTPConfigured(settings)) {
+      if (!isEmailJSConfigured(settings)) {
         return {
           success: false,
-          error: 'SMTP niet geconfigureerd. Stel eerst je email instellingen in.',
+          error: 'EmailJS niet geconfigureerd. Stel eerst je email instellingen in.',
         };
       }
 
-      smtpConfig = {
-        host: settings!.smtp_host!,
-        port: settings!.smtp_port || 587,
-        secure: settings!.smtp_secure !== false,
-        user: settings!.smtp_user!,
-        password: settings!.smtp_password!,
+      config = {
+        serviceId: settings!.emailjs_service_id!,
+        templateId: settings!.emailjs_template_id!,
+        publicKey: settings!.emailjs_public_key!,
         senderName: settings!.sender_name || settings!.company_name || 'Administratie',
         senderEmail: settings!.sender_email!,
       };
     }
 
-    // Use Supabase client to invoke the function
-    const { data, error } = await supabase.functions.invoke('send-email', {
-      body: {
-        to: options.to,
-        subject: options.subject,
-        html: options.html,
-        text: options.text,
-        smtpConfig,
-      },
-    });
+    const templateParams = {
+      to_email: options.to,
+      to_name: options.to,
+      from_name: config.senderName,
+      from_email: config.senderEmail,
+      subject: options.subject,
+      message: options.html,
+      html_content: options.html,
+    };
 
-    if (error) {
-      console.error('Supabase function error:', error);
+    const response = await emailjs.send(
+      config.serviceId,
+      config.templateId,
+      templateParams,
+      config.publicKey
+    );
+
+    if (response.status === 200) {
+      return { success: true };
+    } else {
       return {
         success: false,
-        error: error.message || 'Failed to send email',
+        error: 'Failed to send email. Please check your EmailJS configuration.',
       };
     }
-
-    if (data?.error) {
-      return {
-        success: false,
-        error: data.error,
-      };
-    }
-
-    return { success: true };
   } catch (error: any) {
     console.error('Error sending email:', error);
     return {

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ArrowLeft, Mail, Copy, CheckCircle, ArrowRight, FileText, Calendar, Eye, Loader2, AlertCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { sendQuotationEmail, isSMTPConfigured, getCompanySettings } from '../lib/emailService';
+import { sendQuotationEmail, isEmailJSConfigured, getCompanySettings } from '../lib/emailService';
 import type { Database } from '../lib/database.types';
 
 type Quotation = Database['public']['Tables']['quotations']['Row'];
@@ -137,10 +137,10 @@ export function QuotationDetail({ quotation, onBack }: QuotationDetailProps) {
     try {
       const settings = await getCompanySettings();
 
-      if (!isSMTPConfigured(settings)) {
+      if (!isEmailJSConfigured(settings)) {
         setEmailMessage({
           type: 'error',
-          text: 'Email is niet geconfigureerd. Ga naar Instellingen > Email Configuratie om SMTP in te stellen.',
+          text: 'Email is niet geconfigureerd. Ga naar Instellingen > Email Configuratie om EmailJS in te stellen.',
         });
         return;
       }

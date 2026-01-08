@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Mail, Send, Check, AlertCircle, Eye, EyeOff, Loader2 } from 'lucide-react';
-import { getCompanySettings, updateCompanySettings, sendTestEmail, isSMTPConfigured } from '../../lib/emailService';
+import { Mail, Send, Check, AlertCircle, Loader2, ExternalLink } from 'lucide-react';
+import { getCompanySettings, updateCompanySettings, sendTestEmail, isEmailJSConfigured } from '../../lib/emailService';
 import type { CompanySettings } from '../../lib/emailService';
 
 export function EmailSettings() {
@@ -9,7 +9,6 @@ export function EmailSettings() {
   const [saving, setSaving] = useState(false);
   const [testEmail, setTestEmail] = useState('');
   const [sendingTest, setSendingTest] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
@@ -85,7 +84,7 @@ export function EmailSettings() {
     );
   }
 
-  const isConfigured = isSMTPConfigured(settings);
+  const isConfigured = isEmailJSConfigured(settings);
 
   return (
     <div className="max-w-4xl">
@@ -97,7 +96,7 @@ export function EmailSettings() {
           <div>
             <h2 className="text-2xl font-bold text-slate-900">Email Configuratie</h2>
             <p className="text-sm text-slate-600">
-              Configureer je SMTP-instellingen om emails te versturen vanuit de applicatie
+              Configureer EmailJS om emails te versturen vanuit de applicatie
             </p>
           </div>
         </div>
@@ -127,100 +126,89 @@ export function EmailSettings() {
         </div>
       )}
 
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+        <div className="flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+          <div className="text-sm text-blue-900">
+            <p className="font-semibold mb-2">EmailJS Account Vereist</p>
+            <p className="mb-2">
+              Deze applicatie gebruikt EmailJS voor het versturen van emails.
+              Maak een gratis account aan en koppel je Gmail of Outlook.
+            </p>
+            <a
+              href="https://www.emailjs.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 font-semibold"
+            >
+              Maak een EmailJS account aan
+              <ExternalLink className="w-4 h-4" />
+            </a>
+          </div>
+        </div>
+      </div>
+
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm divide-y divide-slate-200">
         <div className="p-6">
-          <h3 className="text-lg font-semibold text-slate-900 mb-4">SMTP Server Instellingen</h3>
+          <h3 className="text-lg font-semibold text-slate-900 mb-4">EmailJS Configuratie</h3>
 
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  SMTP Host *
-                </label>
-                <input
-                  type="text"
-                  value={settings.smtp_host || ''}
-                  onChange={(e) => setSettings({ ...settings, smtp_host: e.target.value })}
-                  placeholder="smtp.gmail.com"
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-                <p className="text-xs text-slate-500 mt-1">
-                  Bijv. smtp.gmail.com, smtp.office365.com
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  SMTP Poort *
-                </label>
-                <input
-                  type="number"
-                  value={settings.smtp_port || 587}
-                  onChange={(e) => setSettings({ ...settings, smtp_port: parseInt(e.target.value) })}
-                  placeholder="587"
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-                <p className="text-xs text-slate-500 mt-1">
-                  Standaard: 587 (TLS) of 465 (SSL)
-                </p>
-              </div>
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-2">
+                Service ID *
+              </label>
+              <input
+                type="text"
+                value={settings.emailjs_service_id || ''}
+                onChange={(e) => setSettings({ ...settings, emailjs_service_id: e.target.value })}
+                placeholder="service_xxxxxxx"
+                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono"
+              />
+              <p className="text-xs text-slate-500 mt-1">
+                Bijv. service_gmail of service_outlook
+              </p>
             </div>
 
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-2">
-                Gebruikersnaam / Email *
+                Template ID *
               </label>
               <input
-                type="email"
-                value={settings.smtp_user || ''}
-                onChange={(e) => setSettings({ ...settings, smtp_user: e.target.value })}
-                placeholder="jouw@email.com"
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                type="text"
+                value={settings.emailjs_template_id || ''}
+                onChange={(e) => setSettings({ ...settings, emailjs_template_id: e.target.value })}
+                placeholder="template_xxxxxxx"
+                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono"
               />
+              <p className="text-xs text-slate-500 mt-1">
+                De template ID uit je EmailJS dashboard
+              </p>
             </div>
 
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-2">
-                Wachtwoord / App-wachtwoord *
+                Public Key *
               </label>
-              <div className="relative">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={settings.smtp_password || ''}
-                  onChange={(e) => setSettings({ ...settings, smtp_password: e.target.value })}
-                  placeholder="••••••••"
-                  className="w-full px-4 py-2 pr-12 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
-              </div>
-              <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                <p className="text-xs text-amber-900">
-                  <strong>Let op:</strong> Gebruik een app-wachtwoord als je Gmail of Outlook gebruikt met 2-factor authenticatie.
-                  <br />
-                  Gmail: <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer" className="underline">Maak app-wachtwoord aan</a>
-                  <br />
-                  Outlook: <a href="https://account.microsoft.com/security" target="_blank" rel="noopener noreferrer" className="underline">Beheer app-wachtwoorden</a>
-                </p>
-              </div>
+              <input
+                type="text"
+                value={settings.emailjs_public_key || ''}
+                onChange={(e) => setSettings({ ...settings, emailjs_public_key: e.target.value })}
+                placeholder="user_xxxxxxxxxxxxxxx"
+                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono"
+              />
+              <p className="text-xs text-slate-500 mt-1">
+                Je public key uit Account Settings
+              </p>
             </div>
 
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="smtp_secure"
-                checked={settings.smtp_secure !== false}
-                onChange={(e) => setSettings({ ...settings, smtp_secure: e.target.checked })}
-                className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
-              />
-              <label htmlFor="smtp_secure" className="text-sm font-medium text-slate-700">
-                Gebruik beveiligde verbinding (TLS/SSL)
-              </label>
+            <div className="mt-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
+              <p className="text-sm font-semibold text-slate-900 mb-2">Waar vind ik deze gegevens?</p>
+              <ol className="text-sm text-slate-600 space-y-1 list-decimal list-inside">
+                <li>Log in op <a href="https://dashboard.emailjs.com/" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">EmailJS Dashboard</a></li>
+                <li>Klik op "Email Services" en noteer je Service ID</li>
+                <li>Klik op "Email Templates" en noteer je Template ID</li>
+                <li>Ga naar "Account" en kopieer je Public Key</li>
+              </ol>
             </div>
           </div>
         </div>
