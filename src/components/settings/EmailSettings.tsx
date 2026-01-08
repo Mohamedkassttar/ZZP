@@ -210,6 +210,25 @@ export function EmailSettings() {
                 <li>Ga naar "Account" en kopieer je Public Key</li>
               </ol>
             </div>
+
+            <div className="mt-4 p-4 bg-amber-50 rounded-lg border border-amber-200">
+              <p className="text-sm font-semibold text-amber-900 mb-2">BELANGRIJK: Template Configuratie</p>
+              <p className="text-sm text-amber-800 mb-3">
+                Je EmailJS template MOET deze exacte variabelen gebruiken. Gebruik dit als template content:
+              </p>
+              <div className="bg-white p-3 rounded border border-amber-200 font-mono text-xs overflow-x-auto">
+                <div className="text-slate-700 whitespace-pre">
+{`To: {{to_email}}
+From: {{from_name}} <{{from_email}}>
+Subject: {{subject}}
+
+{{message}}`}
+                </div>
+              </div>
+              <p className="text-xs text-amber-700 mt-3">
+                De variabelen tussen {`{{ }}`} moeten exact overeenkomen. Vooral <code className="bg-amber-100 px-1 py-0.5 rounded">to_email</code> is verplicht voor de "To Email" setting in je EmailJS template.
+              </p>
+            </div>
           </div>
         </div>
 
@@ -254,6 +273,17 @@ export function EmailSettings() {
         <div className="p-6 bg-slate-50">
           <h3 className="text-lg font-semibold text-slate-900 mb-4">Test Email Versturen</h3>
 
+          <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <p className="text-sm font-semibold text-blue-900 mb-2">Template Configuratie Checklist:</p>
+            <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
+              <li>Open je template in het <a href="https://dashboard.emailjs.com/admin/templates" target="_blank" rel="noopener noreferrer" className="underline font-semibold">EmailJS Dashboard</a></li>
+              <li>Zet bij "To Email" het veld: <code className="bg-blue-100 px-1.5 py-0.5 rounded font-mono">{`{{to_email}}`}</code></li>
+              <li>Zet bij "Subject" bijvoorbeeld: <code className="bg-blue-100 px-1.5 py-0.5 rounded font-mono">{`{{subject}}`}</code></li>
+              <li>Gebruik in je template body de variabelen zoals hierboven getoond</li>
+              <li>Klik op "Save" in het EmailJS dashboard</li>
+            </ol>
+          </div>
+
           <div className="flex gap-4">
             <div className="flex-1">
               <input
@@ -286,7 +316,7 @@ export function EmailSettings() {
 
           {!isConfigured && (
             <p className="text-sm text-amber-700 mt-3">
-              Sla eerst je SMTP-instellingen op voordat je een test email kunt versturen.
+              Sla eerst je EmailJS instellingen op voordat je een test email kunt versturen.
             </p>
           )}
         </div>
