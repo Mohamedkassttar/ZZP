@@ -53,7 +53,7 @@ export async function getCompanySettings(): Promise<CompanySettings | null> {
     const { data: settings, error } = await supabase
       .from('company_settings')
       .select('*')
-      .eq('id', companyUser.company_id)
+      .eq('company_id', companyUser.company_id)
       .maybeSingle();
 
     if (error) throw error;
@@ -84,7 +84,7 @@ export async function updateCompanySettings(settings: Partial<CompanySettings>):
     const { data: existingSettings } = await supabase
       .from('company_settings')
       .select('id')
-      .eq('id', companyUser.company_id)
+      .eq('company_id', companyUser.company_id)
       .maybeSingle();
 
     if (existingSettings) {
@@ -94,14 +94,14 @@ export async function updateCompanySettings(settings: Partial<CompanySettings>):
           ...settings,
           updated_at: new Date().toISOString(),
         })
-        .eq('id', companyUser.company_id);
+        .eq('company_id', companyUser.company_id);
 
       if (error) throw error;
     } else {
       const { error } = await supabase
         .from('company_settings')
         .insert({
-          id: companyUser.company_id,
+          company_id: companyUser.company_id,
           ...settings,
         });
 
