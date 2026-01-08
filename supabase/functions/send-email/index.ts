@@ -31,7 +31,42 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { to, subject, html, text, smtpConfig }: EmailRequest = await req.json();
+    const contentType = req.headers.get("content-type") || "";
+    console.log("Content-Type:", contentType);
+    console.log("Method:", req.method);
+    
+    if (!contentType.includes("application/json")) {
+      return new Response(
+        JSON.stringify({ 
+          error: "Invalid Content-Type",
+          received: contentType,
+          expected: "application/json"
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    let body;
+    try {
+      body = await req.json();
+    } catch (parseError: any) {
+      console.error("JSON parse error:", parseError);
+      return new Response(
+        JSON.stringify({ 
+          error: "Failed to parse request body",
+          details: parseError.message
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    const { to, subject, html, text, smtpConfig }: EmailRequest = body;
 
     if (!to || !subject || !html) {
       return new Response(
@@ -53,8 +88,10 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    console.log("Importing nodemailer...");
     const nodemailer = await import("npm:nodemailer@6.9.7");
 
+    console.log("Creating transporter...");
     const transporter = nodemailer.default.createTransport({
       host: smtpConfig.host,
       port: smtpConfig.port,
@@ -66,14 +103,16 @@ Deno.serve(async (req: Request) => {
     });
 
     const mailOptions = {
-      from: `"${smtpConfig.senderName}" <${smtpConfig.senderEmail}>`,
+      from: `\"${smtpConfig.senderName}\" <${smtpConfig.senderEmail}>`,
       to: to,
       subject: subject,
       text: text || html.replace(/<[^>]*>/g, ""),
       html: html,
     };
 
+    console.log("Sending email to:", to);
     const info = await transporter.sendMail(mailOptions);
+    console.log("Email sent:", info.messageId);
 
     return new Response(
       JSON.stringify({
@@ -93,6 +132,7 @@ Deno.serve(async (req: Request) => {
       JSON.stringify({
         error: error.message || "Failed to send email",
         details: error.toString(),
+        stack: error.stack,
       }),
       {
         status: 500,
