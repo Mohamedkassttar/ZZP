@@ -122,29 +122,29 @@ export async function sendEmail(options: EmailOptions, smtpConfig?: SMTPConfig):
       };
     }
 
-    const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-email`;
-
-    const response = await fetch(functionUrl, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
+    // Use Supabase client to invoke the function
+    const { data, error } = await supabase.functions.invoke('send-email', {
+      body: {
         to: options.to,
         subject: options.subject,
         html: options.html,
         text: options.text,
         smtpConfig,
-      }),
+      },
     });
 
-    const result = await response.json();
-
-    if (!response.ok) {
+    if (error) {
+      console.error('Supabase function error:', error);
       return {
         success: false,
-        error: result.error || 'Failed to send email',
+        error: error.message || 'Failed to send email',
+      };
+    }
+
+    if (data?.error) {
+      return {
+        success: false,
+        error: data.error,
       };
     }
 
